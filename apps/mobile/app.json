@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "GastoCheck",
+    "slug": "gastocheck",
+    "scheme": "gastocheck",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": { "backgroundColor": "#0D1B2A" },
+    "ios": { "supportsTablet": true },
+    "android": {
+      "package": "com.gastocheck.app",
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+    },
+    "plugins": ["expo-router", "expo-image-picker", "expo-document-picker"]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "gastocheck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GastoCheck — Control de anticipos, comprobaciones y saldos por persona.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "web": "npm run dev -w apps/web",
+    "mobile": "npm run start -w apps/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
