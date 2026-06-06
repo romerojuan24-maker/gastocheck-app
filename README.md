@@ -27,23 +27,31 @@ Expo (móvil) · Next.js 15 (web) · Supabase (Postgres + Auth + Storage + Edge 
 
 ```bash
 # 1. Dependencias (workspaces)
-npm install
+npm install --legacy-peer-deps
 
 # 2. Variables de entorno
-cp .env.example .env        # rellena las claves de Supabase
+cp .env.example .env        # rellena las claves de Supabase y Anthropic
 
 # 3. Base de datos (con Supabase CLI)
 supabase start              # local, o usa un proyecto en la nube
 supabase db push            # aplica migrations/0001_init.sql
+supabase functions deploy   # despliega /ocr-extract, /xml-parse, /authorize-expense
 
 # 4. Web dashboard
 npm run web                 # http://localhost:3000
 
 # 5. App móvil
-npm run mobile              # Expo
+npm run mobile              # Expo dev client
 ```
 
-El dashboard web arranca con **datos demo** aunque no tengas Supabase configurado, para verlo de inmediato.
+El dashboard web arranca con **datos demo** aunque no tengas Supabase configurado. La app móvil requiere `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_ANON_KEY` + `ANTHROPIC_API_KEY` en el servidor para OCR.
+
+## Integración Claude Vision (OCR)
+
+- **Edge Function** `supabase/functions/ocr-extract/index.ts` — lee tickets con Claude 3.5 Sonnet.
+- **Hook móvil** `apps/mobile/hooks/useOcr.ts` — captura foto → envía a Edge Function → devuelve JSON (total, iva, fecha, proveedor, conceptos).
+- **Pantalla** `apps/mobile/app/capture.tsx` — captura foto, muestra datos extraídos, permite confirmar/editar antes de guardar.
+- **Confianza** — Claude devuelve `confidence: 'high'|'medium'|'low'` según claridad del ticket.
 
 ## Núcleo de valor (flujo)
 1. Empresa entrega dinero → `advances`

@@ -292,11 +292,12 @@ Genera link firmado (Supabase Storage, expira en N días) → se puede enviar po
 
 ## 11. Roadmap de MVP
 
-**Fase 0 — Cimientos (semana 1-2)**
-- Monorepo, Supabase, esquema + RLS, auth, crear empresa, invitar usuarios.
+**Fase 0 — Cimientos (HECHO semana 1-2)**
+- Monorepo, Supabase esquema + RLS + triggers, tipos compartidos, web demo (HTTP 200), móvil demo (saldo).
+- **OCR integrado:** Claude Vision en Edge Function `/ocr-extract`, hook `useOcr` + pantalla `CaptureScreen` listo para producción.
 
 **Fase 1 — Captura y saldo (semana 3-4)** ← *núcleo de valor*
-- Móvil: captura foto/XML, OCR/XML parse, confirmar, Mis gastos, Mi saldo.
+- Móvil: captura foto → OCR → prellena gasto → Mis gastos, Mi saldo. ✅ `/ocr-extract` + `CaptureScreen`.
 - Web: bandeja de autorización (✅/❌), tabla de gastos.
 
 **Fase 2 — Pólizas (semana 5)**

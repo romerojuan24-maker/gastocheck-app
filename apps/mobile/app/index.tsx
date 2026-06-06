@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { computeBalance, STATUS_META, BRAND, type Expense } from '@gastocheck/shared';
 
 // Datos demo del usuario que gasta (se reemplazan por consultas a Supabase)
@@ -20,21 +19,10 @@ const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function Home() {
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
 
-  async function captureTicket() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permiso requerido', 'Activa la cámara para tomar foto del ticket.');
-      return;
-    }
-    setBusy(true);
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    setBusy(false);
-    if (!res.canceled) {
-      // TODO: subir a Storage -> Edge Function /ocr-extract -> prellenar ExpenseForm
-      Alert.alert('Foto tomada', 'Aquí la IA leería el ticket y prellenaría el gasto.');
-    }
+  function captureTicket() {
+    router.push('/capture');
   }
 
   return (
