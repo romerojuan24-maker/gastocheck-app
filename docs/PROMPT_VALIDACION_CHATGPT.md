@@ -131,7 +131,87 @@ captured → pending_auth → authorized → invoice_applied → closed_in_polic
 
 ## TU TAREA (VALIDACIÓN)
 
-Por favor, haz una auditoría completa:
+Por favor, haz una auditoría completa según estos criterios CRÍTICOS:
+
+---
+
+## 🔴 VALIDACIONES CRÍTICAS (NO OMITIR)
+
+### RLS (Row Level Security) — Aislamiento multi-tenant
+- [ ] ¿RLS habilitado en TODAS las tablas?
+- [ ] ¿Ningún usuario puede ver datos de otra company_id?
+- [ ] ¿Spender SOLO ve sus propios gastos, pólizas, anticipos?
+- [ ] ¿Owner ve TODO?
+- [ ] ¿Supervisor ve solo su empresa?
+- [ ] ¿Accountant ve solo su empresa (lectura)?
+- [ ] ¿Office no puede ver gastos de otro office?
+
+### Saldos — Descuentos correctos
+- [ ] ¿Solo gastos con status `authorized` o `invoice_applied` descuentan saldo?
+- [ ] ¿`pending_auth`, `observed`, `rejected`, `deleted`, `duplicate` NO descuentan?
+- [ ] ¿El cálculo es: opening + Σ advances - Σ(authorized+invoice_applied)?
+- [ ] ¿Hay campo `saldo_por_comprobar` = Σ(captured+pending_auth+observed)?
+- [ ] ¿Al cerrar póliza: closing_balance = saldo_disponible en ese momento?
+- [ ] ¿Nueva póliza encadenada: opening_balance = closing_anterior?
+- [ ] ¿El trigger SQL recalcula automáticamente al insertar/actualizar expenses?
+
+### Pólizas — Integridad
+- [ ] ¿No permite modificar gastos de póliza cerrada (excepto owner/authorized)?
+- [ ] ¿Guarda snapshot del cierre (fecha, saldos, totales)?
+- [ ] ¿Los gastos pendientes (pending_auth) quedan abiertos o se pasan a siguiente póliza claramente?
+- [ ] ¿Existe campo `previous_policy_id` para encadenar?
+- [ ] ¿No permite duplicar UUID en cfdi_data?
+
+### XML CFDI — Validaciones
+- [ ] ¿Valida UUID no duplicado?
+- [ ] ¿Valida RFC emisor y receptor?
+- [ ] ¿Valida subtotal, IVA, total?
+- [ ] ¿Permite ligar XML a gasto existente (sin crear nuevo)?
+- [ ] ¿Detecta XML ya aplicado a otro gasto (previene duplicados)?
+- [ ] ¿Extrae conceptos (descripción, cantidad, importe)?
+- [ ] ¿Acepta CFDI 4.0?
+
+### Archivos (Storage) — Seguridad
+- [ ] ¿Storage separado por company_id (path: /company/{id}/...)?
+- [ ] ¿Permisos de lectura solo para usuarios de esa empresa?
+- [ ] ¿ZIP exportable con estructura: /xml, /pdf, /tickets, /comprobantes?
+- [ ] ¿Archivos comprimidos sin datos sensibles de otras empresas?
+- [ ] ¿Links firmados expiran (ej: 7 días)?
+
+### Auditoría — Trazabilidad
+- [ ] ¿Tabla `expense_audit` registra CADA cambio?
+- [ ] ¿Queda quién subió comprobante + timestamp?
+- [ ] ¿Queda quién autorizó + timestamp?
+- [ ] ¿Queda quién rechazó + timestamp?
+- [ ] ¿Queda quién eliminó + timestamp?
+- [ ] ¿Queda quién ligó XML + timestamp?
+- [ ] ¿El historial es INMUTABLE (nunca se borra)?
+
+### UX Móvil — Experiencia
+- [ ] ¿Spender toma foto en 1 click?
+- [ ] ¿Confirma datos en 1 pantalla (máx 2-3 toques totales)?
+- [ ] ¿Ve su saldo actual actualizado?
+- [ ] ¿Ve "Mis pendientes" (gastos await autorización)?
+- [ ] ¿Ve "Mis autorizados" (gastos ✓)?
+- [ ] ¿Ve "Mis rechazados" (gastos ✗)?
+- [ ] ¿Ve "Mi póliza actual" (saldo opening, advances, autorizados, disponible)?
+
+### Reportes — Contenido
+- [ ] ¿Excel por empleado con desglose?
+- [ ] ¿Excel consolidado (resumen totales)?
+- [ ] ¿Excel por categoría (categoría → total)?
+- [ ] ¿Excel por centro de costo (centro → total)?
+- [ ] ¿Excel por póliza (póliza → total)?
+- [ ] ¿Excel con mapeo a cuentas contables (categoria_id → accounting_account_id)?
+- [ ] ¿Último renglón: totales con columnas de verificación?
+
+### WhatsApp — Integración segura
+- [ ] ¿NO almacena nada en WhatsApp?
+- [ ] ¿Solo envía: PDF, Excel, ZIP, link seguro (signed URL)?
+- [ ] ¿Links expiran?
+- [ ] ¿Envía a contador sin datos de otros usuarios?
+
+---
 
 ### 1. MODELO DE BD
 - [ ] ¿Existen todas las 14 tablas mencionadas?
