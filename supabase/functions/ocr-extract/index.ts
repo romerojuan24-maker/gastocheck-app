@@ -1,11 +1,10 @@
-// Edge Function: Lee imagen de ticket con Claude Vision
-// Devuelve: {total, iva, subtotal, fecha, proveedor, conceptos}
+// Edge Function: Lee imagen de ticket con Gemini Vision
+// Migrado de Anthropic → Google Gemini 1.5 Flash (más económico, mismo resultado)
 // Deploy: supabase functions deploy ocr-extract
-import Anthropic from 'npm:@anthropic-ai/sdk';
 
-const client = new Anthropic({
-  apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
-});
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
+const GEMINI_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 interface OcrResult {
   total: number | null;
@@ -19,6 +18,14 @@ interface OcrResult {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, content-type',
+      },
+    });
+  }
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
   try {
@@ -31,28 +38,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'image_base64 requerido' }, { status: 400 });
     }
 
-    const msg = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: (mime_type ?? 'image/jpeg') as
-                  | 'image/jpeg'
-                  | 'image/png'
-                  | 'image/gif'
-                  | 'image/webp',
-                data: image_base64,
-              },
-            },
-            {
-              type: 'text',
-              text: `Lee este ticket/recibo y extrae datos en JSON. Devuelve exactamente esto (completa con null si falta):
+    if (!GEMINI_API_KEY) {
+      return Response.json({ error: 'GEMINI_API_KEY no configurada en Supabase Secrets' }, { status: 500 });
+    }
+
+    const prompt = `Lee este ticket/recibo y extrae datos en JSON. Devuelve exactamente esto (completa con null si falta):
 {
   "total": número,
   "subtotal": número,
@@ -67,21 +57,45 @@ Deno.serve(async (req) => {
 Reglas:
 - Si no ves IVA explícito, calcula: iva = total - subtotal (si subtotal existe)
 - Sé flexible con formatos de fecha (02/06/2026, 2-6-26, etc) → normaliza a YYYY-MM-DD
-- Los montos pueden estar en MXN, USD, etc — deja como número
+- Los montos son en MXN — deja como número sin símbolo de moneda
 - Si está borroso o ilegible, marca confidence: "low" y devuelve lo que puedas leer
-- DEVUELVE SOLO JSON, SIN EXPLICACIONES`,
-            },
-          ],
+- DEVUELVE SOLO JSON, SIN EXPLICACIONES NI MARKDOWN`;
+
+    const geminiRes = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                inline_data: {
+                  mime_type: mime_type ?? 'image/jpeg',
+                  data: image_base64,
+                },
+              },
+              { text: prompt },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1024,
         },
-      ],
+      }),
     });
 
-    const text = msg.content
-      .filter((c) => c.type === 'text')
-      .map((c) => (c.type === 'text' ? c.text : ''))
-      .join('');
+    if (!geminiRes.ok) {
+      const err = await geminiRes.text();
+      console.error('Gemini error:', err);
+      return Response.json({ error: 'Gemini API falló', detail: err }, { status: 502 });
+    }
 
-    // Intenta parsear JSON de la respuesta
+    const geminiData = await geminiRes.json();
+    const text: string =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    // Extraer JSON de la respuesta (Gemini a veces agrega markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return Response.json(
@@ -92,13 +106,17 @@ Reglas:
 
     const result: OcrResult = JSON.parse(jsonMatch[0]);
 
-    // Validación de tipos
+    // Sanitizar tipos
     if (result.total !== null && typeof result.total !== 'number') result.total = null;
     if (result.subtotal !== null && typeof result.subtotal !== 'number') result.subtotal = null;
     if (result.iva !== null && typeof result.iva !== 'number') result.iva = null;
     if (!Array.isArray(result.conceptos)) result.conceptos = [];
+    if (!['high', 'medium', 'low'].includes(result.confidence)) result.confidence = 'low';
 
-    return Response.json({ ok: true, data: result });
+    return Response.json(
+      { ok: true, data: result },
+      { headers: { 'Access-Control-Allow-Origin': '*' } },
+    );
   } catch (e) {
     console.error(e);
     return Response.json({ ok: false, error: String(e) }, { status: 500 });

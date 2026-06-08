@@ -12,7 +12,16 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } },
   );
 
-  const { expense_id, action } = (await req.json()) as { expense_id: string; action: ExpenseAction };
+  const { expense_id, action, rejection_reason } = (await req.json()) as {
+    expense_id: string;
+    action: ExpenseAction;
+    rejection_reason?: string;
+  };
+
+  // Motivo de rechazo obligatorio si la acción es reject
+  if (action === 'reject' && !rejection_reason?.trim()) {
+    return Response.json({ error: 'rejection_reason es obligatorio al rechazar' }, { status: 400 });
+  }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: 'no auth' }, { status: 401 });
@@ -49,6 +58,7 @@ Deno.serve(async (req) => {
     action,
     from_status: expense.status,
     to_status: to,
+    payload: rejection_reason ? { rejection_reason } : null,
   });
 
   return Response.json({ ok: true, status: to });
