@@ -1,27 +1,57 @@
--- GastoCheck — datos demo para desarrollo.
--- Requiere un usuario en auth.users; sustituye :owner por su UUID.
--- Ejecutar: psql ... -v owner="'00000000-0000-0000-0000-000000000000'" -f supabase/seed.sql
+-- GastoCheck seed data
+-- 1. Crea 3 usuarios en Dashboard → Authentication → Users:
+--    owner@gastocheck.test / super@gastocheck.test / spender@gastocheck.test (pass: Test1234!)
+-- 2. Reemplaza los 3 UUIDs abajo con los reales
+-- 3. Ejecuta en SQL Editor
 
-insert into companies (id, name, rfc, plan, plan_seats, created_by)
-values ('11111111-1111-1111-1111-111111111111', 'Constructora Demo SA', 'XAXX010101000', 'equipo', 5, :owner);
+DO $$
+DECLARE
+  v_owner_id    uuid := 'REEMPLAZAR-UUID-OWNER';
+  v_super_id    uuid := 'REEMPLAZAR-UUID-SUPERVISOR';
+  v_spender_id  uuid := 'REEMPLAZAR-UUID-SPENDER';
+  v_company_id  uuid;
+  v_policy_id   uuid;
+BEGIN
+  INSERT INTO companies (name, rfc, plan, plan_seats, created_by, allow_supervisor_close)
+  VALUES ('Constructora Demo SA de CV', 'CDM240101XX1', 'equipo', 10, v_owner_id, true)
+  RETURNING id INTO v_company_id;
 
-insert into company_members (company_id, user_id, role)
-values ('11111111-1111-1111-1111-111111111111', :owner, 'owner');
+  INSERT INTO profiles (id, full_name, phone) VALUES
+    (v_owner_id,   'Juan Romero (Owner)',    '+521XXXXXXXXXX'),
+    (v_super_id,   'Carlos (Supervisor)',    '+521XXXXXXXXXX'),
+    (v_spender_id, 'Pedro (Tecnico/Gastos)', '+521XXXXXXXXXX')
+  ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
 
-insert into expense_categories (company_id, name) values
-  ('11111111-1111-1111-1111-111111111111', 'Combustible'),
-  ('11111111-1111-1111-1111-111111111111', 'Materiales'),
-  ('11111111-1111-1111-1111-111111111111', 'Alimentos'),
-  ('11111111-1111-1111-1111-111111111111', 'Peajes');
+  INSERT INTO company_members (company_id, user_id, role, status) VALUES
+    (v_company_id, v_owner_id,   'owner',      'active'),
+    (v_company_id, v_super_id,   'supervisor', 'active'),
+    (v_company_id, v_spender_id, 'spender',    'active')
+  ON CONFLICT (company_id, user_id) DO NOTHING;
 
-insert into cost_centers (company_id, name, type, code) values
-  ('11111111-1111-1111-1111-111111111111', 'Obra Torre Norte', 'obra', 'OBR-001'),
-  ('11111111-1111-1111-1111-111111111111', 'Ruta Centro', 'ruta', 'RTA-001');
+  INSERT INTO expense_categories (company_id, name) VALUES
+    (v_company_id, 'Combustible'), (v_company_id, 'Materiales'),
+    (v_company_id, 'Alimentacion'), (v_company_id, 'Herramientas'),
+    (v_company_id, 'Transporte'), (v_company_id, 'Servicios'),
+    (v_company_id, 'Papeleria'), (v_company_id, 'Otros');
 
-insert into policies (id, company_id, holder_id, name, opening_balance, created_by)
-values ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111',
-        :owner, 'Póliza Junio — Juan', 2000, :owner);
+  INSERT INTO cost_centers (company_id, name, type, code) VALUES
+    (v_company_id, 'Obra Norte - Fase 1', 'obra',     'OBR-N01'),
+    (v_company_id, 'Ruta Guadalajara',    'ruta',     'RUT-GDL'),
+    (v_company_id, 'Oficina Central',     'proyecto', 'OFI-CEN');
 
-insert into advances (company_id, policy_id, amount, method, reference, created_by)
-values ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222',
-        5000, 'transfer', 'SPEI-12345', :owner);
+  INSERT INTO policies (company_id, holder_id, name, opening_balance, status, created_by)
+  VALUES (v_company_id, v_spender_id, 'Poliza Junio 2026 Pedro', 2000.00, 'open', v_owner_id)
+  RETURNING id INTO v_policy_id;
+
+  INSERT INTO advances (company_id, policy_id, amount, method, reference, date, created_by)
+  VALUES (v_company_id, v_policy_id, 5000.00, 'transfer', 'TRF-2026-001', current_date, v_owner_id);
+
+  INSERT INTO expenses (company_id, policy_id, spender_id, provider_name, total, expense_date, status) VALUES
+    (v_company_id, v_policy_id, v_spender_id, 'Gasolinera Pemex',    850.00, current_date-3, 'pending_auth'),
+    (v_company_id, v_policy_id, v_spender_id, 'Ferreteria La Obra', 1240.00, current_date-2, 'pending_auth'),
+    (v_company_id, v_policy_id, v_spender_id, 'Restaurante El Paso', 430.00, current_date-4, 'authorized'),
+    (v_company_id, v_policy_id, v_spender_id, 'AutoZone',           2100.00, current_date-5, 'authorized'),
+    (v_company_id, v_policy_id, v_spender_id, 'OXXO',                 95.00, current_date-1, 'rejected');
+
+  RAISE NOTICE 'Seed OK. company=% policy=%', v_company_id, v_policy_id;
+END $$;

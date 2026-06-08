@@ -11,5 +11,8 @@
     "web": "npm run dev -w apps/web",
     "mobile": "npm run start -w apps/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "supabase": "^2.105.0"
   }
 }

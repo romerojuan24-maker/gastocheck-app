@@ -129,78 +129,13 @@ ALTER TABLE expenses
   ADD COLUMN IF NOT EXISTS rejection_reason text;
 
 -- ----------------------------------------------------------------------------
--- SEED DATA — Empresa y usuarios de prueba
--- INSTRUCCIONES:
---   1. Primero crea los 3 usuarios en Supabase Dashboard → Authentication → Users:
---      a) owner@gastocheck.test   (contraseña: Test1234!)
---      b) super@gastocheck.test   (contraseña: Test1234!)
---      c) spender@gastocheck.test (contraseña: Test1234!)
---   2. Reemplaza los UUIDs de abajo con los IDs reales de esos usuarios
---   3. Ejecuta este bloque
+-- SEED DATA — Ver archivo separado: supabase/seed.sql
+-- Ejecutar MANUALMENTE en SQL Editor DESPUÉS de crear los usuarios de prueba
 -- ----------------------------------------------------------------------------
+-- El seed está en supabase/seed.sql para no bloquear esta migration.
+-- Pasos:
+--   1. Crea los usuarios en Authentication → Users
+--   2. Copia sus UUIDs en supabase/seed.sql
+--   3. Ejecuta seed.sql en SQL Editor
 
--- ⚠️  REEMPLAZA ESTOS UUIDs CON LOS REALES DE TUS USUARIOS DE PRUEBA
-DO $$
-DECLARE
-  v_owner_id    uuid := '00000000-0000-0000-0000-000000000001'; -- REEMPLAZAR
-  v_super_id    uuid := '00000000-0000-0000-0000-000000000002'; -- REEMPLAZAR
-  v_spender_id  uuid := '00000000-0000-0000-0000-000000000003'; -- REEMPLAZAR
-  v_company_id  uuid;
-  v_policy_id   uuid;
-BEGIN
-  -- Empresa de prueba
-  INSERT INTO companies (name, rfc, plan, plan_seats, created_by, allow_supervisor_close)
-  VALUES ('Constructora Demo SA de CV', 'CDM240101XX1', 'equipo', 10, v_owner_id, true)
-  RETURNING id INTO v_company_id;
-
-  -- Perfiles
-  INSERT INTO profiles (id, full_name, phone) VALUES
-    (v_owner_id,   'Juan Romero (Owner)',    '+5210000000001'),
-    (v_super_id,   'Carlos (Supervisor)',    '+5210000000002'),
-    (v_spender_id, 'Pedro (Técnico/Gastos)', '+5210000000003')
-  ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;
-
-  -- Membresías
-  INSERT INTO company_members (company_id, user_id, role, status) VALUES
-    (v_company_id, v_owner_id,   'owner',      'active'),
-    (v_company_id, v_super_id,   'supervisor', 'active'),
-    (v_company_id, v_spender_id, 'spender',    'active')
-  ON CONFLICT (company_id, user_id) DO NOTHING;
-
-  -- Catálogo de categorías de gasto
-  INSERT INTO expense_categories (company_id, name) VALUES
-    (v_company_id, 'Combustible'),
-    (v_company_id, 'Materiales de construcción'),
-    (v_company_id, 'Alimentación'),
-    (v_company_id, 'Herramientas'),
-    (v_company_id, 'Transporte'),
-    (v_company_id, 'Servicios'),
-    (v_company_id, 'Papelería'),
-    (v_company_id, 'Otros');
-
-  -- Centro de costo
-  INSERT INTO cost_centers (company_id, name, type, code) VALUES
-    (v_company_id, 'Obra Norte - Fase 1', 'obra',     'OBR-N01'),
-    (v_company_id, 'Ruta Guadalajara',    'ruta',     'RUT-GDL'),
-    (v_company_id, 'Oficina Central',     'proyecto', 'OFI-CEN');
-
-  -- Póliza abierta para el spender
-  INSERT INTO policies (company_id, holder_id, name, opening_balance, status, created_by)
-  VALUES (v_company_id, v_spender_id, 'Póliza Junio 2026 — Pedro', 2000.00, 'open', v_owner_id)
-  RETURNING id INTO v_policy_id;
-
-  -- Anticipo entregado
-  INSERT INTO advances (company_id, policy_id, amount, method, reference, date, created_by)
-  VALUES (v_company_id, v_policy_id, 5000.00, 'transfer', 'TRF-2026-001', current_date, v_owner_id);
-
-  -- Gastos de ejemplo en diferentes estados
-  INSERT INTO expenses (company_id, policy_id, spender_id, provider_name, total, expense_date, status)
-  VALUES
-    (v_company_id, v_policy_id, v_spender_id, 'Gasolinera Pemex',        850.00, current_date - 3, 'pending_auth'),
-    (v_company_id, v_policy_id, v_spender_id, 'Ferretería La Obra',     1240.00, current_date - 2, 'pending_auth'),
-    (v_company_id, v_policy_id, v_spender_id, 'Restaurante El Paso',     430.00, current_date - 4, 'authorized'),
-    (v_company_id, v_policy_id, v_spender_id, 'AutoZone',               2100.00, current_date - 5, 'authorized'),
-    (v_company_id, v_policy_id, v_spender_id, 'OXXO',                     95.00, current_date - 1, 'rejected');
-
-  RAISE NOTICE 'Seed completado. company_id=% policy_id=%', v_company_id, v_policy_id;
-END $$;
+-- (seed movido a supabase/seed.sql)
