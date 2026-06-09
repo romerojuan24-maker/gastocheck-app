@@ -123,6 +123,13 @@ export default function Home() {
         <Text style={styles.receiptsBtnText}>🧾 Mis comprobantes</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.receiptsBtn}
+        onPress={() => router.push('/batches')}
+      >
+        <Text style={styles.receiptsBtnText}>📁 Relaciones contables</Text>
+      </TouchableOpacity>
+
       {/* ── Lista de gastos ── */}
       <Text style={styles.section}>Mis gastos recientes</Text>
 

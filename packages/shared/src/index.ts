@@ -5,6 +5,8 @@ export * from './cfdi';
 export * from './receipts';
 export * from './duplicates';
 export * from './categories';
+export * from './batches';
+export * from './export';
 
 // Tokens de marca GastoCheck
 export const BRAND = {
