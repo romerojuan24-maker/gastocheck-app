@@ -160,7 +160,7 @@ export default function Home() {
           .eq('policy_id', pol.id)
           .not('status', 'in', '(deleted,duplicate,closed_in_policy)')
           .order('created_at', { ascending: false });
-        setExpenses((expData as ExpenseRow[]) ?? []);
+        setExpenses((expData as unknown as ExpenseRow[]) ?? []);
 
         const { data: recData } = await supabase
           .from('receipts')
@@ -171,7 +171,7 @@ export default function Home() {
           .eq('company_id', pol.company_id)
           .neq('status', 'cancelled')
           .order('created_at', { ascending: false }).limit(50);
-        setReceipts((recData as ReceiptRow[]) ?? []);
+        setReceipts((recData as unknown as ReceiptRow[]) ?? []);
 
         const { data: batchData } = await supabase
           .from('receipt_batches')

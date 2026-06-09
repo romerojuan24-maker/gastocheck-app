@@ -83,9 +83,9 @@ export default function ReceiptsScreen() {
       if (error) { console.error(error); return; }
 
       if (reset) {
-        setReceipts(data ?? []);
+        setReceipts((data as unknown as ReceiptRow[]) ?? []);
       } else {
-        setReceipts((prev) => [...prev, ...(data ?? [])]);
+        setReceipts((prev) => [...prev, ...((data as unknown as ReceiptRow[]) ?? [])]);
       }
     } finally {
       setLoading(false);

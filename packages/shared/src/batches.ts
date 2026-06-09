@@ -7,7 +7,7 @@ export const BATCH_STATUS_META: Record<BatchStatus, { label: string; color: stri
   open:     { label: 'Abierta',   color: '#1565C0', icon: '📂' },
   closed:   { label: 'Cerrada',   color: '#43A047', icon: '✅' },
   exported: { label: 'Exportada', color: '#7B1FA2', icon: '📤' },
-  voided:   { label: 'Anulada',   color: '#C62828', icon: '🚫' },
+  cancelled: { label: 'Anulada',   color: '#C62828', icon: '🚫' },
 };
 
 // ── Reglas de negocio ─────────────────────────────────────────────────────────

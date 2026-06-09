@@ -26,18 +26,18 @@ interface Props {
 }
 
 const DEFAULT_COLORS: Record<TagType, string> = {
-  obra:              '#1565C0',
-  rancho:            '#2E7D32',
-  cultivo:           '#558B2F',
-  ruta:              '#E65100',
-  unidad:            '#6A1B9A',
-  departamento:      '#0277BD',
-  proyecto:          '#AD1457',
-  cliente:           '#4E342E',
-  temporada:         '#F57F17',
-  lote:              '#00695C',
-  contrato:          '#283593',
-  centro_de_costos:  '#37474F',
+  obra:       '#1565C0',
+  rancho:     '#2E7D32',
+  cultivo:    '#558B2F',
+  ruta:       '#E65100',
+  unidad:     '#6A1B9A',
+  tecnico:    '#0277BD',
+  proyecto:   '#AD1457',
+  cliente:    '#4E342E',
+  temporada:  '#F57F17',
+  lote:       '#00695C',
+  maquinaria: '#283593',
+  otro:       '#37474F',
 };
 
 export function TagPicker({ visible, company_id, selected_ids, onConfirm, onClose }: Props) {

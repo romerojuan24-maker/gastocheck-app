@@ -39,7 +39,7 @@ export default function CaptureScreen() {
   const router = useRouter();
   const { extractFromImage, loading: ocrLoading } = useOcr();
 
-  const [photo,      setPhoto]      = useState<{ uri: string; base64?: string } | null>(null);
+  const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
   const [extracted,  setExtracted]  = useState<any>(null);
   const [step,       setStep]       = useState<'camera' | 'confirm'>('camera');
   const [saving,     setSaving]     = useState(false);

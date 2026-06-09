@@ -30,7 +30,7 @@ export type MatchType =
   | 'fiscal_uuid' | 'file_hash' | 'image_phash'
   | 'provider_date_amount' | 'rfc_date_amount' | 'ocr_similarity';
 
-export type BatchStatus = 'draft' | 'closed' | 'exported' | 'reopened' | 'cancelled';
+export type BatchStatus = 'draft' | 'open' | 'closed' | 'exported' | 'cancelled';
 
 export type CompanySector =
   | 'agro' | 'construccion' | 'alimentos' | 'transportistas'

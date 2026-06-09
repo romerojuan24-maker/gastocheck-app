@@ -6,9 +6,9 @@
 
 DO $$
 DECLARE
-  v_owner_id    uuid := 'REEMPLAZAR-UUID-OWNER';
-  v_super_id    uuid := 'REEMPLAZAR-UUID-SUPERVISOR';
-  v_spender_id  uuid := 'REEMPLAZAR-UUID-SPENDER';
+  v_owner_id    uuid := 'a2c3d805-47ee-4936-8559-3e68e62d58de';
+  v_super_id    uuid := '47483796-3b3f-4eca-adcf-fd8e25a9a1ec';
+  v_spender_id  uuid := '80e4c231-b8fa-4521-8819-3cb610b96849';
   v_company_id  uuid;
   v_policy_id   uuid;
 BEGIN
