@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   computeBalance, STATUS_META, RECEIPT_STATUS_META, DUPLICATE_STATUS_META,
-  BATCH_STATUS_META, EXPORT_FORMAT_META, downloadBase64,
+  BATCH_STATUS_META, EXPORT_FORMAT_META,
   canCloseBatch, canExportBatch,
   type Expense, type Policy, type Advance,
   type ExportFormat,
@@ -107,6 +107,21 @@ function DuplicateBadge({ status }: { status: string }) {
       {meta.icon} {meta.label}
     </span>
   );
+}
+
+// ── Utilidades web ───────────────────────────────────────────────────────
+
+function downloadBase64(base64: string, filename: string, mime: string): void {
+  const bin = atob(base64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  const blob = new Blob([arr], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Página principal ──────────────────────────────────────────────────────────

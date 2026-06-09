@@ -97,27 +97,49 @@ Deno.serve(async (req) => {
     }
 
     // ── 1. Verificar duplicados ──────────────────────────────────────────────
-    const dupRes = await fetch(
-      `${SUPABASE_URL}/functions/v1/check-duplicate`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE}` },
-        body: JSON.stringify({
-          company_id,
-          fiscal_uuid:   fiscal_uuid ?? null,
-          file_sha256:   file_sha256 ?? null,
-          provider_name: provider_name ?? null,
-          provider_rfc:  provider_rfc ?? null,
-          receipt_date:  receipt_date ?? null,
-          total_amount:  total_amount ?? null,
-        }),
-      },
-    );
+    let duplicateStatus: string = 'no_duplicate';
+    let shouldBlock: boolean = false;
+    let dupMatches: any[] = [];
+    let duplicateScore: number = 0;
 
-    const dupData = await dupRes.json();
-    const duplicateStatus: string = dupData.duplicate_status ?? 'no_duplicate';
-    const shouldBlock:     boolean = dupData.should_block ?? false;
-    const dupMatches = dupData.matches ?? [];
+    try {
+      const dupRes = await fetch(
+        `${SUPABASE_URL}/functions/v1/check-duplicate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE}` },
+          body: JSON.stringify({
+            company_id,
+            fiscal_uuid:   fiscal_uuid ?? null,
+            file_sha256:   file_sha256 ?? null,
+            provider_name: provider_name ?? null,
+            provider_rfc:  provider_rfc ?? null,
+            receipt_date:  receipt_date ?? null,
+            total_amount:  total_amount ?? null,
+          }),
+        },
+      );
+
+      if (!dupRes.ok) {
+        console.error('check-duplicate failed:', dupRes.status, await dupRes.text());
+        return Response.json(
+          { ok: false, error: 'Duplicate check failed. Please try again.' },
+          { status: 502, headers: CORS },
+        );
+      }
+
+      const dupData = await dupRes.json();
+      duplicateStatus = dupData.duplicate_status ?? 'no_duplicate';
+      shouldBlock = dupData.should_block ?? false;
+      dupMatches = dupData.matches ?? [];
+      duplicateScore = dupData.score ?? 0;
+    } catch (err) {
+      console.error('check-duplicate error:', err);
+      return Response.json(
+        { ok: false, error: 'Duplicate check unavailable' },
+        { status: 502, headers: CORS },
+      );
+    }
 
     // Si está bloqueado y no se fuerza, retornar error con info del duplicado
     if (shouldBlock && !force_save) {
@@ -126,7 +148,7 @@ Deno.serve(async (req) => {
           ok:               false,
           blocked:          true,
           duplicate_status: duplicateStatus,
-          message:          dupData.message,
+          message:          'Duplicate receipt blocked. Use force_save with reason to override.',
           matches:          dupMatches,
         },
         { status: 409, headers: CORS },
@@ -138,48 +160,37 @@ Deno.serve(async (req) => {
       ? normalizeProvider(provider_name)
       : null;
 
-    // ── 3. Upsert supplier ────────────────────────────────────────────────────
+    // ── 3. Upsert supplier (ATOMIC) ──────────────────────────────────────────
     let supplier_id: string | null = null;
 
-    if (provider_name) {
-      const { data: existingSupplier } = await supabase
+    if (provider_name && normalizedProvider) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: supplier, error: supplierErr } = await supabase
         .from('suppliers')
-        .select('id, total_purchases, purchase_count, first_purchase_date')
-        .eq('company_id', company_id)
-        .eq('normalized_name', normalizedProvider)
-        .limit(1)
+        .upsert({
+          company_id,
+          normalized_name:     normalizedProvider,
+          name:                provider_name,
+          rfc:                 provider_rfc ?? null,
+          first_purchase_date: receipt_date ?? today,
+          last_purchase_date:  receipt_date ?? today,
+          total_purchases:     total_amount ?? 0,
+          purchase_count:      1,
+        }, {
+          onConflict: 'company_id,normalized_name',
+        })
+        .select('id')
         .single();
 
-      if (existingSupplier) {
-        supplier_id = existingSupplier.id;
-        // Actualizar estadísticas del proveedor
-        await supabase
-          .from('suppliers')
-          .update({
-            last_purchase_date: receipt_date ?? new Date().toISOString().slice(0, 10),
-            total_purchases:    (existingSupplier.total_purchases ?? 0) + (total_amount ?? 0),
-            purchase_count:     (existingSupplier.purchase_count ?? 0) + 1,
-          })
-          .eq('id', supplier_id);
-      } else {
-        // Crear nuevo proveedor
-        const { data: newSupplier } = await supabase
-          .from('suppliers')
-          .insert({
-            company_id,
-            name:                provider_name,
-            normalized_name:     normalizedProvider,
-            rfc:                 provider_rfc ?? null,
-            first_purchase_date: receipt_date ?? new Date().toISOString().slice(0, 10),
-            last_purchase_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
-            total_purchases:     total_amount ?? 0,
-            purchase_count:      1,
-          })
-          .select('id')
-          .single();
-
-        if (newSupplier) supplier_id = newSupplier.id;
+      if (supplierErr) {
+        console.error('Supplier upsert failed:', supplierErr);
+        return Response.json(
+          { ok: false, error: 'Could not save supplier information' },
+          { status: 500, headers: CORS },
+        );
       }
+
+      if (supplier) supplier_id = supplier.id;
     }
 
     // ── 4. Crear receipt ─────────────────────────────────────────────────────
@@ -209,7 +220,7 @@ Deno.serve(async (req) => {
       cost_center_id:            cost_center_id ?? null,
       notes:                     notes ?? null,
       duplicate_status:          force_save && shouldBlock ? 'manually_approved_duplicate' : duplicateStatus,
-      duplicate_score:           dupData.score ?? 0,
+      duplicate_score:           duplicateScore,
       duplicate_of_receipt_id:   dupMatches[0]?.receipt_id ?? null,
       duplicate_reason:          dupMatches[0]?.reason ?? null,
       status:                    'submitted',

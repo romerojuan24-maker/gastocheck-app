@@ -70,17 +70,4 @@ export const EXCEL_HEADERS = {
 export function fmtMXN(n: number): string   { return n.toFixed(2); }
 export function fmtDate(s: string | null | undefined): string { return s ? s.slice(0, 10) : ''; }
 
-// ── Util: descarga desde base64 (uso en web) ──────────────────────────────────
-
-export function downloadBase64(base64: string, filename: string, mime: string): void {
-  const bin = atob(base64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  const blob = new Blob([arr], { type: mime });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// NOTA: downloadBase64 se movió a apps/web/app/page.tsx para evitar dependencia DOM en shared

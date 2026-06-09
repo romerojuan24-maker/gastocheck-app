@@ -37,8 +37,10 @@ function fmtDate(s: string | null | undefined): string {
 function csvRow(cells: (string | number | null)[]): string {
   return cells.map((c) => {
     const v = c == null ? '' : String(c);
-    return v.includes(',') || v.includes('"') || v.includes('\n')
-      ? `"${v.replace(/"/g, '""')}"` : v;
+    // CSV escaping: envolvar en comillas si contiene especiales, reemplazar comillas internas con doble comilla
+    const needsQuote = v.includes(',') || v.includes('"') || v.includes('\n') || v.includes('\r');
+    const escaped = needsQuote ? `"${v.replace(/"/g, '""').replace(/\r?\n/g, '\\n')}"` : v;
+    return escaped;
   }).join(',');
 }
 
@@ -384,7 +386,15 @@ serve(async (req) => {
 
     if (format === 'universal_excel') {
       const buf = buildExcel(receipts, items, periodLabel);
-      content   = btoa(String.fromCharCode(...buf));
+      // Convertir a base64 sin memory leak (usar chunking en lugar de String.fromCharCode(...buf))
+      const bytes = new Uint8Array(buf);
+      let binaryString = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binaryString += String.fromCharCode(...chunk);
+      }
+      content   = btoa(binaryString);
       encoding  = 'base64';
       filename  = `gastocheck_${ts}.xlsx`;
       mime      = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

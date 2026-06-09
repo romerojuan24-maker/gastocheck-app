@@ -377,7 +377,39 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity  ON audit_logs(entity_type, ent
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user    ON audit_logs(user_id, created_at DESC);
 
 -- ============================================================================
--- 16. TRIGGERS updated_at para tablas nuevas
+-- 16. FUNCIONES para triggers y validaciones
+-- ============================================================================
+
+-- Actualizar timestamp updated_at
+CREATE OR REPLACE FUNCTION touch_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+-- Validar que no hay ciclos en duplicate_of_receipt_id
+CREATE OR REPLACE FUNCTION validate_no_duplicate_cycle()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.duplicate_of_receipt_id IS NOT NULL THEN
+    -- Verificar que no hay ciclo de 2 nodos (A → B → A)
+    IF EXISTS (
+      SELECT 1 FROM receipts r
+      WHERE r.id = NEW.duplicate_of_receipt_id
+        AND r.duplicate_of_receipt_id = NEW.id
+    ) THEN
+      RAISE EXCEPTION 'Circular duplicate reference detected: receipt % references % which references back',
+        NEW.id, NEW.duplicate_of_receipt_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- ============================================================================
+-- 17. TRIGGERS updated_at para tablas nuevas
 -- ============================================================================
 CREATE TRIGGER trg_suppliers_touch
   BEFORE UPDATE ON suppliers
@@ -390,6 +422,10 @@ CREATE TRIGGER trg_receipt_batches_touch
 CREATE TRIGGER trg_receipts_touch
   BEFORE UPDATE ON receipts
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+CREATE TRIGGER trg_receipts_validate_cycle
+  BEFORE INSERT OR UPDATE ON receipts
+  FOR EACH ROW EXECUTE FUNCTION validate_no_duplicate_cycle();
 
 CREATE TRIGGER trg_acct_profiles_touch
   BEFORE UPDATE ON accounting_export_profiles
