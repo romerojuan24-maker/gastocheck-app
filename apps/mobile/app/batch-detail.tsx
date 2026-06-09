@@ -10,7 +10,7 @@ import {
   canAddReceiptToBatch, canCloseBatch, canReopenBatch, canExportBatch,
   canRemoveReceiptFromBatch, summarizeBatch,
 } from '@gastocheck/shared';
-import type { BatchStatus } from '@gastocheck/shared';
+import type { BatchStatus, ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
 const money = (n: number) =>
@@ -30,8 +30,8 @@ interface ReceiptInBatch {
   provider_name:    string | null;
   total_amount:     number | null;
   receipt_date:     string | null;
-  status:           string;
-  duplicate_status: string;
+  status:           ReceiptStatus;
+  duplicate_status: DuplicateStatus;
   subtotal_amount:  number | null;
   tax_amount:       number | null;
   category_name?:   string | null;
@@ -306,8 +306,8 @@ export default function BatchDetailScreen() {
         {/* Lista de comprobantes */}
         <Text style={styles.sectionTitle}>Comprobantes ({receipts.length})</Text>
         {receipts.map((r) => {
-          const sMeta  = RECEIPT_STATUS_META[r.status as any];
-          const dupMeta = DUPLICATE_STATUS_META[r.duplicate_status as any];
+          const sMeta  = RECEIPT_STATUS_META[r.status];
+          const dupMeta = DUPLICATE_STATUS_META[r.duplicate_status];
           const isDup  = r.duplicate_status !== 'no_duplicate';
           return (
             <View key={r.id} style={[styles.receiptCard, isDup && styles.receiptWarning]}>

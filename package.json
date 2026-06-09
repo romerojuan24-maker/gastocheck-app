@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "supabase": "^2.105.0"
+  },
+  "dependencies": {
+    "react-native-web": "^0.21.2"
   }
 }

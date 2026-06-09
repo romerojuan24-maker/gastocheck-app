@@ -11,7 +11,7 @@ import { useOcr } from '../hooks/useOcr';
 import { supabase } from '../lib/supabase';
 import {
   BRAND, DUPLICATE_STATUS_META,
-  type DuplicateStatus,
+  type DuplicateStatus, type OcrResult,
 } from '@gastocheck/shared';
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export default function CaptureScreen() {
   const { extractFromImage, loading: ocrLoading } = useOcr();
 
   const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
-  const [extracted,  setExtracted]  = useState<any>(null);
+  const [extracted,  setExtracted]  = useState<OcrResult | null>(null);
   const [step,       setStep]       = useState<'camera' | 'confirm'>('camera');
   const [saving,     setSaving]     = useState(false);
 
@@ -364,7 +364,7 @@ export default function CaptureScreen() {
                : extracted?.confidence === 'medium' ? 'Media' : 'Baja'}
             </Text>
           </Text>
-          {extracted?.warnings?.length > 0 && (
+          {extracted?.warnings && extracted.warnings.length > 0 && (
             <View style={styles.warningBox}>
               {extracted.warnings.map((w: string, i: number) => (
                 <Text key={i} style={styles.warningText}>⚠ {w}</Text>
@@ -394,7 +394,7 @@ export default function CaptureScreen() {
             </View>
           )}
 
-          {extracted?.lineItems?.length > 0 && (
+          {extracted?.lineItems && extracted.lineItems.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Productos / conceptos detectados</Text>
               {extracted.lineItems.slice(0, 6).map((c: any, i: number) => (
@@ -414,7 +414,7 @@ export default function CaptureScreen() {
                   )}
                 </View>
               ))}
-              {extracted.lineItems.length > 6 && (
+              {extracted?.lineItems && extracted.lineItems.length > 6 && (
                 <Text style={styles.moreItems}>
                   +{extracted.lineItems.length - 6} conceptos más...
                 </Text>

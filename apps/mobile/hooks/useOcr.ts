@@ -1,15 +1,5 @@
 import { useState } from 'react';
-
-interface OcrResult {
-  total: number | null;
-  subtotal: number | null;
-  iva: number | null;
-  fecha: string | null;
-  proveedor: string | null;
-  conceptos: { descripcion: string; cantidad: number; precio: number; importe: number }[];
-  confidence: 'high' | 'medium' | 'low';
-  raw_text: string;
-}
+import type { OcrResult } from '@gastocheck/shared';
 
 export function useOcr() {
   const [loading, setLoading] = useState(false);

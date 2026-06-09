@@ -20,21 +20,28 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
       "expo-router",
       [
         "expo-image-picker",
-        { "photosPermission": "GastoCheck necesita acceso a tus fotos para adjuntar comprobantes." }
+        {
+          "photosPermission": "GastoCheck necesita acceso a tus fotos para adjuntar comprobantes."
+        }
       ],
       "expo-document-picker"
     ],
     "extra": {
       "eas": {
-        "projectId": "REEMPLAZAR_TRAS_EAS_INIT"
+        "projectId": "11c09583-5e21-46ad-8116-a2e13994570e"
+      },
+      "router": {
+        "origin": false
       }
-    }
+    },
+    "owner": "juan.romero"
   }
 }
