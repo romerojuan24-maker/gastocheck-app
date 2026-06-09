@@ -8,8 +8,9 @@ export default function Layout() {
         headerTintColor: '#fff',
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Mi saldo' }} />
-      <Stack.Screen name="capture" options={{ title: 'Capturar ticket', presentation: 'modal' }} />
+      <Stack.Screen name="index"    options={{ title: 'Mi saldo' }} />
+      <Stack.Screen name="capture"  options={{ title: 'Capturar ticket',       presentation: 'modal' }} />
+      <Stack.Screen name="receipts" options={{ title: 'Mis comprobantes' }} />
     </Stack>
   );
 }

@@ -1,0 +1,344 @@
+// Edge Function: Crear comprobante con verificación anti-duplicados integrada
+// Crea receipt + purchase_items + upsert supplier + crea expense en póliza
+// Deploy: npx supabase functions deploy submit-receipt
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+interface OcrLineItem {
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  unitPrice: number | null;
+  totalPrice: number | null;
+  confidence: number;
+}
+
+interface SubmitInput {
+  // Empresa y empleado
+  company_id:    string;
+  policy_id:     string;  // para crear expense en el ledger
+  employee_id:   string;
+
+  // Archivo
+  file_storage_path?: string;
+  file_sha256?:       string;
+  source_type:        'photo' | 'pdf' | 'xml' | 'manual';
+
+  // Datos extraídos (puede venir de OCR o manual)
+  provider_name?:  string | null;
+  provider_rfc?:   string | null;
+  receipt_date?:   string | null;
+  receipt_time?:   string | null;
+  total_amount?:   number | null;
+  subtotal_amount?: number | null;
+  tax_amount?:     number | null;
+  fiscal_uuid?:    string | null;
+  internal_folio?: string | null;
+  payment_method?: string | null;
+  ocr_text?:       string | null;
+  ocr_confidence?: number | null;
+  extracted_json?: Record<string, unknown> | null;
+  line_items?:     OcrLineItem[];
+
+  // Categorización
+  category_id?:    string | null;
+  cost_center_id?: string | null;
+  notes?:          string | null;
+
+  // Si force_save=true y hay duplicado probable (no bloqueado), guarda de todas formas
+  force_save?:     boolean;
+  force_reason?:   string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST')    return new Response('Method not allowed', { status: 405 });
+
+  try {
+    // Verificar JWT del usuario
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const supabaseUser = createClient(
+      SUPABASE_URL,
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
+    if (authErr || !user) {
+      return Response.json({ error: 'No autenticado' }, { status: 401, headers: CORS });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+    const input: SubmitInput = await req.json();
+
+    const {
+      company_id, policy_id, employee_id,
+      file_storage_path, file_sha256, source_type,
+      provider_name, provider_rfc, receipt_date,
+      receipt_time, total_amount, subtotal_amount, tax_amount,
+      fiscal_uuid, internal_folio, payment_method,
+      ocr_text, ocr_confidence, extracted_json, line_items,
+      category_id, cost_center_id, notes,
+      force_save = false, force_reason,
+    } = input;
+
+    if (!company_id || !policy_id || !employee_id) {
+      return Response.json(
+        { error: 'company_id, policy_id y employee_id son requeridos' },
+        { status: 400, headers: CORS },
+      );
+    }
+
+    // ── 1. Verificar duplicados ──────────────────────────────────────────────
+    const dupRes = await fetch(
+      `${SUPABASE_URL}/functions/v1/check-duplicate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE}` },
+        body: JSON.stringify({
+          company_id,
+          fiscal_uuid:   fiscal_uuid ?? null,
+          file_sha256:   file_sha256 ?? null,
+          provider_name: provider_name ?? null,
+          provider_rfc:  provider_rfc ?? null,
+          receipt_date:  receipt_date ?? null,
+          total_amount:  total_amount ?? null,
+        }),
+      },
+    );
+
+    const dupData = await dupRes.json();
+    const duplicateStatus: string = dupData.duplicate_status ?? 'no_duplicate';
+    const shouldBlock:     boolean = dupData.should_block ?? false;
+    const dupMatches = dupData.matches ?? [];
+
+    // Si está bloqueado y no se fuerza, retornar error con info del duplicado
+    if (shouldBlock && !force_save) {
+      return Response.json(
+        {
+          ok:               false,
+          blocked:          true,
+          duplicate_status: duplicateStatus,
+          message:          dupData.message,
+          matches:          dupMatches,
+        },
+        { status: 409, headers: CORS },
+      );
+    }
+
+    // ── 2. Normalizar proveedor ──────────────────────────────────────────────
+    const normalizedProvider = provider_name
+      ? normalizeProvider(provider_name)
+      : null;
+
+    // ── 3. Upsert supplier ────────────────────────────────────────────────────
+    let supplier_id: string | null = null;
+
+    if (provider_name) {
+      const { data: existingSupplier } = await supabase
+        .from('suppliers')
+        .select('id, total_purchases, purchase_count, first_purchase_date')
+        .eq('company_id', company_id)
+        .eq('normalized_name', normalizedProvider)
+        .limit(1)
+        .single();
+
+      if (existingSupplier) {
+        supplier_id = existingSupplier.id;
+        // Actualizar estadísticas del proveedor
+        await supabase
+          .from('suppliers')
+          .update({
+            last_purchase_date: receipt_date ?? new Date().toISOString().slice(0, 10),
+            total_purchases:    (existingSupplier.total_purchases ?? 0) + (total_amount ?? 0),
+            purchase_count:     (existingSupplier.purchase_count ?? 0) + 1,
+          })
+          .eq('id', supplier_id);
+      } else {
+        // Crear nuevo proveedor
+        const { data: newSupplier } = await supabase
+          .from('suppliers')
+          .insert({
+            company_id,
+            name:                provider_name,
+            normalized_name:     normalizedProvider,
+            rfc:                 provider_rfc ?? null,
+            first_purchase_date: receipt_date ?? new Date().toISOString().slice(0, 10),
+            last_purchase_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
+            total_purchases:     total_amount ?? 0,
+            purchase_count:      1,
+          })
+          .select('id')
+          .single();
+
+        if (newSupplier) supplier_id = newSupplier.id;
+      }
+    }
+
+    // ── 4. Crear receipt ─────────────────────────────────────────────────────
+    const receiptData = {
+      company_id,
+      uploaded_by:               user.id,
+      employee_id,
+      source_type,
+      provider_name:             provider_name ?? null,
+      normalized_provider_name:  normalizedProvider,
+      provider_rfc:              provider_rfc ?? null,
+      supplier_id,
+      receipt_date:              receipt_date ?? null,
+      receipt_time:              receipt_time ?? null,
+      total_amount:              total_amount ?? null,
+      subtotal_amount:           subtotal_amount ?? null,
+      tax_amount:                tax_amount ?? null,
+      fiscal_uuid:               fiscal_uuid ?? null,
+      internal_folio:            internal_folio ?? null,
+      payment_method:            payment_method ?? null,
+      ocr_text:                  ocr_text ?? null,
+      ocr_confidence:            ocr_confidence ?? null,
+      extracted_json:            extracted_json ?? null,
+      file_storage_path:         file_storage_path ?? null,
+      file_sha256:               file_sha256 ?? null,
+      category_id:               category_id ?? null,
+      cost_center_id:            cost_center_id ?? null,
+      notes:                     notes ?? null,
+      duplicate_status:          force_save && shouldBlock ? 'manually_approved_duplicate' : duplicateStatus,
+      duplicate_score:           dupData.score ?? 0,
+      duplicate_of_receipt_id:   dupMatches[0]?.receipt_id ?? null,
+      duplicate_reason:          dupMatches[0]?.reason ?? null,
+      status:                    'submitted',
+    };
+
+    const { data: receipt, error: receiptErr } = await supabase
+      .from('receipts')
+      .insert(receiptData)
+      .select('id')
+      .single();
+
+    if (receiptErr || !receipt) {
+      return Response.json(
+        { ok: false, error: `Error creando comprobante: ${receiptErr?.message}` },
+        { status: 500, headers: CORS },
+      );
+    }
+
+    // ── 5. Guardar duplicate matches si los hay ──────────────────────────────
+    if (dupMatches.length > 0) {
+      const matchRows = dupMatches.map((m: Record<string, unknown>) => ({
+        company_id,
+        receipt_id:         receipt.id,
+        matched_receipt_id: m.receipt_id,
+        match_type:         m.match_type,
+        match_score:        m.score,
+        match_reason:       m.reason,
+        resolved:           force_save,
+        resolution:         force_save ? 'manually_allowed' : null,
+        resolution_reason:  force_save ? force_reason : null,
+        resolved_at:        force_save ? new Date().toISOString() : null,
+        resolved_by:        force_save ? user.id : null,
+      }));
+
+      await supabase.from('receipt_duplicate_matches').insert(matchRows);
+    }
+
+    // ── 6. Insertar conceptos/productos (purchase_items) ────────────────────
+    if (line_items && line_items.length > 0) {
+      const itemRows = line_items
+        .filter((item) => item.name && item.name.trim().length > 0)
+        .map((item) => ({
+          company_id,
+          receipt_id:            receipt.id,
+          item_name:             item.name.trim(),
+          normalized_item_name:  normalizeProvider(item.name),
+          quantity:              item.quantity ?? null,
+          unit:                  item.unit ?? null,
+          unit_price:            item.unitPrice ?? null,
+          total_price:           item.totalPrice ?? null,
+          extracted_by:          'ocr',
+          confidence:            item.confidence ?? null,
+        }));
+
+      if (itemRows.length > 0) {
+        await supabase.from('purchase_items').insert(itemRows);
+      }
+    }
+
+    // ── 7. Crear expense en el ledger de la póliza ───────────────────────────
+    const { data: expense, error: expErr } = await supabase
+      .from('expenses')
+      .insert({
+        company_id,
+        policy_id,
+        spender_id:    employee_id,
+        receipt_id:    receipt.id,
+        provider_name: provider_name ?? null,
+        provider_rfc:  provider_rfc ?? null,
+        subtotal:      subtotal_amount ?? null,
+        iva:           tax_amount ?? null,
+        total:         total_amount ?? 0,
+        expense_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
+        category_id:   category_id ?? null,
+        cost_center_id: cost_center_id ?? null,
+        notes:         notes ?? null,
+        status:        'captured',
+      })
+      .select('id')
+      .single();
+
+    if (expErr) {
+      console.warn('Expense creation failed (receipt was saved):', expErr.message);
+    }
+
+    // ── 8. Audit log ─────────────────────────────────────────────────────────
+    await supabase.from('audit_logs').insert({
+      company_id,
+      user_id:     user.id,
+      entity_type: 'receipt',
+      entity_id:   receipt.id,
+      action:      'created',
+      new_values: {
+        source_type,
+        provider_name,
+        total_amount,
+        receipt_date,
+        duplicate_status: duplicateStatus,
+        force_save,
+      },
+    });
+
+    return Response.json(
+      {
+        ok:               true,
+        receipt_id:       receipt.id,
+        expense_id:       expense?.id ?? null,
+        supplier_id,
+        duplicate_status: duplicateStatus,
+        should_block:     shouldBlock,
+        force_saved:      force_save && shouldBlock,
+        matches:          dupMatches,
+      },
+      { headers: { ...CORS, 'Content-Type': 'application/json' } },
+    );
+  } catch (e) {
+    console.error('submit-receipt error:', e);
+    return Response.json({ ok: false, error: String(e) }, { status: 500, headers: CORS });
+  }
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalizeProvider(name: string): string {
+  return name
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

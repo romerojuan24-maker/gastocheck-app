@@ -116,6 +116,13 @@ export default function Home() {
         <Text style={styles.secondaryBtnText}>📄 Subir XML o PDF</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.receiptsBtn}
+        onPress={() => router.push('/receipts')}
+      >
+        <Text style={styles.receiptsBtnText}>🧾 Mis comprobantes</Text>
+      </TouchableOpacity>
+
       {/* ── Lista de gastos ── */}
       <Text style={styles.section}>Mis gastos recientes</Text>
 
@@ -186,6 +193,11 @@ const styles = StyleSheet.create({
   emptyState: { backgroundColor: '#fff', borderRadius: 14, padding: 24, alignItems: 'center' },
   emptyText: { fontSize: 16, fontWeight: '600', color: BRAND.navy },
   emptySubtext: { fontSize: 13, color: '#90A4AE', marginTop: 4 },
+  receiptsBtn: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 14,
+    alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 10,
+  },
+  receiptsBtnText: { color: BRAND.navy, fontSize: 15, fontWeight: '600' },
   refreshBtn: { alignItems: 'center', padding: 16, marginTop: 8 },
   refreshBtnText: { color: BRAND.blue, fontSize: 14, fontWeight: '600' },
 });
