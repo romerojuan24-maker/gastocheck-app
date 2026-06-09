@@ -4,16 +4,11 @@
 -- Ejecutar en Supabase SQL Editor (Dashboard → SQL Editor → New query)
 -- ============================================================================
 
--- ============================================================================
--- 1. NUEVOS VALORES DE ENUM
--- ============================================================================
--- Roles adicionales (operator = alias amigable de spender; admin > office; superadmin = plataforma)
-ALTER TYPE member_role ADD VALUE IF NOT EXISTS 'operator'   AFTER 'spender';
-ALTER TYPE member_role ADD VALUE IF NOT EXISTS 'admin'      AFTER 'office';
-ALTER TYPE member_role ADD VALUE IF NOT EXISTS 'superadmin' AFTER 'admin';
+-- NOTA: Los ALTER TYPE (enum roles) se movieron a 20260609000001_enum_roles.sql
+-- Ejecutar ESE archivo primero, luego este.
 
 -- ============================================================================
--- 2. COLUMNAS NUEVAS EN TABLAS EXISTENTES
+-- 1. COLUMNAS NUEVAS EN TABLAS EXISTENTES
 -- ============================================================================
 
 -- Sector de la empresa (determina plantillas de categorías precargadas)
