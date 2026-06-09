@@ -137,5 +137,23 @@ Checklist para confirmar que todo funciona:
 | Plantillas de categorías 9 sectores | ✅ Listas |
 | Audit logs | ✅ Tabla lista |
 
-**Commit actual:** `749dff7` en branch `main`
+---
+
+## 7. Compilar primer APK (Expo Cloud)
+
+Archivo: `docs/BUILD_APK_INSTRUCCIONES.md` — lee completo antes de empezar.
+
+Resumen 3 comandos:
+```bash
+cd apps/mobile
+eas login                              # Primera vez solamente
+eas init                               # Primera vez solamente
+eas build --platform android --profile preview   # Cada build
+```
+
+Tiempo: ~8–15 min en la nube de Expo. Link de descarga automático.
+
+---
+
+**Commit actual:** `48f2a9d` en branch `main`
 **Repo:** https://github.com/romerojuan24-maker/gastocheck-app

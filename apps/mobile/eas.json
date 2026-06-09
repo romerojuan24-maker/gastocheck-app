@@ -13,15 +13,15 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://REEMPLAZAR.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REEMPLAZAR_ANON_KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://omhycwfjxynkfwywzwvz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_sSlEbsfs4842PDD8H050uQ_dhLbljxA"
       }
     },
     "production": {
       "android": { "buildType": "app-bundle" },
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://REEMPLAZAR.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REEMPLAZAR_ANON_KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://omhycwfjxynkfwywzwvz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_sSlEbsfs4842PDD8H050uQ_dhLbljxA"
       }
     }
   },
