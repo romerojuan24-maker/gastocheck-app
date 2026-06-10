@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+
 interface Profile {
   email:   string;
   role:    string;
@@ -25,6 +27,8 @@ export default function SettingsScreen() {
   const [profile,  setProfile]  = useState<Profile | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [role,     setRole]     = useState<string>('employee');
+  const [connOk,   setConnOk]   = useState<boolean | null>(null);
+  const [connChecking, setConnChecking] = useState(false);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -47,6 +51,20 @@ export default function SettingsScreen() {
       });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function checkConnection() {
+    setConnChecking(true);
+    setConnOk(null);
+    try {
+      const { error } = await supabase.from('companies').select('id').limit(1);
+      setConnOk(!error);
+      if (error) Alert.alert('Sin conexión', error.message);
+    } catch {
+      setConnOk(false);
+    } finally {
+      setConnChecking(false);
     }
   }
 
@@ -127,6 +145,39 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Conexión Supabase */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Conexión a base de datos</Text>
+        <View style={styles.menuItem}>
+          <Text style={styles.menuIcon}>🔗</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuLabel}>Supabase URL</Text>
+            <Text style={styles.connUrl} numberOfLines={1} ellipsizeMode="middle">
+              {SUPABASE_URL || '(no configurada)'}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.menuItem, { borderTopWidth: 1, borderTopColor: '#F5F5F5' }]}
+          onPress={checkConnection}
+          disabled={connChecking}
+        >
+          <Text style={styles.menuIcon}>
+            {connChecking ? '⏳' : connOk === true ? '✅' : connOk === false ? '❌' : '🔌'}
+          </Text>
+          <Text style={styles.menuLabel}>
+            {connChecking
+              ? 'Probando conexión...'
+              : connOk === true
+              ? 'Conexión activa'
+              : connOk === false
+              ? 'Sin conexión — tap para reintentar'
+              : 'Probar conexión'}
+          </Text>
+          {!connChecking && <Text style={styles.menuArrow}>›</Text>}
+        </TouchableOpacity>
+      </View>
+
       {/* Cerrar sesión */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Cerrar sesión</Text>
@@ -170,4 +221,5 @@ const styles = StyleSheet.create({
   logoutBtn:    { backgroundColor: '#FFEBEE', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 16 },
   logoutText:   { color: BRAND.red, fontSize: 16, fontWeight: '700' },
   version:      { textAlign: 'center', fontSize: 12, color: '#B0BEC5' },
+  connUrl:      { fontSize: 11, color: '#90A4AE', marginTop: 2 },
 });

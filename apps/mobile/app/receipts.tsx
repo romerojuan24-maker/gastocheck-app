@@ -104,7 +104,10 @@ export default function ReceiptsScreen() {
     const isWarning  = item.duplicate_status !== 'no_duplicate';
 
     return (
-      <TouchableOpacity style={[styles.card, isWarning && styles.cardWarning]}>
+      <TouchableOpacity
+        style={[styles.card, isWarning && styles.cardWarning]}
+        onPress={() => router.push(`/receipt-detail?id=${item.id}`)}
+      >
         {/* Encabezado */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
