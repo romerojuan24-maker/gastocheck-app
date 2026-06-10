@@ -1,0 +1,173 @@
+import { useEffect, useState } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
+  ActivityIndicator, Alert,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { BRAND } from '@gastocheck/shared';
+import { supabase } from '../lib/supabase';
+
+interface Profile {
+  email:   string;
+  role:    string;
+  company: string;
+}
+
+const ROLE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  admin:      { label: 'Administrador',  icon: '👑', color: BRAND.purple },
+  supervisor: { label: 'Supervisor',     icon: '🧑‍💼', color: BRAND.blue },
+  employee:   { label: 'Empleado',       icon: '👤', color: BRAND.navy },
+  accountant: { label: 'Contador',       icon: '🧮', color: BRAND.green },
+};
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const [profile,  setProfile]  = useState<Profile | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [role,     setRole]     = useState<string>('employee');
+
+  useEffect(() => { loadProfile(); }, []);
+
+  async function loadProfile() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('role, companies(name)')
+        .eq('user_id', user.id)
+        .single();
+
+      setRole(member?.role ?? 'employee');
+      setProfile({
+        email:   user.email ?? '',
+        role:    member?.role ?? 'employee',
+        company: (member?.companies as any)?.name ?? 'Sin empresa',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Estás seguro que deseas salir?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.auth.signOut();
+          },
+        },
+      ],
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
+        <ActivityIndicator size="large" color={BRAND.blue} />
+      </View>
+    );
+  }
+
+  const roleMeta = ROLE_LABELS[role] ?? ROLE_LABELS.employee;
+  const isSupervisor = role === 'admin' || role === 'supervisor';
+
+  return (
+    <ScrollView style={{ backgroundColor: BRAND.gray }} contentContainerStyle={styles.scroll}>
+
+      {/* Perfil */}
+      <View style={styles.card}>
+        <View style={styles.avatarRow}>
+          <View style={[styles.avatar, { backgroundColor: roleMeta.color + '20' }]}>
+            <Text style={styles.avatarIcon}>{roleMeta.icon}</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={styles.name} numberOfLines={1}>{profile?.email ?? '—'}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: roleMeta.color + '15' }]}>
+              <Text style={[styles.roleLabel, { color: roleMeta.color }]}>
+                {roleMeta.icon} {roleMeta.label}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <Row icon="🏢" label="Empresa" value={profile?.company ?? '—'} />
+      </View>
+
+      {/* Acceso supervisor */}
+      {isSupervisor && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Panel de supervisor</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/supervisor')}>
+            <Text style={styles.menuIcon}>🧑‍💼</Text>
+            <Text style={styles.menuLabel}>Panel de supervisión</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Navegación */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Accesos rápidos</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/receipts')}>
+          <Text style={styles.menuIcon}>🧾</Text>
+          <Text style={styles.menuLabel}>Mis comprobantes</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/batches')}>
+          <Text style={styles.menuIcon}>📁</Text>
+          <Text style={styles.menuLabel}>Relaciones contables</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Cerrar sesión */}
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Cerrar sesión</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.version}>GastoCheck v0.1.0</Text>
+    </ScrollView>
+  );
+}
+
+function Row({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowIcon}>{icon}</Text>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll:       { padding: 16, paddingBottom: 40 },
+  card:         { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16 },
+  avatarRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  avatar:       { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+  avatarIcon:   { fontSize: 24 },
+  name:         { fontSize: 15, fontWeight: '700', color: BRAND.navy, marginBottom: 4 },
+  roleBadge:    { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  roleLabel:    { fontSize: 12, fontWeight: '700' },
+  divider:      { height: 1, backgroundColor: '#F0F0F0', marginBottom: 12 },
+  row:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  rowIcon:      { fontSize: 16, width: 24 },
+  rowLabel:     { flex: 1, fontSize: 14, color: '#90A4AE' },
+  rowValue:     { fontSize: 14, fontWeight: '600', color: BRAND.navy },
+  section:      { backgroundColor: '#fff', borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
+  sectionTitle: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  menuItem:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
+  menuIcon:     { fontSize: 18, width: 28 },
+  menuLabel:    { flex: 1, fontSize: 15, color: BRAND.navy, fontWeight: '500' },
+  menuArrow:    { fontSize: 20, color: '#C0C0C0' },
+  logoutBtn:    { backgroundColor: '#FFEBEE', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 16 },
+  logoutText:   { color: BRAND.red, fontSize: 16, fontWeight: '700' },
+  version:      { textAlign: 'center', fontSize: 12, color: '#B0BEC5' },
+});

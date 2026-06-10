@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { computeBalance, STATUS_META, BRAND, type Expense, type Policy, type Advance } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
@@ -8,8 +9,20 @@ const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function Home() {
-  const router = useRouter();
+  const router     = useRouter();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
+
+  // Botón ⚙ en el header
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={() => router.push('/settings')} style={{ marginRight: 16 }}>
+          <Text style={{ fontSize: 22 }}>⚙️</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [advances, setAdvances] = useState<Pick<Advance, 'amount'>[]>([]);
   const [expenses, setExpenses] = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);

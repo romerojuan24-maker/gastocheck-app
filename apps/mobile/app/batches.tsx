@@ -278,11 +278,12 @@ const styles = StyleSheet.create({
   modal:         { flex: 1, backgroundColor: BRAND.gray },
   modalHeader:   {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
   },
-  modalTitle:    { fontSize: 17, fontWeight: '700', color: BRAND.navy },
-  modalCancel:   { fontSize: 15, color: '#90A4AE' },
-  modalSave:     { fontSize: 15, color: BRAND.blue, fontWeight: '700' },
+  modalTitle:    { fontSize: 16, fontWeight: '700', color: BRAND.navy },
+  modalCancel:   { fontSize: 15, color: '#90A4AE', paddingVertical: 4, paddingHorizontal: 4 },
+  modalSave:     { fontSize: 15, color: BRAND.blue, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 4 },
   modalBody:     { padding: 16, gap: 4 },
   label:         { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginTop: 12, marginBottom: 4 },
   input:         {
