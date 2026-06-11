@@ -4,6 +4,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { canTransition, nextStatus, type ExpenseAction } from '../../../packages/shared/src/status.ts';
 
+// 🟠 FIX BUG #11: Type guard para validar action
+function isValidAction(action: unknown): action is ExpenseAction {
+  return typeof action === 'string' && ['authorize', 'reject', 'submit', 'cancel'].includes(action);
+}
+
 Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(
@@ -12,15 +17,34 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } },
   );
 
-  const { expense_id, action, rejection_reason } = (await req.json()) as {
-    expense_id: string;
-    action: ExpenseAction;
+  const body = await req.json() as {
+    expense_id?: unknown;
+    action?: unknown;
     rejection_reason?: string;
+    force_reason?: string;
   };
+
+  const { expense_id, action, rejection_reason, force_reason } = body;
+
+  // 🟠 FIX BUG #11: Type safety — validar que action es un ExpenseAction válido
+  if (!expense_id || typeof expense_id !== 'string') {
+    return Response.json({ error: 'expense_id debe ser string' }, { status: 400 });
+  }
+  if (!isValidAction(action)) {
+    return Response.json({ error: 'action debe ser: authorize|reject|submit|cancel' }, { status: 400 });
+  }
 
   // Motivo de rechazo obligatorio si la acción es reject
   if (action === 'reject' && !rejection_reason?.trim()) {
     return Response.json({ error: 'rejection_reason es obligatorio al rechazar' }, { status: 400 });
+  }
+
+  // 🟠 FIX BUG #8: Validar length de force_reason si se proporciona
+  if (force_reason && force_reason.trim().length < 3) {
+    return Response.json(
+      { error: 'force_reason debe tener al menos 3 caracteres' },
+      { status: 400 },
+    );
   }
 
   const { data: { user } } = await supabase.auth.getUser();

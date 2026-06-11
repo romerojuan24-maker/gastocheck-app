@@ -70,49 +70,60 @@ export default function FleetDashboardScreen() {
         .eq('company_id', member.company_id)
         .eq('status', 'active');
 
-      // Calcular KPI por vehículo
-      const vKpis: VehicleKpi[] = [];
-      if (vehicles) {
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
+      // 🟡 FIX BUG #15: Eliminar N+1 queries — cargar todos los receipts en una sola query
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      const monthStart = startOfMonth.toISOString().slice(0, 10);
 
-        for (const v of vehicles) {
-          const { data: receipts } = await supabase
-            .from('receipts')
-            .select('total_amount')
-            .eq('vehicle_id', v.id)
-            .gte('receipt_date', startOfMonth.toISOString().slice(0, 10));
+      // Una sola query: todos los receipts del mes, agrupados por vehicle_id/operator_id
+      const { data: monthReceipts } = await supabase
+        .from('receipts')
+        .select('vehicle_id, operator_id, total_amount')
+        .eq('company_id', member.company_id)
+        .gte('receipt_date', monthStart);
 
-          const cost = (receipts ?? []).reduce((sum, r) => sum + (r.total_amount ?? 0), 0);
-          vKpis.push({
-            vehicle: v as FleetVehicle,
-            monthCost: cost,
-            receiptCount: receipts?.length ?? 0,
+      // Construir mapa de receipts por vehicle y operator
+      const vehicleReceiptMap = new Map<string, { cost: number; count: number }>();
+      const operatorReceiptMap = new Map<string, { cost: number; count: number }>();
+
+      (monthReceipts ?? []).forEach((r: any) => {
+        if (r.vehicle_id) {
+          const key = r.vehicle_id;
+          const current = vehicleReceiptMap.get(key) ?? { cost: 0, count: 0 };
+          vehicleReceiptMap.set(key, {
+            cost: current.cost + (r.total_amount ?? 0),
+            count: current.count + 1,
           });
         }
-      }
-
-      // Calcular KPI por operador
-      const oKpis: OperatorKpi[] = [];
-      if (operators) {
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-
-        for (const o of operators) {
-          const { data: receipts } = await supabase
-            .from('receipts')
-            .select('total_amount')
-            .eq('operator_id', o.id)
-            .gte('receipt_date', startOfMonth.toISOString().slice(0, 10));
-
-          const cost = (receipts ?? []).reduce((sum, r) => sum + (r.total_amount ?? 0), 0);
-          oKpis.push({
-            operator: o as FleetOperator,
-            monthCost: cost,
-            receiptCount: receipts?.length ?? 0,
+        if (r.operator_id) {
+          const key = r.operator_id;
+          const current = operatorReceiptMap.get(key) ?? { cost: 0, count: 0 };
+          operatorReceiptMap.set(key, {
+            cost: current.cost + (r.total_amount ?? 0),
+            count: current.count + 1,
           });
         }
-      }
+      });
+
+      // Calcular KPI por vehículo (sin queries adicionales)
+      const vKpis: VehicleKpi[] = (vehicles ?? []).map((v: any) => {
+        const data = vehicleReceiptMap.get(v.id) ?? { cost: 0, count: 0 };
+        return {
+          vehicle: v as FleetVehicle,
+          monthCost: data.cost,
+          receiptCount: data.count,
+        };
+      });
+
+      // Calcular KPI por operador (sin queries adicionales)
+      const oKpis: OperatorKpi[] = (operators ?? []).map((o: any) => {
+        const data = operatorReceiptMap.get(o.id) ?? { cost: 0, count: 0 };
+        return {
+          operator: o as FleetOperator,
+          monthCost: data.cost,
+          receiptCount: data.count,
+        };
+      });
 
       setVehicleKpis(vKpis.sort((a, b) => b.monthCost - a.monthCost));
       setOperatorKpis(oKpis.sort((a, b) => b.monthCost - a.monthCost));

@@ -96,6 +96,32 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 🟡 FIX BUG #18: Validar montos — no permitir negativos ni NaN
+    if (total_amount !== null && total_amount !== undefined) {
+      if (!Number.isFinite(total_amount) || total_amount < 0) {
+        return Response.json(
+          { error: 'total_amount debe ser un número positivo válido' },
+          { status: 400, headers: CORS },
+        );
+      }
+    }
+    if (subtotal_amount !== null && subtotal_amount !== undefined) {
+      if (!Number.isFinite(subtotal_amount) || subtotal_amount < 0) {
+        return Response.json(
+          { error: 'subtotal_amount debe ser un número positivo válido' },
+          { status: 400, headers: CORS },
+        );
+      }
+    }
+    if (tax_amount !== null && tax_amount !== undefined) {
+      if (!Number.isFinite(tax_amount) || tax_amount < 0) {
+        return Response.json(
+          { error: 'tax_amount debe ser un número positivo válido' },
+          { status: 400, headers: CORS },
+        );
+      }
+    }
+
     // ── 1. Verificar duplicados ──────────────────────────────────────────────
     let duplicateStatus: string = 'no_duplicate';
     let shouldBlock: boolean = false;

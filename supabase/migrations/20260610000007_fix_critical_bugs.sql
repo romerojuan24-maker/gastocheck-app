@@ -46,5 +46,20 @@ CREATE TRIGGER trg_supplier_no_cycle
   FOR EACH ROW
   EXECUTE FUNCTION validate_supplier_no_cycle();
 
+-- BUG #9: FIX - Agregar RLS policy para SAT validation (supervisores pueden validar)
+CREATE POLICY "Supervisores pueden validar SAT"
+  ON receipts
+  FOR UPDATE
+  USING (
+    company_id IN (
+      SELECT company_id FROM company_members WHERE user_id = auth.uid() AND role IN ('supervisor', 'admin')
+    )
+  )
+  WITH CHECK (
+    company_id IN (
+      SELECT company_id FROM company_members WHERE user_id = auth.uid() AND role IN ('supervisor', 'admin')
+    )
+  );
+
 -- BUG #20: Agregar nota en whatsapp messages sobre image handling (documentación)
 COMMENT ON TABLE notifications IS 'Notificaciones en-app; whatsapp-webhook debe descargar imágenes y llamar ocr-extract';

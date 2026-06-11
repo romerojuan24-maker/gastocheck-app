@@ -54,18 +54,83 @@ Deno.serve(async (req) => {
 
     // Si es imagen
     if (message.type === 'image' && message.image?.id) {
-      // TODO:
-      // 1. Descargar imagen desde Meta
-      // 2. Llamar a ocr-extract
-      // 3. Detectar proveedor
-      // 4. Sugerir categoría
-      // 5. Responder con preview y pedir confirmación
-      // Por ahora: log
+      try {
+        // 🟡 FIX BUG #20: Implementar descarga de imagen y procesamiento
+        await sendWhatsAppMessage(from, '📸 Foto recibida. Analizando...');
 
-      console.log(`Imagen recibida de ${from}: ${message.image.id}`);
+        // 1. Descargar imagen desde Meta
+        const imageUrl = `https://graph.instagram.com/v18.0/${message.image.id}`;
+        const imageRes = await fetch(imageUrl, {
+          headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` },
+        });
 
-      // Responder
-      await sendWhatsAppMessage(from, '📸 Foto recibida. Analizando...');
+        if (!imageRes.ok) {
+          console.error('Image download failed:', imageRes.status);
+          await sendWhatsAppMessage(from, '❌ Error descargando imagen. Intenta de nuevo.');
+          return Response.json({ ok: true }, { headers: CORS });
+        }
+
+        // 2. Obtener URL descargable de la imagen
+        const imageData: any = await imageRes.json();
+        const downloadUrl = imageData.url;
+
+        if (!downloadUrl) {
+          await sendWhatsAppMessage(from, '❌ No se pudo obtener la URL de imagen.');
+          return Response.json({ ok: true }, { headers: CORS });
+        }
+
+        // 3. Descargar contenido binario
+        const fileRes = await fetch(downloadUrl, {
+          headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` },
+        });
+
+        if (!fileRes.ok) {
+          await sendWhatsAppMessage(from, '❌ Error descargando archivo. Intenta de nuevo.');
+          return Response.json({ ok: true }, { headers: CORS });
+        }
+
+        const buffer = await fileRes.arrayBuffer();
+        const base64Image = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+
+        // 4. Llamar a ocr-extract para procesar imagen
+        const ocrRes = await fetch(`${SUPABASE_URL}/functions/v1/ocr-extract`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE}`,
+          },
+          body: JSON.stringify({
+            image_base64: base64Image,
+            source_type: 'photo',
+            whatsapp_number: from,
+          }),
+        });
+
+        if (ocrRes.ok) {
+          const ocrData = await ocrRes.json();
+          const provider = ocrData?.provider_name ?? 'Proveedor desconocido';
+          const amount = ocrData?.total_amount ?? '?';
+
+          // 5. Responder con resultado
+          await sendWhatsAppMessage(
+            from,
+            `✅ *Análisis completado*\n\n` +
+            `🏪 Proveedor: ${provider}\n` +
+            `💰 Monto: $${amount}\n\n` +
+            `Abre tu app GastoCheck para confirmar y enviar.`
+          );
+        } else {
+          console.error('OCR failed:', ocrRes.status);
+          await sendWhatsAppMessage(
+            from,
+            `⚠️ La foto no tiene formato de comprobante legible.\n` +
+            `Intenta con un ángulo mejor o mejor iluminación.`
+          );
+        }
+      } catch (err: any) {
+        console.error('Image processing error:', err);
+        await sendWhatsAppMessage(from, '❌ Error procesando imagen. Intenta de nuevo.');
+      }
     }
 
     // Si es texto
