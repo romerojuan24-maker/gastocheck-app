@@ -158,6 +158,11 @@ export default function SettingsScreen() {
       {isFleet && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🚛 Flotillas y Reparto</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/fleet-dashboard')}>
+            <Text style={styles.menuIcon}>📊</Text>
+            <Text style={styles.menuLabel}>Dashboard Flotilla</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/fleet-vehicles')}>
             <Text style={styles.menuIcon}>🚗</Text>
             <Text style={styles.menuLabel}>Mis vehículos</Text>
