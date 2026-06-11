@@ -4,9 +4,13 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { BRAND, isFleetSector } from '@gastocheck/shared';
 import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+
+// ── Versión de este OTA (incrementar con cada eas update) ─────────────────────
+const OTA_VERSION = 'OTA 1 · v1.0.1';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 
@@ -219,7 +223,18 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
-      <Text style={styles.version}>GastoCheck v0.1.0</Text>
+      {/* Versión OTA — actualizar OTA_VERSION con cada eas update */}
+      <View style={styles.versionBox}>
+        <Text style={styles.versionMain}>GastoCheck</Text>
+        <Text style={styles.versionOta}>{OTA_VERSION}</Text>
+        {Updates.updateId ? (
+          <Text style={styles.versionId}>
+            ID: {Updates.updateId.slice(0, 8)}…
+          </Text>
+        ) : (
+          <Text style={styles.versionId}>Build local / dev</Text>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -256,6 +271,9 @@ const styles = StyleSheet.create({
   menuArrow:    { fontSize: 20, color: '#C0C0C0' },
   logoutBtn:    { backgroundColor: '#FFEBEE', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 16 },
   logoutText:   { color: BRAND.red, fontSize: 16, fontWeight: '700' },
-  version:      { textAlign: 'center', fontSize: 12, color: '#B0BEC5' },
+  versionBox:   { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
+  versionMain:  { fontSize: 13, fontWeight: '700', color: '#90A4AE' },
+  versionOta:   { fontSize: 16, fontWeight: '800', color: BRAND.blue, marginTop: 2 },
+  versionId:    { fontSize: 10, color: '#B0BEC5', marginTop: 4, fontFamily: 'monospace' },
   connUrl:      { fontSize: 11, color: '#90A4AE', marginTop: 2 },
 });
