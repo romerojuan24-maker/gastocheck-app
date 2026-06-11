@@ -1,35 +1,43 @@
-// QR Scanner para CFDI — extrae UUID fiscal rápidamente
-import { useState } from 'react';
+// QR Scanner completo con expo-camera
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { BRAND } from '@gastocheck/shared';
-
-// TODO: Integrar expo-camera para preview real
-// Por ahora: placeholder con explicación del flujo
 
 const QR_UUID_PATTERN = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i;
 
 export default function QrScannerScreen() {
   const router = useRouter();
-  const [scanning, setScanning] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
   const [detected, setDetected] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
 
-  function handleQrDetected(data: string) {
-    // Extraer UUID si está en el QR
+  useEffect(() => {
+    if (!permission?.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
+
+  function handleQrScanned(data: string) {
+    if (scanned) return;
+
     const match = data.match(QR_UUID_PATTERN);
     if (match) {
+      setScanned(true);
       setDetected(match[0]);
+
       Alert.alert(
         '✅ UUID detectado',
         match[0],
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cancelar', onPress: () => setScanned(false) },
           {
-            text: 'Usar este UUID',
+            text: 'Usar',
             onPress: () => {
-              // Navegar a capture con UUID pre-llenado
               router.push({
                 pathname: '/capture',
                 params: { fiscal_uuid: match[0] },
@@ -39,86 +47,99 @@ export default function QrScannerScreen() {
         ],
       );
     } else {
-      Alert.alert('⚠️ No se detectó UUID', 'El código QR no contiene un UUID fiscal válido');
+      Alert.alert('⚠️ No se detectó UUID', 'QR no contiene UUID fiscal válido');
     }
+  }
+
+  if (!permission) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={BRAND.blue} />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Permiso de cámara requerido</Text>
+        </View>
+        <View style={styles.message}>
+          <Text style={styles.messageText}>
+            GastoCheck necesita acceso a la cámara para escanear códigos QR.
+          </Text>
+          <TouchableOpacity style={styles.btn} onPress={requestPermission}>
+            <Text style={styles.btnText}>Permitir cámara</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Escanear QR CFDI</Text>
-        <Text style={styles.subtitle}>Apunta a la esquina del ticket con QR fiscal</Text>
-      </View>
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'],
+        }}
+        onBarcodeScanned={({ data }) => handleQrScanned(data)}
+      />
 
-      {/* Placeholder: en producción sería Camera de expo-camera */}
-      <View style={styles.cameraPlaceholder}>
-        <Text style={styles.placeholderIcon}>📷</Text>
-        <Text style={styles.placeholderText}>Cámara QR</Text>
-        <Text style={styles.placeholderHint}>
-          Integración con expo-camera — extrae UUID del QR en 100ms
-        </Text>
+      {/* Overlay con instrucciones */}
+      <View style={styles.overlay}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Escanear QR CFDI</Text>
+        </View>
+
+        <View style={styles.guide}>
+          <View style={styles.guideScanArea} />
+          <Text style={styles.guideText}>Apunta al código QR del ticket</Text>
+        </View>
 
         {detected && (
           <View style={styles.detectedBox}>
-            <Text style={styles.detectedLabel}>UUID detectado:</Text>
-            <Text style={styles.detectedUuid}>{detected}</Text>
+            <Text style={styles.detectedLabel}>UUID: {detected.slice(0, 8)}...</Text>
           </View>
         )}
-      </View>
 
-      {scanning && (
-        <View style={styles.scanningOverlay}>
-          <ActivityIndicator size="large" color={BRAND.blue} />
-          <Text style={styles.scanningText}>Escaneando...</Text>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+            <Text style={styles.cancelText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.manualBtn} onPress={() => router.back()}>
+            <Text style={styles.manualText}>Capturar manual</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
-          <Text style={styles.cancelText}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.manualBtn} onPress={() => router.back()}>
-          <Text style={styles.manualText}>Capturar manual</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.info}>
-        <Text style={styles.infoTitle}>ℹ️ ¿Cómo usar?</Text>
-        <Text style={styles.infoText}>
-          1. Abre el ticket con el código QR fiscal{'\n'}
-          2. Apunta la cámara al QR{'\n'}
-          3. El sistema extrae el UUID automáticamente{'\n'}
-          4. Confirma y el resto se llena solo
-        </Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:         { flex: 1, backgroundColor: BRAND.gray, padding: 16 },
-  header:            { marginBottom: 20 },
-  title:             { fontSize: 24, fontWeight: '800', color: BRAND.navy },
-  subtitle:          { fontSize: 14, color: '#90A4AE', marginTop: 4 },
-  cameraPlaceholder: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 24,
-    alignItems: 'center', justifyContent: 'center', minHeight: 300,
-    marginBottom: 16, borderWidth: 2, borderColor: BRAND.blue, borderDashPattern: [5, 5],
+  container:      { flex: 1, backgroundColor: '#000' },
+  center:         { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  camera:         { flex: 1 },
+  overlay:        { position: 'absolute', inset: 0, justifyContent: 'space-between', padding: 16 },
+  header:         { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 12 },
+  title:          { fontSize: 18, fontWeight: '700', color: '#fff' },
+  guide:          { alignItems: 'center', justifyContent: 'center' },
+  guideScanArea:  {
+    width: 250, height: 250, borderWidth: 2, borderColor: BRAND.blue,
+    borderRadius: 12, marginBottom: 16,
   },
-  placeholderIcon:   { fontSize: 64, marginBottom: 12 },
-  placeholderText:   { fontSize: 16, fontWeight: '700', color: BRAND.navy },
-  placeholderHint:   { fontSize: 12, color: '#90A4AE', marginTop: 8, textAlign: 'center' },
-  detectedBox:       { backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginTop: 16, width: '100%' },
-  detectedLabel:     { fontSize: 12, fontWeight: '700', color: '#2E7D32' },
-  detectedUuid:      { fontSize: 13, color: '#388E3C', marginTop: 4, fontFamily: 'monospace' },
-  scanningOverlay:   { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
-  scanningText:      { marginTop: 12, color: '#fff', fontSize: 14, fontWeight: '600' },
-  actions:           { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  cancelBtn:         { flex: 1, backgroundColor: '#FFEBEE', borderRadius: 12, padding: 14, alignItems: 'center' },
-  cancelText:        { color: BRAND.red, fontSize: 15, fontWeight: '700' },
-  manualBtn:         { flex: 1, backgroundColor: BRAND.blue, borderRadius: 12, padding: 14, alignItems: 'center' },
-  manualText:        { color: '#fff', fontSize: 15, fontWeight: '700' },
-  info:              { backgroundColor: '#fff', borderRadius: 12, padding: 14 },
-  infoTitle:         { fontSize: 13, fontWeight: '700', color: BRAND.navy, marginBottom: 8 },
-  infoText:          { fontSize: 12, color: '#90A4AE', lineHeight: 18 },
+  guideText:      { fontSize: 14, color: '#fff', fontWeight: '600' },
+  detectedBox:    { backgroundColor: 'rgba(67, 160, 71, 0.9)', borderRadius: 8, padding: 12, marginBottom: 16 },
+  detectedLabel:  { fontSize: 12, color: '#fff', fontWeight: '700' },
+  actions:        { flexDirection: 'row', gap: 8 },
+  cancelBtn:      { flex: 1, backgroundColor: 'rgba(229, 57, 53, 0.8)', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
+  cancelText:     { color: '#fff', fontSize: 14, fontWeight: '700' },
+  manualBtn:      { flex: 1, backgroundColor: 'rgba(21, 101, 192, 0.8)', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
+  manualText:     { color: '#fff', fontSize: 14, fontWeight: '700' },
+  message:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 24, justifyContent: 'center', alignItems: 'center' },
+  messageText:    { color: '#fff', fontSize: 14, marginBottom: 16, textAlign: 'center', lineHeight: 20 },
+  btn:            { backgroundColor: BRAND.blue, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24 },
+  btnText:        { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

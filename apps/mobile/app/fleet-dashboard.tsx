@@ -1,10 +1,14 @@
-// Fleet dashboard — KPI de vehículos, operadores, rutas
+// Fleet dashboard — KPI + alertas inteligentes (robo combustible, mantenimiento)
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, ScrollView,
 } from 'react-native';
-import { BRAND, isFleetSector, vehicleDisplayName, VEHICLE_STATUS_META } from '@gastocheck/shared';
+import {
+  BRAND, isFleetSector, vehicleDisplayName, VEHICLE_STATUS_META,
+  detectFuelTheft, predictMaintenance,
+  type FuelAlert,
+} from '@gastocheck/shared';
 import type { FleetVehicle, FleetOperator } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
@@ -30,6 +34,7 @@ export default function FleetDashboardScreen() {
   const [operatorKpis, setOperatorKpis] = useState<OperatorKpi[]>([]);
   const [totalCost,    setTotalCost]    = useState(0);
   const [totalReceipts,setTotalReceipts]= useState(0);
+  const [alerts,       setAlerts]       = useState<FuelAlert[]>([]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -113,6 +118,31 @@ export default function FleetDashboardScreen() {
       setOperatorKpis(oKpis.sort((a, b) => b.monthCost - a.monthCost));
       setTotalCost(vKpis.reduce((s, v) => s + v.monthCost, 0));
       setTotalReceipts(vKpis.reduce((s, v) => s + v.receiptCount, 0));
+
+      // Calcular alertas
+      const allAlerts: FuelAlert[] = [];
+      for (const vk of vKpis) {
+        // Detectar robo de combustible (mock: comparar vs promedio)
+        const avgKmPerLiter = 8; // estimado
+        const currentKmPerLiter = (vk.receiptCount > 0 ? vk.monthCost / vk.receiptCount : 0) / 100;
+        const fuelAlert = detectFuelTheft(avgKmPerLiter, currentKmPerLiter);
+        if (fuelAlert) {
+          fuelAlert.vehicle_id = vk.vehicle.id;
+          allAlerts.push(fuelAlert);
+        }
+
+        // Mantenimiento preventivo
+        const maintenanceAlerts = predictMaintenance(
+          vk.vehicle.current_km ?? 0,
+          vk.vehicle.last_oil_change_km ?? 0,
+          vk.vehicle.last_inspection_km ?? 0,
+        );
+        maintenanceAlerts.forEach((ma) => {
+          ma.vehicle_id = vk.vehicle.id;
+          allAlerts.push(ma);
+        });
+      }
+      setAlerts(allAlerts);
     } finally {
       setLoading(false);
     }
@@ -128,6 +158,34 @@ export default function FleetDashboardScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: BRAND.gray }}>
+      {/* Alertas críticas */}
+      {alerts.length > 0 && (
+        <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4 }}>
+          <Text style={styles.sectionTitle}>🚨 Alertas activas</Text>
+          {alerts.slice(0, 3).map((alert, i) => (
+            <View
+              key={i}
+              style={[
+                styles.alertCard,
+                {
+                  borderLeftColor:
+                    alert.severity === 'high'
+                      ? '#C62828'
+                      : alert.severity === 'medium'
+                      ? BRAND.orange
+                      : '#1565C0',
+                },
+              ]}
+            >
+              <Text style={styles.alertTitle}>{alert.message}</Text>
+              <Text style={styles.alertHint}>
+                {alert.recommendations[0] ?? 'Revisar'}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Resumen */}
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
@@ -209,4 +267,7 @@ const styles = StyleSheet.create({
   kpiBar:        { height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
   kpiBarFill:    { height: '100%', backgroundColor: BRAND.green, borderRadius: 3 },
   kpiMeta:       { fontSize: 12, color: '#90A4AE' },
+  alertCard:     { backgroundColor: '#fff', borderRadius: 10, borderLeftWidth: 4, padding: 12, marginBottom: 8 },
+  alertTitle:    { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 4 },
+  alertHint:     { fontSize: 11, color: '#90A4AE' },
 });

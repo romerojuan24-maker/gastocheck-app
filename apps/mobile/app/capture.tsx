@@ -1,5 +1,5 @@
-// Captura de comprobante: foto → OCR → verificación duplicados → guardar
-import { useState } from 'react';
+// Captura de comprobante: foto → OCR → verificación duplicados → guardar (con offline sync)
+import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
   ScrollView, Image, TextInput, Alert, Modal,
@@ -15,6 +15,8 @@ import {
   VEHICLE_TYPE_ICONS, vehicleDisplayName, suggestCategoryFromProvider,
   type DuplicateStatus, type OcrResult, type FleetVehicle, type FleetOperator,
 } from '@gastocheck/shared';
+import { enqueueOffline, startOfflineMonitor } from '../lib/offline-sync';
+import { setupNotifications } from '../lib/notifications';
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
 
@@ -40,6 +42,13 @@ interface DuplicateResult {
 export default function CaptureScreen() {
   const router = useRouter();
   const { extractFromImage, loading: ocrLoading } = useOcr();
+
+  // Setup offline sync monitor
+  useEffect(() => {
+    const unsubscribe = startOfflineMonitor();
+    setupNotifications();
+    return unsubscribe;
+  }, []);
 
   const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
   const [extracted,  setExtracted]  = useState<OcrResult | null>(null);
@@ -347,6 +356,32 @@ export default function CaptureScreen() {
       );
 
       const submitData = await submitRes.json();
+
+      // Si falla pero estamos offline, encolador
+      if (!submitRes.ok && submitRes.status >= 500) {
+        await enqueueOffline('receipt', 'create', {
+          company_id: policy.company_id,
+          policy_id: policy.id,
+          employee_id: user.id,
+          source_type: isXml ? 'xml' : 'photo',
+          provider_name: proveedor || null,
+          provider_rfc: rfc || null,
+          receipt_date: fecha || new Date().toISOString().slice(0, 10),
+          total_amount: parseFloat(total) || null,
+          subtotal_amount: parseFloat(subtotal) || null,
+          tax_amount: parseFloat(iva) || null,
+          fiscal_uuid: extracted?.fiscalUuid ?? null,
+          internal_folio: folio || null,
+          vehicle_id: vehicleId ?? null,
+          operator_id: operatorId ?? null,
+        });
+        Alert.alert(
+          '📱 Guardado offline',
+          'Sin conexión. Se sincronizará automáticamente cuando se reconecte.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+        return;
+      }
 
       // Si está bloqueado por duplicado exacto (UUID o hash)
       if (!submitRes.ok && submitData.blocked) {

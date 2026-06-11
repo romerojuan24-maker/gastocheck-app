@@ -8,6 +8,7 @@ export * from './duplicates';
 export * from './categories';
 export * from './batches';
 export * from './export';
+export * from './fleet-alerts';
 
 // Tokens de marca GastoCheck
 export const BRAND = {
