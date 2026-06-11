@@ -28,6 +28,19 @@ Deno.serve(async (req) => {
     const { xml, expense_id } = (await req.json()) as { xml: string; expense_id?: string };
     if (!xml) return Response.json({ error: 'xml requerido' }, { status: 400 });
 
+    // 🔒 FIX BUG #3: XXE Protection — rechaza XML con entity declarations
+    if (
+      xml.includes('<!ENTITY') ||
+      xml.includes('SYSTEM') ||
+      xml.includes('PUBLIC') ||
+      xml.includes('<!DOCTYPE')
+    ) {
+      return Response.json(
+        { error: 'XML malformado: declaraciones de entidad no permitidas' },
+        { status: 422 },
+      );
+    }
+
     const data = parseCfdiXml(xml);
     const warnings: string[] = [];
 

@@ -287,6 +287,12 @@ Deno.serve(async (req) => {
       suggestedCategory = suggestCategoryFromProvider(provider_name);
     }
 
+    // 🔴 FIX BUG #1: Remover category_name (no existe en schema expenses)
+    // Guardar categoría sugerida en notes en su lugar
+    const notesWithCategory = suggestedCategory
+      ? `[AUTO_CATEGORY: ${suggestedCategory}] ${notes || ''}`.trim()
+      : notes || null;
+
     const { data: expense, error: expErr } = await supabase
       .from('expenses')
       .insert({
@@ -301,9 +307,8 @@ Deno.serve(async (req) => {
         total:         total_amount ?? 0,
         expense_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
         category_id:   category_id ?? null,
-        category_name: suggestedCategory ?? null,
         cost_center_id: cost_center_id ?? null,
-        notes:         notes ?? null,
+        notes:         notesWithCategory,
         status:        'captured',
       })
       .select('id')

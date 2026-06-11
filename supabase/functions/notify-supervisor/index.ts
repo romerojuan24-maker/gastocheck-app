@@ -26,9 +26,20 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
-    const input: NotifyInput = await req.json();
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const supabaseUser = createClient(
+      SUPABASE_URL,
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser();
+    if (authErr || !user) {
+      return Response.json({ error: 'No autenticado' }, { status: 401, headers: CORS });
+    }
 
+    // 🟠 FIX BUG #10: Validar que usuario es miembro de la empresa
+    const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const input: NotifyInput = await req.json();
     const { company_id, type, title, message, data, recipient_id } = input;
 
     if (!company_id || !type || !title) {
@@ -36,6 +47,18 @@ Deno.serve(async (req) => {
         { error: 'company_id, type, title are required' },
         { status: 400, headers: CORS },
       );
+    }
+
+    // Validar acceso a empresa
+    const { data: member } = await supabase
+      .from('company_members')
+      .select('role')
+      .eq('company_id', company_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!member) {
+      return Response.json({ error: 'No member of company' }, { status: 403, headers: CORS });
     }
 
     let recipients: string[] = [];

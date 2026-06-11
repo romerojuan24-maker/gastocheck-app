@@ -55,7 +55,10 @@ export default function LoginScreen() {
         .insert({ name: company.trim() })
         .select('id')
         .single();
-      if (compErr) throw compErr;
+      if (compErr || !compData?.id) {
+        // 🔴 FIX BUG #22: Validar que company se creó correctamente
+        throw new Error(compErr?.message ?? 'No se pudo crear la empresa');
+      }
 
       // 3. Agregar usuario como admin de la empresa
       const { error: memberErr } = await supabase

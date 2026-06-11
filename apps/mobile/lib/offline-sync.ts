@@ -92,11 +92,14 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
       }
     }
 
-    // Limpiar cola completada
-    if (synced > 0) {
-      const remaining = queue.slice(synced);
-      await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+    // 🔴 FIX BUG #2: Race condition — rastrear IDs sinced, no índices
+    // slice(synced) asume orden, pero fallos parciales rompen esto
+    const syncedIds = new Set<string>();
+    for (let i = 0; i < queue.length && i < synced; i++) {
+      syncedIds.add(queue[i].id);
     }
+    const remaining = queue.filter((q) => !syncedIds.has(q.id));
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
 
     return { synced, failed };
   } catch (err) {
