@@ -281,6 +281,12 @@ Deno.serve(async (req) => {
     }
 
     // ── 7. Crear expense en el ledger de la póliza ───────────────────────────
+    // Auto-categorizar si no hay categoría especificada
+    let suggestedCategory: string | null = null;
+    if (!category_id && provider_name) {
+      suggestedCategory = suggestCategoryFromProvider(provider_name);
+    }
+
     const { data: expense, error: expErr } = await supabase
       .from('expenses')
       .insert({
@@ -295,6 +301,7 @@ Deno.serve(async (req) => {
         total:         total_amount ?? 0,
         expense_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
         category_id:   category_id ?? null,
+        category_name: suggestedCategory ?? null,
         cost_center_id: cost_center_id ?? null,
         notes:         notes ?? null,
         status:        'captured',
@@ -343,6 +350,34 @@ Deno.serve(async (req) => {
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Mapeo proveedor → categoría (de shared/src/categories.ts)
+const PROVIDER_CATEGORY_MAP: [string, string][] = [
+  ['PEMEX',           'Combustible'],
+  ['PETRO',           'Combustible'],
+  ['OXXO',            'Combustible'],
+  ['SHELL',           'Combustible'],
+  ['MOBIL',           'Combustible'],
+  ['AUTOZONE',        'Refacciones'],
+  ['REFACCION',       'Refacciones'],
+  ['NAPA ',           'Refacciones'],
+  ['LLANTERA',        'Llantas'],
+  ['CAPUFE',          'Casetas / Peajes'],
+  ['FARMACIA',        'Médicos / Farmacia'],
+  ['BENAVIDES',       'Médicos / Farmacia'],
+  ['HOTEL',           'Hospedaje'],
+  ['WALMART',         'Papelería / Oficina'],
+  ['SORIANA',         'Alimentos'],
+];
+
+function suggestCategoryFromProvider(providerName: string): string | null {
+  if (!providerName) return null;
+  const upper = providerName.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const [pattern, category] of PROVIDER_CATEGORY_MAP) {
+    if (upper.includes(pattern)) return category;
+  }
+  return null;
+}
 
 function normalizeProvider(name: string): string {
   return name

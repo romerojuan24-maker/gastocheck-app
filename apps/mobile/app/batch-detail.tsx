@@ -1,4 +1,4 @@
-// Detalle de relación contable — ver comprobantes, agregar/quitar, cerrar, exportar
+// Detalle de relación contable — ver comprobantes, agregar/quitar, cerrar, exportar, validar SAT
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
@@ -7,6 +7,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BRAND, BATCH_STATUS_META, RECEIPT_STATUS_META, DUPLICATE_STATUS_META,
+  EXPORT_FORMAT_META, type ExportFormat,
   canAddReceiptToBatch, canCloseBatch, canReopenBatch, canExportBatch,
   canRemoveReceiptFromBatch, summarizeBatch,
 } from '@gastocheck/shared';
@@ -56,8 +57,12 @@ export default function BatchDetailScreen() {
   const [showAdd,   setShowAdd]   = useState(false);
   const [available, setAvailable] = useState<AvailableReceipt[]>([]);
   const [loadingAv, setLoadingAv] = useState(false);
-  const [reopenReason, setReopenReason] = useState('');
-  const [showReopen, setShowReopen]     = useState(false);
+  const [reopenReason,    setReopenReason]    = useState('');
+  const [showReopen,      setShowReopen]      = useState(false);
+  const [validatingSat,   setValidatingSat]   = useState(false);
+  const [showExport,      setShowExport]      = useState(false);
+  const [exportFormat,    setExportFormat]    = useState<ExportFormat>('universal_excel');
+  const [exporting,       setExporting]       = useState(false);
 
   // ── Cargar datos ──────────────────────────────────────────────────────────
 
@@ -161,27 +166,125 @@ export default function BatchDetailScreen() {
     ]);
   }
 
+  // ── Validar contra SAT ────────────────────────────────────────────────────
+
+  async function validateBatchSat() {
+    if (!batch_id) return;
+    setValidatingSat(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        Alert.alert('Sin sesión', 'Inicia sesión nuevamente');
+        return;
+      }
+
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/validate-batch-sat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            batch_id,
+            company_id: batch?.id,
+          }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        Alert.alert('Error validación', data.error ?? 'No se pudo validar contra SAT');
+        return;
+      }
+
+      const msg = `✅ ${data.validated_count} comprobantes validados` +
+        (data.blocked?.length > 0 ? `\n⚠️ ${data.blocked.length} bloqueados` : '');
+      Alert.alert('Validación SAT', msg);
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setValidatingSat(false);
+    }
+  }
+
   // ── Cerrar relación ───────────────────────────────────────────────────────
 
   async function closeBatch() {
     Alert.alert(
       'Cerrar relación',
-      'Al cerrar no se podrán agregar más comprobantes. ¿Continuar?',
+      'Se validarán todos los comprobantes contra SAT antes de cerrar. ¿Continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Cerrar',
           onPress: async () => {
             setBusy(true);
-            await supabase.from('receipt_batches')
-              .update({ status: 'closed', closed_at: new Date().toISOString() })
-              .eq('id', batch_id);
-            setBusy(false);
-            loadBatch();
+            try {
+              // Validar primero
+              await validateBatchSat();
+              // Luego cerrar
+              await supabase.from('receipt_batches')
+                .update({ status: 'closed', closed_at: new Date().toISOString() })
+                .eq('id', batch_id);
+              loadBatch();
+            } finally {
+              setBusy(false);
+            }
           },
         },
       ],
     );
+  }
+
+  // ── Exportar ─────────────────────────────────────────────────────────────
+
+  async function triggerExport() {
+    if (!batch) return;
+    setExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        Alert.alert('Sin sesión', 'Inicia sesión nuevamente');
+        return;
+      }
+
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/generate-export`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            company_id: batch.id,
+            batch_id: batch_id,
+            format: exportFormat,
+          }),
+        },
+      );
+
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? 'Error exportando');
+
+      // Descargar (en móvil: compartir o guardar)
+      const base64 = json.content;
+      const bin = atob(base64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+
+      Alert.alert(
+        '✓ Exportación lista',
+        `${json.row_count} comprobantes en ${json.filename}.\n\nEn web puedes descargar directamente.`,
+      );
+      setShowExport(false);
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setExporting(false);
+    }
   }
 
   // ── Reabrir relación ─────────────────────────────────────────────────────
@@ -280,9 +383,20 @@ export default function BatchDetailScreen() {
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: BRAND.green }]}
               onPress={closeBatch}
-              disabled={busy}
+              disabled={busy || validatingSat}
             >
               <Text style={styles.actionBtnText}>✓ Cerrar</Text>
+            </TouchableOpacity>
+          )}
+          {batch.status === 'open' && receipts.length > 0 && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: '#1565C0' }]}
+              onPress={validateBatchSat}
+              disabled={validatingSat}
+            >
+              <Text style={styles.actionBtnText}>
+                {validatingSat ? '⏳ SAT...' : '🔐 Validar SAT'}
+              </Text>
             </TouchableOpacity>
           )}
           {canReopen && (
@@ -296,7 +410,7 @@ export default function BatchDetailScreen() {
           {canExport && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: '#7B1FA2' }]}
-              onPress={() => Alert.alert('Exportar', 'Usa el panel web para exportar con formato CONTPAQi, Aspel o Excel.')}
+              onPress={() => setShowExport(true)}
             >
               <Text style={styles.actionBtnText}>📤 Exportar</Text>
             </TouchableOpacity>
@@ -417,6 +531,55 @@ export default function BatchDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal: Exportar */}
+      <Modal visible={showExport} animationType="slide" transparent onRequestClose={() => setShowExport(false)}>
+        <View style={styles.reopenOverlay}>
+          <View style={styles.reopenCard}>
+            <Text style={styles.reopenTitle}>Exportar relación</Text>
+            <Text style={{ fontSize: 13, color: '#90A4AE', marginBottom: 12 }}>
+              Elige el formato contable
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {(Object.keys(EXPORT_FORMAT_META) as ExportFormat[]).map((fmt) => {
+                const m = EXPORT_FORMAT_META[fmt];
+                return (
+                  <TouchableOpacity
+                    key={fmt}
+                    style={[
+                      styles.exportOption,
+                      exportFormat === fmt && { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+                    ]}
+                    onPress={() => setExportFormat(fmt)}
+                  >
+                    <Text style={[
+                      styles.exportOptionText,
+                      exportFormat === fmt && { color: '#fff' },
+                    ]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.reopenBtns}>
+              <TouchableOpacity onPress={() => setShowExport(false)} disabled={exporting}>
+                <Text style={{ color: '#90A4AE', fontSize: 15 }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#7B1FA2' }, exporting && { opacity: 0.6 }]}
+                onPress={triggerExport}
+                disabled={exporting}
+              >
+                <Text style={styles.actionBtnText}>
+                  {exporting ? '⏳ Exportando...' : '📤 Exportar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -473,4 +636,6 @@ const styles = StyleSheet.create({
     padding: 12, fontSize: 14, color: BRAND.navy, minHeight: 70,
   },
   reopenBtns:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  exportOption:    { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginRight: 8 },
+  exportOptionText:{ fontSize: 12, fontWeight: '600', color: BRAND.navy },
 });
