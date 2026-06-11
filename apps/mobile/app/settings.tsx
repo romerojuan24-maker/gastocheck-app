@@ -147,6 +147,11 @@ export default function SettingsScreen() {
           <Text style={styles.menuLabel}>Relaciones contables</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/advance-request')}>
+          <Text style={styles.menuIcon}>💸</Text>
+          <Text style={styles.menuLabel}>Mis solicitudes de anticipo</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Vertical Flotillas */}

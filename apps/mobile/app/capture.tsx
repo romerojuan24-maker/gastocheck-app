@@ -6,12 +6,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import { supabase } from '../lib/supabase';
 import {
   BRAND, DUPLICATE_STATUS_META, isFleetSector,
-  VEHICLE_TYPE_ICONS, vehicleDisplayName,
+  VEHICLE_TYPE_ICONS, vehicleDisplayName, suggestCategoryFromProvider,
   type DuplicateStatus, type OcrResult, type FleetVehicle, type FleetOperator,
 } from '@gastocheck/shared';
 
@@ -54,10 +55,16 @@ export default function CaptureScreen() {
   const [fecha,      setFecha]      = useState('');
   const [folio,      setFolio]      = useState('');
 
+  // Fuente: foto o XML
+  const [isXml,      setIsXml]      = useState(false);
+
   // Anti-duplicados
   const [dupResult,  setDupResult]  = useState<DuplicateResult | null>(null);
   const [showDupModal, setShowDupModal] = useState(false);
   const [forceReason,  setForceReason] = useState('');
+
+  // Auto-categoría sugerida por proveedor
+  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
   // Fleet (se activa si company.sector es flotillas/transportistas/distribucion)
   const [isFleet,    setIsFleet]    = useState(false);
@@ -103,15 +110,110 @@ export default function CaptureScreen() {
       const result = await extractFromImage(asset.base64, 'image/jpeg');
       if (result) {
         setExtracted(result);
-        setProveedor(result.providerName   ?? '');
+        const prov = result.providerName ?? '';
+        setProveedor(prov);
         setRfc(      result.providerRfc    ?? '');
         setTotal(    String(result.total   ?? ''));
         setSubtotal( String(result.subtotal ?? ''));
         setIva(      String(result.tax     ?? ''));
         setFecha(    result.receiptDate    ?? '');
         setFolio(    result.internalFolio  ?? '');
+        setSuggestedCategory(suggestCategoryFromProvider(prov));
         setStep('confirm');
       }
+    }
+  }
+
+  // ── Subir XML/CFDI ─────────────────────────────────────────────────────────
+
+  async function handleXmlUpload() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/xml', 'application/xml', 'text/plain', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const file = result.assets[0];
+      if (!file.name?.toLowerCase().endsWith('.xml')) {
+        Alert.alert('Archivo no válido', 'Selecciona un archivo XML (CFDI)');
+        return;
+      }
+
+      // Leer contenido del archivo
+      const fileRes = await fetch(file.uri);
+      const xmlText = await fileRes.text();
+
+      if (!xmlText.trim().startsWith('<')) {
+        Alert.alert('XML inválido', 'El archivo no parece ser un XML válido');
+        return;
+      }
+
+      // Llamar a xml-parse edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        Alert.alert('Sin sesión', 'Inicia sesión nuevamente');
+        return;
+      }
+
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/xml-parse`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ xml_content: xmlText }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Error al procesar XML' }));
+        Alert.alert('Error CFDI', err.error ?? 'No se pudo analizar el XML');
+        return;
+      }
+
+      const data = await res.json();
+
+      // Pre-llenar el formulario con datos del XML
+      const prov = data.provider_name ?? data.issuer_name ?? '';
+      setProveedor(prov);
+      setRfc(    data.provider_rfc ?? data.issuer_rfc  ?? '');
+      setTotal(  String(data.total_amount ?? data.total ?? ''));
+      setSubtotal(String(data.subtotal_amount ?? data.subtotal ?? ''));
+      setIva(    String(data.tax_amount ?? data.tax ?? ''));
+      setFecha(  (data.receipt_date ?? data.date ?? '').slice(0, 10));
+      setFolio(  data.internal_folio ?? data.folio ?? '');
+      setSuggestedCategory(suggestCategoryFromProvider(prov));
+
+      setIsXml(true);
+
+      // Simular un "extracted" para marcar como CFDI verificado
+      setExtracted({
+        providerName:  prov,
+        providerRfc:   data.provider_rfc ?? data.issuer_rfc ?? null,
+        total:         parseFloat(data.total_amount ?? data.total ?? '0') || null,
+        subtotal:      parseFloat(data.subtotal_amount ?? data.subtotal ?? '0') || null,
+        tax:           parseFloat(data.tax_amount ?? data.tax ?? '0') || null,
+        receiptDate:   (data.receipt_date ?? data.date ?? '').slice(0, 10),
+        internalFolio: data.internal_folio ?? data.folio ?? null,
+        fiscalUuid:    data.fiscal_uuid ?? data.uuid ?? null,
+        paymentMethod: data.payment_method ?? null,
+        confidence:    'high',
+        lineItems:     data.line_items ?? [],
+        fullText:      xmlText.slice(0, 500),
+        warnings:      [],
+      } as OcrResult);
+
+      // Usar una imagen placeholder para el XML
+      setPhoto({ uri: 'xml://' + file.name, base64: btoa(xmlText.slice(0, 5000)) });
+      setStep('confirm');
+
+      Alert.alert('✅ XML procesado', `CFDI de ${prov || 'proveedor'} cargado correctamente.`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'No se pudo abrir el archivo');
     }
   }
 
@@ -192,14 +294,15 @@ export default function CaptureScreen() {
       // Cargar datos fleet si aplica (lazy, una sola vez)
       if (!isFleet) loadFleetData(policy.company_id);
 
-      // Subir foto a Storage
-      const fileName    = `${Date.now()}.jpg`;
-      const storagePath = `${policy.company_id}/${Date.now()}/${fileName}`;
+      // Subir archivo a Storage (XML o foto)
+      const ext         = isXml ? 'xml' : 'jpg';
+      const contentType = isXml ? 'text/xml' : 'image/jpeg';
+      const storagePath = `${policy.company_id}/${Date.now()}/comprobante.${ext}`;
       const arrayBuffer = decode(photo.base64);
 
       const { error: storErr } = await supabase.storage
         .from('expense-attachments')
-        .upload(storagePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+        .upload(storagePath, arrayBuffer, { contentType, upsert: false });
 
       if (storErr) console.warn('Storage upload warn:', storErr.message);
 
@@ -219,7 +322,7 @@ export default function CaptureScreen() {
             company_id:       policy.company_id,
             policy_id:        policy.id,
             employee_id:      user.id,
-            source_type:      'photo',
+            source_type:      isXml ? 'xml' : 'photo',
             file_storage_path: storErr ? null : storagePath,
             provider_name:    proveedor   || null,
             provider_rfc:     rfc         || null,
@@ -404,12 +507,23 @@ export default function CaptureScreen() {
           )}
         </View>
 
-        <View style={styles.photoContainer}>
-          <Image source={{ uri: photo.uri }} style={styles.photo} />
-        </View>
+        {isXml ? (
+          <View style={[styles.photoContainer, styles.xmlPlaceholder]}>
+            <Text style={styles.xmlIcon}>📄</Text>
+            <Text style={styles.xmlLabel}>CFDI XML cargado</Text>
+            {extracted?.fiscalUuid && (
+              <Text style={styles.xmlUuid} numberOfLines={1}>{extracted.fiscalUuid}</Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.photoContainer}>
+            <Image source={{ uri: photo.uri }} style={styles.photo} />
+          </View>
+        )}
 
         <View style={styles.form}>
-          <Field label="Proveedor / Emisor"       value={proveedor}  onChangeText={setProveedor} />
+          <Field label="Proveedor / Emisor" value={proveedor}
+            onChangeText={(v) => { setProveedor(v); setSuggestedCategory(suggestCategoryFromProvider(v)); }} />
           <Field label="RFC Emisor (si lo tiene)"  value={rfc}        onChangeText={setRfc} />
           <Field label="Total"          value={total}    onChangeText={setTotal}   keyboardType="decimal-pad" />
           <Field label="Subtotal"       value={subtotal} onChangeText={setSubtotal} keyboardType="decimal-pad" />
@@ -417,6 +531,13 @@ export default function CaptureScreen() {
           <Field label="Fecha (YYYY-MM-DD)" value={fecha} onChangeText={setFecha}
                  placeholder={new Date().toISOString().slice(0, 10)} />
           <Field label="Folio (si aplica)" value={folio} onChangeText={setFolio} />
+
+          {suggestedCategory && (
+            <View style={styles.categoryBox}>
+              <Text style={styles.categoryLabel}>💡 Categoría sugerida</Text>
+              <Text style={styles.categoryValue}>{suggestedCategory}</Text>
+            </View>
+          )}
 
           {extracted?.fiscalUuid && (
             <View style={styles.cfdiBox}>
@@ -522,7 +643,7 @@ export default function CaptureScreen() {
 
           <TouchableOpacity
             style={[styles.secondaryBtn]}
-            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); }}
+            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); }}
             disabled={busy}
           >
             <Text style={styles.secondaryBtnText}>Retomar foto</Text>
@@ -554,6 +675,11 @@ export default function CaptureScreen() {
               <Text style={[styles.cameraBtnText, { marginLeft: 8 }]}>Analizando...</Text></>
           : <Text style={styles.cameraBtnText}>📷 Tomar foto del ticket</Text>
         }
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.xmlBtn, busy && { opacity: 0.6 }]}
+        onPress={handleXmlUpload} disabled={busy}>
+        <Text style={styles.xmlBtnText}>📄 Subir XML / CFDI</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()} disabled={busy}>
@@ -636,6 +762,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center',
   },
   cameraBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
+  xmlBtn:         {
+    backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', marginBottom: 10, borderWidth: 1.5, borderColor: BRAND.blue,
+  },
+  xmlBtnText:     { color: BRAND.blue, fontSize: 15, fontWeight: '700' },
+  xmlPlaceholder: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },
+  xmlIcon:        { fontSize: 40, marginBottom: 8 },
+  xmlLabel:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  xmlUuid:        { fontSize: 11, color: '#388E3C', marginTop: 4, fontFamily: 'monospace', maxWidth: '90%' },
+  categoryBox:    { backgroundColor: '#EDE7F6', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  categoryLabel:  { fontSize: 12, color: '#6A1B9A', fontWeight: '600' },
+  categoryValue:  { fontSize: 14, color: '#4A148C', fontWeight: '700', flex: 1 },
   cancelBtn:      {
     borderWidth: 1, borderColor: BRAND.blue, borderRadius: 14,
     paddingVertical: 12, alignItems: 'center',

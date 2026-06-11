@@ -104,3 +104,81 @@ export function normalizeCategoryName(name: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Patrones de proveedor → categoría sugerida (primer match gana)
+const PROVIDER_CATEGORY_RULES: [string, string][] = [
+  ['PEMEX',           'Combustible'],
+  ['PETRO',           'Combustible'],
+  ['OXXO',            'Combustible'],
+  ['SHELL',           'Combustible'],
+  ['MOBIL',           'Combustible'],
+  ['BP ',             'Combustible'],
+  ['TOTAL GAS',       'Combustible'],
+  ['REPSOL',          'Combustible'],
+  ['COMBUSTIBLE',     'Combustible'],
+  ['GASOLINA',        'Combustible'],
+  ['CAPUFE',          'Casetas / Peajes'],
+  ['VIAPASS',         'Casetas / Peajes'],
+  ['CASETA',          'Casetas / Peajes'],
+  ['AUTOPISTA',       'Casetas / Peajes'],
+  ['TELEVIA',         'Casetas / Peajes'],
+  ['AUTOZONE',        'Refacciones'],
+  ['REFACCION',       'Refacciones'],
+  ['AUTO PARTS',      'Refacciones'],
+  ['NAPA ',           'Refacciones'],
+  ['BOSCH',           'Refacciones'],
+  ['LLANTERA',        'Llantas'],
+  ['LLANTERIA',       'Llantas'],
+  ['BRIDGESTONE',     'Llantas'],
+  ['GOODYEAR',        'Llantas'],
+  ['MICHELIN',        'Llantas'],
+  ['CONTINENTAL',     'Llantas'],
+  ['FARMACIA',        'Médicos / Farmacia'],
+  ['BENAVIDES',       'Médicos / Farmacia'],
+  ['CRUZ VERDE',      'Médicos / Farmacia'],
+  ['SIMILARES',       'Médicos / Farmacia'],
+  ['HOSPITAL',        'Médicos / Farmacia'],
+  ['CLINICA',         'Médicos / Farmacia'],
+  ['AEROMEXICO',      'Viáticos / Transporte'],
+  ['VOLARIS',         'Viáticos / Transporte'],
+  ['VIVAAEROBUS',     'Viáticos / Transporte'],
+  ['UBER',            'Transporte'],
+  ['DIDI ',           'Transporte'],
+  ['HOTEL',           'Hospedaje'],
+  ['MARRIOTT',        'Hospedaje'],
+  ['HILTON',          'Hospedaje'],
+  ['HOLIDAY INN',     'Hospedaje'],
+  ['CAMINO REAL',     'Hospedaje'],
+  ['FIESTA INN',      'Hospedaje'],
+  ['TELMEX',          'Telecomunicaciones'],
+  ['TELCEL',          'Telecomunicaciones'],
+  ['AT&T',            'Telecomunicaciones'],
+  ['MOVISTAR',        'Telecomunicaciones'],
+  ['CFE ',            'Energía / Electricidad'],
+  ['COMISION FEDERAL','Energía / Electricidad'],
+  ['WALMART',         'Papelería / Oficina'],
+  ['OFFICE DEPOT',    'Papelería / Oficina'],
+  ['OFFICEMAX',       'Papelería / Oficina'],
+  ['STAPLES',         'Papelería / Oficina'],
+  ['SORIANA',         'Alimentos'],
+  ['CHEDRAUI',        'Alimentos'],
+  ['LA COMER',        'Alimentos'],
+  ['COSTCO',          'Alimentos'],
+  ['BODEGA AURRERA',  'Alimentos'],
+  ['SEVEN ELEVEN',    'Alimentos'],
+  ['7-ELEVEN',        'Alimentos'],
+  ['RESTAURANTE',     'Alimentos'],
+];
+
+/**
+ * Sugiere una categoría basándose en el nombre del proveedor.
+ * Devuelve null si no hay match.
+ */
+export function suggestCategoryFromProvider(providerName: string): string | null {
+  if (!providerName) return null;
+  const upper = providerName.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const [pattern, category] of PROVIDER_CATEGORY_RULES) {
+    if (upper.includes(pattern)) return category;
+  }
+  return null;
+}
