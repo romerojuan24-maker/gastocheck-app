@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getDeviceId, saveTrialInfo } from '../lib/trial';
 
 type Tab = 'login' | 'register';
 
 const DEMO_EMAIL    = 'demo@gastocheck.app';
 const DEMO_PASSWORD = 'Demo2026!';
+const REGISTER_FN   = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/register-company`;
 
 export default function LoginScreen() {
   const [tab,       setTab]       = useState<Tab>('login');
@@ -28,69 +30,92 @@ export default function LoginScreen() {
       password,
     });
     setLoading(false);
-    if (error) Alert.alert('Error al iniciar sesión', error.message);
+    if (error) {
+      const msg = error.message.includes('Invalid login credentials')
+        ? 'Correo o contraseña incorrectos.'
+        : error.message;
+      Alert.alert('Error al iniciar sesión', msg);
+    }
   }
 
-  // ── Registrar cuenta nueva ──────────────────────────────────────────────────
+  // ── Registrar cuenta nueva (via Edge Function — bypassa RLS) ────────────────
 
   async function handleRegister() {
     if (!email.trim() || !password || !company.trim()) return;
     if (password.length < 8) {
-      Alert.alert('Contraseña muy corta', 'La contraseña debe tener al menos 8 caracteres.');
+      Alert.alert('Contraseña muy corta', 'Debe tener al menos 8 caracteres.');
       return;
     }
     setLoading(true);
     try {
-      // 1. Crear usuario en Auth
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
+      const deviceId = await getDeviceId();
+
+      const res = await fetch(REGISTER_FN, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:        email.trim().toLowerCase(),
+          password,
+          company_name: company.trim(),
+          device_id:    deviceId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const code = data.code ?? '';
+        if (code === 'TRIAL_DEVICE_EXISTS') {
+          Alert.alert(
+            'Dispositivo ya registrado',
+            'Este dispositivo ya tiene una cuenta de prueba.\n\nInicia sesión con tu cuenta original.',
+            [{ text: 'Ir a Iniciar sesión', onPress: () => setTab('login') }],
+          );
+        } else {
+          Alert.alert('Error al registrar', data.error ?? 'Inténtalo de nuevo.');
+        }
+        return;
+      }
+
+      // Guardar info del trial localmente para el banner
+      if (data.trial_ends_at) {
+        await saveTrialInfo({
+          companyId:   data.company_id,
+          trialEndsAt: data.trial_ends_at,
+          trialDays:   data.trial_days ?? 30,
+        });
+      }
+
+      // Auto-login: el usuario ya está confirmado, no necesita verificar email
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
         email:    email.trim().toLowerCase(),
         password,
       });
-      if (authErr) throw authErr;
-      if (!authData.user) throw new Error('No se pudo crear el usuario.');
 
-      // 2. Crear empresa
-      const { data: compData, error: compErr } = await supabase
-        .from('companies')
-        .insert({ name: company.trim() })
-        .select('id')
-        .single();
-      if (compErr || !compData?.id) {
-        // 🔴 FIX BUG #22: Validar que company se creó correctamente
-        throw new Error(compErr?.message ?? 'No se pudo crear la empresa');
+      if (loginErr) {
+        Alert.alert(
+          '¡Cuenta creada!',
+          'Tu cuenta y empresa están listas. Inicia sesión para continuar.',
+        );
+        setTab('login');
+        setEmail(email.trim().toLowerCase());
+        setPassword('');
+        setCompany('');
       }
-
-      // 3. Agregar usuario como admin de la empresa
-      const { error: memberErr } = await supabase
-        .from('company_members')
-        .insert({
-          company_id: compData.id,
-          user_id:    authData.user.id,
-          role:       'admin',
-        });
-      if (memberErr) throw memberErr;
-
-      Alert.alert(
-        '¡Cuenta creada!',
-        'Revisa tu correo para confirmar tu cuenta, luego inicia sesión.',
-      );
-      setTab('login');
-      setEmail(email.trim().toLowerCase());
-      setPassword('');
-      setCompany('');
+      // Si el login fue exitoso, el navigator detecta la sesión y redirige solo
     } catch (err: any) {
-      Alert.alert('Error al registrar', err.message ?? String(err));
+      Alert.alert('Error al registrar', err.message ?? 'Verifica tu conexión e inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Modo prueba (auto-login admin demo) ─────────────────────────────────────
+  // ── Modo demo (login rápido para probar la app) ─────────────────────────────
 
   async function handleDemo() {
     setLoading(true);
 
-    // Intenta login primero
+    // Intentar login primero
     const { error: loginErr } = await supabase.auth.signInWithPassword({
       email:    DEMO_EMAIL,
       password: DEMO_PASSWORD,
@@ -98,34 +123,31 @@ export default function LoginScreen() {
 
     if (!loginErr) { setLoading(false); return; }
 
-    // Si no existe, crea la cuenta demo
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-      email:    DEMO_EMAIL,
-      password: DEMO_PASSWORD,
+    // Si no existe, crear via edge function
+    const deviceId = await getDeviceId();
+    const res = await fetch(REGISTER_FN, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:        DEMO_EMAIL,
+        password:     DEMO_PASSWORD,
+        company_name: 'Empresa Demo GastoCheck',
+        device_id:    `demo_${deviceId}`,  // prefijo para no bloquear el device real
+      }),
     });
 
-    if (signUpErr || !signUpData.user) {
+    if (!res.ok) {
+      const data = await res.json();
+      // Si ya existe el usuario pero el login falló, puede ser tema de contraseña
+      if (data.error?.includes('already registered')) {
+        Alert.alert('Modo demo', 'La cuenta demo ya existe pero no se pudo acceder. Contacta soporte.');
+      } else {
+        Alert.alert('Error modo demo', data.error ?? 'No se pudo crear la cuenta demo.');
+      }
       setLoading(false);
-      Alert.alert('Error modo prueba', signUpErr?.message ?? 'No se pudo crear cuenta demo.');
       return;
     }
 
-    // Crear empresa demo
-    const { data: comp } = await supabase
-      .from('companies')
-      .insert({ name: 'Empresa Demo GastoCheck' })
-      .select('id')
-      .single();
-
-    if (comp) {
-      await supabase.from('company_members').insert({
-        company_id: comp.id,
-        user_id:    signUpData.user.id,
-        role:       'admin',
-      });
-    }
-
-    // Login con las credenciales demo
     await supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
     setLoading(false);
   }
@@ -222,10 +244,16 @@ export default function LoginScreen() {
             {loading
               ? <ActivityIndicator color="#fff" />
               : <Text style={styles.btnText}>
-                  {tab === 'login' ? 'Iniciar sesión' : 'Crear cuenta y empresa'}
+                  {tab === 'login' ? 'Iniciar sesión' : 'Crear cuenta — 30 días gratis'}
                 </Text>
             }
           </TouchableOpacity>
+
+          {tab === 'register' && (
+            <Text style={styles.trialNote}>
+              ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 gastador
+            </Text>
+          )}
         </View>
 
         {/* Separador */}
@@ -235,19 +263,19 @@ export default function LoginScreen() {
           <View style={styles.line} />
         </View>
 
-        {/* Botón modo prueba */}
+        {/* Botón modo demo */}
         <TouchableOpacity style={styles.demoBtn} onPress={handleDemo} disabled={loading}>
           <Text style={styles.demoIcon}>🧪</Text>
           <View>
-            <Text style={styles.demoBtnText}>Entrar como Admin (modo prueba)</Text>
-            <Text style={styles.demoBtnSub}>Crea automáticamente una cuenta de demostración</Text>
+            <Text style={styles.demoBtnText}>Ver demo de la app</Text>
+            <Text style={styles.demoBtnSub}>Entra sin registrarte con datos de ejemplo</Text>
           </View>
         </TouchableOpacity>
 
         <Text style={styles.footer}>
           {tab === 'login'
-            ? '¿No tienes cuenta? Usa la pestaña "Crear cuenta" o pide acceso a tu supervisor.'
-            : 'Al registrarte serás administrador de tu empresa y podrás invitar a tu equipo.'}
+            ? '¿No tienes cuenta? Usa "Crear cuenta" o pide acceso a tu supervisor.'
+            : 'Al registrarte serás el administrador y podrás invitar a un colaborador durante la prueba.'}
         </Text>
 
       </ScrollView>
@@ -285,6 +313,7 @@ const styles = StyleSheet.create({
   btn:            { backgroundColor: BRAND.blue, borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
   btnDisabled:    { opacity: 0.5 },
   btnText:        { color: '#fff', fontSize: 15, fontWeight: '700' },
+  trialNote:      { fontSize: 11, color: '#78909C', textAlign: 'center', marginTop: 10 },
   separator:      { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
   line:           { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
   orText:         { marginHorizontal: 12, color: '#90A4AE', fontSize: 13 },

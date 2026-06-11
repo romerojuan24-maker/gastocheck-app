@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { computeBalance, STATUS_META, BRAND, type Expense, type Policy, type Advance } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import TrialBanner from '../components/TrialBanner';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -89,6 +90,7 @@ export default function Home() {
 
   return (
     <ScrollView style={{ backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16 }}>
+      <TrialBanner onUpgrade={() => router.push('/settings')} />
       {/* ── Tarjeta de saldo ── */}
       {balance ? (
         <View style={styles.card}>
