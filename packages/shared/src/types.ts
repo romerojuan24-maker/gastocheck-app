@@ -34,7 +34,63 @@ export type BatchStatus = 'draft' | 'open' | 'closed' | 'exported' | 'cancelled'
 
 export type CompanySector =
   | 'agro' | 'construccion' | 'alimentos' | 'transportistas'
-  | 'distribucion' | 'servicios_tecnicos' | 'manufactura' | 'comercio' | 'otro';
+  | 'distribucion' | 'servicios_tecnicos' | 'manufactura' | 'comercio'
+  | 'flotillas' | 'otro';
+
+// ── Fleet / Flotillas ────────────────────────────────────────────────────────
+
+export type VehicleType = 'sedan' | 'suv' | 'van' | 'pickup' | 'camion' | 'moto' | 'otro';
+export type VehicleStatus = 'active' | 'maintenance' | 'inactive';
+export type OperatorStatus = 'active' | 'inactive' | 'suspended';
+export type FleetClientType = 'regular' | 'occasional' | 'corporate';
+
+export interface FleetVehicle {
+  id:               string;
+  company_id:       string;
+  economic_number:  string | null;
+  plates:           string | null;
+  brand:            string | null;
+  model:            string | null;
+  year:             number | null;
+  vehicle_type:     VehicleType;
+  current_km:       number | null;
+  status:           VehicleStatus;
+  notes:            string | null;
+  created_at:       string;
+}
+
+export interface FleetOperator {
+  id:                  string;
+  company_id:          string;
+  name:                string;
+  phone:               string | null;
+  license_number:      string | null;
+  status:              OperatorStatus;
+  assigned_vehicle_id: string | null;
+  notes:               string | null;
+  created_at:          string;
+}
+
+export interface FleetRoute {
+  id:           string;
+  company_id:   string;
+  name:         string;
+  zone:         string | null;
+  city:         string | null;
+  distance_km:  number | null;
+  is_active:    boolean;
+  created_at:   string;
+}
+
+export interface FleetClient {
+  id:          string;
+  company_id:  string;
+  name:        string;
+  address:     string | null;
+  client_type: FleetClientType;
+  is_active:   boolean;
+  created_at:  string;
+}
 
 export type TagType =
   | 'obra' | 'rancho' | 'lote' | 'cultivo' | 'unidad' | 'ruta'

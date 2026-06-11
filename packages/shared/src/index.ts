@@ -1,4 +1,5 @@
 export * from './types';
+export * from './fleet';
 export * from './balance';
 export * from './status';
 export * from './cfdi';

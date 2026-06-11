@@ -4,7 +4,8 @@ import {
   ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BRAND } from '@gastocheck/shared';
+import { BRAND, isFleetSector } from '@gastocheck/shared';
+import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -13,6 +14,7 @@ interface Profile {
   email:   string;
   role:    string;
   company: string;
+  sector:  CompanySector | null;
 }
 
 const ROLE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -39,7 +41,7 @@ export default function SettingsScreen() {
 
       const { data: member } = await supabase
         .from('company_members')
-        .select('role, companies(name)')
+        .select('role, companies(name, sector)')
         .eq('user_id', user.id)
         .single();
 
@@ -48,6 +50,7 @@ export default function SettingsScreen() {
         email:   user.email ?? '',
         role:    member?.role ?? 'employee',
         company: (member?.companies as any)?.name ?? 'Sin empresa',
+        sector:  (member?.companies as any)?.sector ?? null,
       });
     } finally {
       setLoading(false);
@@ -95,6 +98,7 @@ export default function SettingsScreen() {
 
   const roleMeta = ROLE_LABELS[role] ?? ROLE_LABELS.employee;
   const isSupervisor = role === 'admin' || role === 'supervisor';
+  const isFleet = isFleetSector(profile?.sector ?? null);
 
   return (
     <ScrollView style={{ backgroundColor: BRAND.gray }} contentContainerStyle={styles.scroll}>
@@ -144,6 +148,28 @@ export default function SettingsScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Vertical Flotillas */}
+      {isFleet && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🚛 Flotillas y Reparto</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/fleet-vehicles')}>
+            <Text style={styles.menuIcon}>🚗</Text>
+            <Text style={styles.menuLabel}>Mis vehículos</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/fleet-operators')}>
+            <Text style={styles.menuIcon}>🧑‍✈️</Text>
+            <Text style={styles.menuLabel}>Mis operadores</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/item-search')}>
+            <Text style={styles.menuIcon}>🔍</Text>
+            <Text style={styles.menuLabel}>Historial de refacciones</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Conexión Supabase */}
       <View style={styles.section}>

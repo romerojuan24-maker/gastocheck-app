@@ -10,8 +10,9 @@ import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import { supabase } from '../lib/supabase';
 import {
-  BRAND, DUPLICATE_STATUS_META,
-  type DuplicateStatus, type OcrResult,
+  BRAND, DUPLICATE_STATUS_META, isFleetSector,
+  VEHICLE_TYPE_ICONS, vehicleDisplayName,
+  type DuplicateStatus, type OcrResult, type FleetVehicle, type FleetOperator,
 } from '@gastocheck/shared';
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
@@ -57,6 +58,31 @@ export default function CaptureScreen() {
   const [dupResult,  setDupResult]  = useState<DuplicateResult | null>(null);
   const [showDupModal, setShowDupModal] = useState(false);
   const [forceReason,  setForceReason] = useState('');
+
+  // Fleet (se activa si company.sector es flotillas/transportistas/distribucion)
+  const [isFleet,    setIsFleet]    = useState(false);
+  const [vehicles,   setVehicles]   = useState<FleetVehicle[]>([]);
+  const [operators,  setOperators]  = useState<FleetOperator[]>([]);
+  const [vehicleId,  setVehicleId]  = useState<string | null>(null);
+  const [operatorId, setOperatorId] = useState<string | null>(null);
+
+  // ── Cargar flota si aplica ────────────────────────────────────────────────
+
+  async function loadFleetData(companyId: string) {
+    const { data: company } = await supabase
+      .from('companies').select('sector').eq('id', companyId).single();
+    if (!isFleetSector(company?.sector)) return;
+    setIsFleet(true);
+
+    const [{ data: vList }, { data: oList }] = await Promise.all([
+      supabase.from('vehicles').select('*').eq('company_id', companyId)
+        .eq('status', 'active').order('economic_number'),
+      supabase.from('operators').select('*').eq('company_id', companyId)
+        .eq('status', 'active').order('name'),
+    ]);
+    setVehicles((vList ?? []) as FleetVehicle[]);
+    setOperators((oList ?? []) as FleetOperator[]);
+  }
 
   // ── Tomar foto ─────────────────────────────────────────────────────────────
 
@@ -163,6 +189,9 @@ export default function CaptureScreen() {
 
       const policy = policies[0];
 
+      // Cargar datos fleet si aplica (lazy, una sola vez)
+      if (!isFleet) loadFleetData(policy.company_id);
+
       // Subir foto a Storage
       const fileName    = `${Date.now()}.jpg`;
       const storagePath = `${policy.company_id}/${Date.now()}/${fileName}`;
@@ -206,6 +235,8 @@ export default function CaptureScreen() {
                             : extracted?.confidence === 'medium' ? 65 : 40,
             extracted_json:   extracted ?? null,
             line_items:       extracted?.lineItems ?? [],
+            vehicle_id:       vehicleId  ?? null,
+            operator_id:      operatorId ?? null,
             force_save:       forceSave,
             force_reason:     forceRsn || null,
           }),
@@ -422,6 +453,61 @@ export default function CaptureScreen() {
             </View>
           )}
 
+          {/* ── Sección Flotilla (solo si empresa es fleet) ── */}
+          {isFleet && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🚛 Flotilla (opcional)</Text>
+
+              {vehicles.length > 0 && (
+                <>
+                  <Text style={styles.fleetLabel}>Vehículo</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.fleetChip, !vehicleId && styles.fleetChipActive]}
+                      onPress={() => setVehicleId(null)}>
+                      <Text style={[styles.fleetChipText, !vehicleId && { color: '#fff' }]}>Sin asignar</Text>
+                    </TouchableOpacity>
+                    {vehicles.map((v) => (
+                      <TouchableOpacity
+                        key={v.id}
+                        style={[styles.fleetChip, vehicleId === v.id && styles.fleetChipActive]}
+                        onPress={() => setVehicleId(v.id)}>
+                        <Text style={[styles.fleetChipText, vehicleId === v.id && { color: '#fff' }]}>
+                          {VEHICLE_TYPE_ICONS[v.vehicle_type]} {vehicleDisplayName(v)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+
+              {operators.length > 0 && (
+                <>
+                  <Text style={[styles.fleetLabel, { marginTop: 10 }]}>Operador</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.fleetChip, !operatorId && styles.fleetChipActive]}
+                      onPress={() => setOperatorId(null)}>
+                      <Text style={[styles.fleetChipText, !operatorId && { color: '#fff' }]}>Sin asignar</Text>
+                    </TouchableOpacity>
+                    {operators.map((o) => (
+                      <TouchableOpacity
+                        key={o.id}
+                        style={[styles.fleetChip, operatorId === o.id && styles.fleetChipActive]}
+                        onPress={() => setOperatorId(o.id)}>
+                        <Text style={[styles.fleetChipText, operatorId === o.id && { color: '#fff' }]}>
+                          🧑‍✈️ {o.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.confirmBtn, busy && { opacity: 0.6 }]}
             onPress={handlePressConfirm}
@@ -541,6 +627,10 @@ const styles = StyleSheet.create({
   conceptoQty:    { fontSize: 11, color: '#90A4AE' },
   conceptoImporte:{ fontSize: 13, fontWeight: '600', color: BRAND.navy },
   moreItems:      { fontSize: 12, color: '#90A4AE', marginTop: 4 },
+  fleetLabel:     { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 6 },
+  fleetChip:      { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: BRAND.blue, backgroundColor: '#fff' },
+  fleetChipActive:{ backgroundColor: BRAND.blue },
+  fleetChipText:  { fontSize: 13, color: BRAND.blue, fontWeight: '600' },
   cameraBtn:      {
     backgroundColor: BRAND.blue, borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center',
