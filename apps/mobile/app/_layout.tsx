@@ -58,6 +58,7 @@ export default function Layout() {
       <Stack.Screen name="batches"       options={{ title: 'Relaciones contables' }} />
       <Stack.Screen name="batch-detail"  options={{ title: 'Detalle de relación' }} />
       <Stack.Screen name="receipt-detail"  options={{ title: 'Detalle del comprobante' }} />
+      <Stack.Screen name="item-search"    options={{ title: '¿Dónde compro?' }} />
       <Stack.Screen name="supplier-detail" options={{ title: 'Historial proveedor' }} />
       <Stack.Screen name="settings"      options={{ title: 'Ajustes' }} />
       <Stack.Screen name="supervisor"    options={{ title: 'Panel de supervisor' }} />

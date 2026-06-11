@@ -24,6 +24,29 @@ export const DUPLICATE_STATUS_META: Record<DuplicateStatus, { label: string; col
 // ── Normalización de proveedores ─────────────────────────────────────────────
 
 /**
+ * Normaliza nombre de artículo para búsqueda progresiva.
+ * "Balata trasera izq." → "BALATA TRASERA IZQ"
+ */
+export function normalizeItemName(name: string): string {
+  return name
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Convierte una búsqueda libre en patrón ILIKE con wildcards entre palabras.
+ * "balata tra" → "%BALATA%TRA%"
+ */
+export function itemSearchPattern(query: string): string {
+  const normalized = normalizeItemName(query);
+  return '%' + normalized.replace(/ +/g, '%') + '%';
+}
+
+/**
  * Normaliza nombre de proveedor para comparación fuzzy.
  * "OXXO Gas Suc. Delicias" → "OXXO GAS SUC DELICIAS"
  */

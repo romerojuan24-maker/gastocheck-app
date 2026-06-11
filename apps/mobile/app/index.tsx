@@ -143,6 +143,15 @@ export default function Home() {
         <Text style={styles.receiptsBtnText}>📁 Relaciones contables</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.receiptsBtn, { borderColor: BRAND.blue, borderWidth: 1.5 }]}
+        onPress={() => router.push('/item-search')}
+      >
+        <Text style={[styles.receiptsBtnText, { color: BRAND.blue }]}>
+          🔍 ¿Dónde compro? — historial de artículos
+        </Text>
+      </TouchableOpacity>
+
       {/* ── Lista de gastos ── */}
       <Text style={styles.section}>Mis gastos recientes</Text>
 
