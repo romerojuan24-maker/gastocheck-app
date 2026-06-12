@@ -6,13 +6,16 @@ import { computeBalance, STATUS_META, BRAND, type Expense, type Policy, type Adv
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 
+const OWNER_ROLES = ['owner', 'admin', 'supervisor'];
+
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function Home() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
+  const [loading,   setLoading]   = useState(true);
+  const [userRole,  setUserRole]  = useState<string | null>(null);
 
   // Botón ⚙ en el header
   useEffect(() => {
@@ -37,6 +40,15 @@ export default function Home() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+
+      // Rol del usuario en la empresa
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (member?.role) setUserRole(member.role);
 
       // Póliza abierta más reciente del usuario
       const { data: policies } = await supabase
@@ -91,6 +103,24 @@ export default function Home() {
   return (
     <ScrollView style={{ backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16 }}>
       <TrialBanner onUpgrade={() => router.push('/settings')} />
+
+      {/* ── Panel de administración (owner/admin/supervisor) ── */}
+      {userRole && OWNER_ROLES.includes(userRole) && (
+        <View style={styles.ownerPanel}>
+          <Text style={styles.ownerPanelTitle}>Panel de administración</Text>
+          <View style={styles.ownerRow}>
+            <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/events')}>
+              <Text style={styles.ownerBtnIcon}>📅</Text>
+              <Text style={styles.ownerBtnLabel}>Eventos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/gastadores')}>
+              <Text style={styles.ownerBtnIcon}>👤</Text>
+              <Text style={styles.ownerBtnLabel}>Gastadores</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* ── Tarjeta de saldo ── */}
       {balance ? (
         <View style={styles.card}>
@@ -231,4 +261,10 @@ const styles = StyleSheet.create({
   receiptsBtnText: { color: BRAND.navy, fontSize: 15, fontWeight: '600' },
   refreshBtn: { alignItems: 'center', padding: 16, marginTop: 8 },
   refreshBtnText: { color: BRAND.blue, fontSize: 14, fontWeight: '600' },
+  ownerPanel: { backgroundColor: '#EEF2FF', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: BRAND.blue + '30' },
+  ownerPanelTitle: { fontSize: 11, fontWeight: '700', color: BRAND.blue, textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5 },
+  ownerRow: { flexDirection: 'row', gap: 10 },
+  ownerBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: BRAND.blue + '40' },
+  ownerBtnIcon: { fontSize: 26, marginBottom: 4 },
+  ownerBtnLabel: { fontSize: 13, fontWeight: '700', color: BRAND.navy },
 });
