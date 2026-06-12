@@ -3,11 +3,13 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Modal, TextInput, ScrollView, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND, BATCH_STATUS_META, suggestBatchName } from '@gastocheck/shared';
 import type { BatchStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import DatePickerField from '../components/DatePickerField';
 
 interface Batch {
   id:           string;
@@ -187,7 +189,7 @@ export default function BatchesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
       {/* Filtros */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
+      <View style={styles.filtersRow}>
         {STATUS_FILTERS.map((f) => (
           <TouchableOpacity
             key={f.key}
@@ -197,7 +199,7 @@ export default function BatchesScreen() {
             <Text style={[styles.chipText, filter === f.key && { color: '#fff' }]}>{f.label}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* Botón crear */}
       <TouchableOpacity style={styles.createBtn} onPress={() => setShowCreate(true)}>
@@ -228,43 +230,66 @@ export default function BatchesScreen() {
       {/* Modal crear */}
       <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet"
         onRequestClose={() => setShowCreate(false)}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowCreate(false)}>
-              <Text style={styles.modalCancel}>Cancelar</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nueva relación</Text>
-            <TouchableOpacity onPress={createBatch} disabled={!formName.trim() || saving}>
-              <Text style={[styles.modalSave, (!formName.trim() || saving) && { opacity: 0.4 }]}>
-                {saving ? '...' : 'Crear'}
-              </Text>
-            </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}>
+          <View style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Nueva relación</Text>
+              <TouchableOpacity onPress={() => setShowCreate(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+              <DatePickerField
+                label="Período inicio"
+                value={formPeriodStart}
+                onChange={setFormPeriodStart}
+              />
+              <DatePickerField
+                label="Período fin"
+                value={formPeriodEnd}
+                onChange={setFormPeriodEnd}
+              />
+              <Text style={styles.label}>Nombre *</Text>
+              <TextInput style={styles.input} placeholder="Ej: REL-2026/06-001"
+                value={formName} onChangeText={setFormName}
+                returnKeyType="done" />
+              <Text style={styles.label}>Notas (opcional)</Text>
+              <TextInput style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
+                multiline placeholder="Observaciones..."
+                value={formNotes} onChangeText={setFormNotes} />
+            </ScrollView>
+
+            {/* Botones en la parte inferior */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowCreate(false)}>
+                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalCreateBtn, (!formName.trim() || saving) && { opacity: 0.5 }]}
+                onPress={createBatch}
+                disabled={!formName.trim() || saving}>
+                {saving
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.modalCreateBtnText}>Crear relación</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
-          <ScrollView contentContainerStyle={styles.modalBody}>
-            <Text style={styles.label}>Período inicio</Text>
-            <TextInput style={styles.input} placeholder="YYYY-MM-DD"
-              value={formPeriodStart} onChangeText={setFormPeriodStart}
-              keyboardType="numbers-and-punctuation" maxLength={10} />
-            <Text style={styles.label}>Período fin</Text>
-            <TextInput style={styles.input} placeholder="YYYY-MM-DD"
-              value={formPeriodEnd} onChangeText={setFormPeriodEnd}
-              keyboardType="numbers-and-punctuation" maxLength={10} />
-            <Text style={styles.label}>Nombre *</Text>
-            <TextInput style={styles.input} placeholder="Ej: REL-2026/06-001"
-              value={formName} onChangeText={setFormName} />
-            <Text style={styles.label}>Notas (opcional)</Text>
-            <TextInput style={[styles.input, { height: 80 }]}
-              multiline placeholder="Observaciones..."
-              value={formNotes} onChangeText={setFormNotes} />
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  filtersRow:    { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  filtersRow:    {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 12, paddingVertical: 10, gap: 8,
+  },
   chip:          {
     paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: 20, backgroundColor: '#fff',
@@ -294,19 +319,35 @@ const styles = StyleSheet.create({
   emptyIcon:     { fontSize: 48, marginBottom: 8 },
   emptyText:     { fontSize: 15, color: '#90A4AE', textAlign: 'center' },
   // Modal
-  modal:         { flex: 1, backgroundColor: BRAND.gray },
-  modalHeader:   {
+  modal:              { flex: 1, backgroundColor: BRAND.gray },
+  modalHeader:        {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 20, paddingVertical: 16,
     backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
   },
-  modalTitle:    { fontSize: 16, fontWeight: '700', color: BRAND.navy },
-  modalCancel:   { fontSize: 15, color: '#90A4AE', paddingVertical: 4, paddingHorizontal: 4 },
-  modalSave:     { fontSize: 15, color: BRAND.blue, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 4 },
-  modalBody:     { padding: 16, gap: 4 },
-  label:         { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginTop: 12, marginBottom: 4 },
-  input:         {
-    backgroundColor: '#fff', borderRadius: 10, padding: 12,
+  modalTitle:         { fontSize: 17, fontWeight: '800', color: BRAND.navy },
+  modalClose:         { fontSize: 18, color: '#90A4AE', fontWeight: '700' },
+  modalBody:          { padding: 16, paddingBottom: 8 },
+  modalActions:       {
+    flexDirection: 'row', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 16,
+    paddingBottom: 32,
+    backgroundColor: '#fff',
+    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+  },
+  modalCancelBtn:     {
+    flex: 1, backgroundColor: '#F5F5F5', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
+  },
+  modalCancelBtnText: { fontSize: 15, fontWeight: '700', color: '#90A4AE' },
+  modalCreateBtn:     {
+    flex: 2, backgroundColor: BRAND.blue, borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
+  },
+  modalCreateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  label:              { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginTop: 12, marginBottom: 4 },
+  input:              {
+    backgroundColor: '#fff', borderRadius: 10, padding: 13,
     borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy,
   },
 });

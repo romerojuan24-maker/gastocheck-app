@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
   ScrollView, Image, TextInput, Alert, Modal,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
+import DatePickerField from '../components/DatePickerField';
 import { supabase } from '../lib/supabase';
 import {
   BRAND, DUPLICATE_STATUS_META, isFleetSector,
@@ -137,7 +139,10 @@ export default function CaptureScreen() {
             { text: 'Retomar foto', style: 'cancel' },
             {
               text: 'Ingresar manualmente',
-              onPress: () => setStep('confirm'),
+              onPress: () => {
+                if (!fecha) setFecha(new Date().toISOString().slice(0, 10));
+                setStep('confirm');
+              },
             },
           ],
         );
@@ -531,7 +536,10 @@ export default function CaptureScreen() {
 
   if (step === 'confirm' && photo) {
     return (
-      <ScrollView style={{ backgroundColor: BRAND.gray, flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}>
+      <ScrollView style={{ backgroundColor: BRAND.gray, flex: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title}>Confirma los datos</Text>
           <Text style={styles.subtitle}>
@@ -575,8 +583,7 @@ export default function CaptureScreen() {
           <Field label="Total"          value={total}    onChangeText={setTotal}   keyboardType="decimal-pad" />
           <Field label="Subtotal"       value={subtotal} onChangeText={setSubtotal} keyboardType="decimal-pad" />
           <Field label="IVA"            value={iva}      onChangeText={setIva}     keyboardType="decimal-pad" />
-          <Field label="Fecha (YYYY-MM-DD)" value={fecha} onChangeText={setFecha}
-                 placeholder={new Date().toISOString().slice(0, 10)} />
+          <DatePickerField label="Fecha" value={fecha} onChange={setFecha} />
           <Field label="Folio (si aplica)" value={folio} onChangeText={setFolio} />
 
           {suggestedCategory && (
@@ -697,6 +704,7 @@ export default function CaptureScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 

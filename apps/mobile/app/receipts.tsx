@@ -171,11 +171,7 @@ export default function ReceiptsScreen() {
       </View>
 
       {/* Filtros de estado */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filtersRow}
-      >
+      <View style={styles.filtersRow}>
         {STATUS_FILTERS.map((f) => (
           <TouchableOpacity
             key={f.key}
@@ -193,7 +189,7 @@ export default function ReceiptsScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* Lista */}
       {loading && receipts.length === 0 ? (
@@ -246,7 +242,10 @@ const styles = StyleSheet.create({
   searchInput:  { flex: 1, paddingVertical: 10, fontSize: 14, color: BRAND.navy },
   clearBtn:     { padding: 6 },
   clearText:    { color: '#90A4AE', fontSize: 16 },
-  filtersRow:   { paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
+  filtersRow:   {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 12, paddingBottom: 8, gap: 8,
+  },
   filterChip:   {
     paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: 20, backgroundColor: '#fff',
