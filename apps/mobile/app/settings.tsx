@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
@@ -10,7 +10,9 @@ import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
 // ── Versión de este OTA (incrementar con cada eas update) ─────────────────────
-const OTA_VERSION = 'OTA 1 · v1.0.1';
+const OTA_VERSION = 'OTA 2 · v1.0.2';
+
+const CREATE_COMPANY_FN = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-company`;
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 
@@ -35,6 +37,9 @@ export default function SettingsScreen() {
   const [role,     setRole]     = useState<string>('employee');
   const [connOk,   setConnOk]   = useState<boolean | null>(null);
   const [connChecking, setConnChecking] = useState(false);
+  const [showCreateCo,  setShowCreateCo]  = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [creatingCo,    setCreatingCo]    = useState(false);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -72,6 +77,39 @@ export default function SettingsScreen() {
       setConnOk(false);
     } finally {
       setConnChecking(false);
+    }
+  }
+
+  async function handleCreateCompany() {
+    if (!newCompanyName.trim()) return;
+    setCreatingCo(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        Alert.alert('Sin sesión', 'Inicia sesión nuevamente.');
+        return;
+      }
+      const res = await fetch(CREATE_COMPANY_FN, {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ company_name: newCompanyName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        Alert.alert('Error', data.error ?? 'No se pudo crear la empresa.');
+        return;
+      }
+      setShowCreateCo(false);
+      setNewCompanyName('');
+      Alert.alert('¡Listo!', 'Tu empresa fue creada. Bienvenido a GastoCheck.');
+      loadProfile();
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Verifica tu conexión e inténtalo de nuevo.');
+    } finally {
+      setCreatingCo(false);
     }
   }
 
@@ -124,6 +162,11 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.divider} />
         <Row icon="🏢" label="Empresa" value={profile?.company ?? '—'} />
+        {(profile?.company === 'Sin empresa' || !profile?.company) && (
+          <TouchableOpacity style={styles.createCoBtn} onPress={() => setShowCreateCo(true)}>
+            <Text style={styles.createCoBtnText}>+ Crear empresa</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Acceso supervisor */}
@@ -223,6 +266,43 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
+      {/* Modal: Crear empresa */}
+      <Modal visible={showCreateCo} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowCreateCo(false)}>
+        <View style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowCreateCo(false)}>
+              <Text style={styles.modalCancel}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Crear empresa</Text>
+            <TouchableOpacity
+              onPress={handleCreateCompany}
+              disabled={!newCompanyName.trim() || creatingCo}
+            >
+              <Text style={[styles.modalSave, (!newCompanyName.trim() || creatingCo) && { opacity: 0.4 }]}>
+                {creatingCo ? '...' : 'Crear'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalBody}>
+            <Text style={styles.modalLabel}>Nombre de tu empresa *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Mi Empresa S.A. de C.V."
+              placeholderTextColor="#B0BEC5"
+              value={newCompanyName}
+              onChangeText={setNewCompanyName}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleCreateCompany}
+            />
+            <Text style={styles.modalHint}>
+              Serás el administrador con acceso total. Podrás invitar a un colaborador durante el período de prueba.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* Versión OTA — actualizar OTA_VERSION con cada eas update */}
       <View style={styles.versionBox}>
         <Text style={styles.versionMain}>GastoCheck</Text>
@@ -276,4 +356,22 @@ const styles = StyleSheet.create({
   versionOta:   { fontSize: 16, fontWeight: '800', color: BRAND.blue, marginTop: 2 },
   versionId:    { fontSize: 10, color: '#B0BEC5', marginTop: 4, fontFamily: 'monospace' },
   connUrl:      { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  createCoBtn:  { marginTop: 10, backgroundColor: BRAND.blue, borderRadius: 10, padding: 11, alignItems: 'center' },
+  createCoBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  modal:        { flex: 1, backgroundColor: BRAND.gray },
+  modalHeader:  {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
+  },
+  modalTitle:   { fontSize: 16, fontWeight: '700', color: BRAND.navy },
+  modalCancel:  { fontSize: 15, color: '#90A4AE', paddingVertical: 4, paddingHorizontal: 4 },
+  modalSave:    { fontSize: 15, color: BRAND.blue, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 4 },
+  modalBody:    { padding: 16 },
+  modalLabel:   { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 12 },
+  modalInput:   {
+    backgroundColor: '#fff', borderRadius: 10, padding: 13,
+    borderWidth: 1, borderColor: '#E0E0E0', fontSize: 15, color: BRAND.navy,
+  },
+  modalHint:    { fontSize: 12, color: '#90A4AE', marginTop: 12, lineHeight: 18 },
 });

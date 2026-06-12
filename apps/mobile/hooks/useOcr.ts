@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { OcrResult } from '@gastocheck/shared';
+import { supabase } from '../lib/supabase';
 
 export function useOcr() {
   const [loading, setLoading] = useState(false);
@@ -12,16 +13,16 @@ export function useOcr() {
     setLoading(true);
     setError(null);
     try {
-      // TODO: cambiar a tu URL de Supabase + path correcto
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-      const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
       const url = `${supabaseUrl}/functions/v1/ocr-extract`;
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${anonKey}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ image_base64: base64, mime_type: mimeType }),
       });

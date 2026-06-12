@@ -102,8 +102,25 @@ export default function BatchesScreen() {
 
   // ── Crear relación ────────────────────────────────────────────────────────
 
+  function isValidDate(s: string) {
+    if (!s) return true;
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+  }
+
   async function createBatch() {
-    if (!company_id || !formName.trim()) return;
+    if (!company_id) {
+      Alert.alert('Sin empresa', 'Debes pertenecer a una empresa para crear relaciones contables. Ve a Ajustes para crear una.');
+      return;
+    }
+    if (!formName.trim()) return;
+    if (formPeriodStart && !isValidDate(formPeriodStart)) {
+      Alert.alert('Fecha inválida', 'El período inicio debe tener el formato YYYY-MM-DD (ej: 2026-06-01)');
+      return;
+    }
+    if (formPeriodEnd && !isValidDate(formPeriodEnd)) {
+      Alert.alert('Fecha inválida', 'El período fin debe tener el formato YYYY-MM-DD (ej: 2026-06-30)');
+      return;
+    }
     setSaving(true);
     const { data, error } = await supabase
       .from('receipt_batches')
@@ -226,10 +243,12 @@ export default function BatchesScreen() {
           <ScrollView contentContainerStyle={styles.modalBody}>
             <Text style={styles.label}>Período inicio</Text>
             <TextInput style={styles.input} placeholder="YYYY-MM-DD"
-              value={formPeriodStart} onChangeText={setFormPeriodStart} />
+              value={formPeriodStart} onChangeText={setFormPeriodStart}
+              keyboardType="numbers-and-punctuation" maxLength={10} />
             <Text style={styles.label}>Período fin</Text>
             <TextInput style={styles.input} placeholder="YYYY-MM-DD"
-              value={formPeriodEnd} onChangeText={setFormPeriodEnd} />
+              value={formPeriodEnd} onChangeText={setFormPeriodEnd}
+              keyboardType="numbers-and-punctuation" maxLength={10} />
             <Text style={styles.label}>Nombre *</Text>
             <TextInput style={styles.input} placeholder="Ej: REL-2026/06-001"
               value={formName} onChangeText={setFormName} />

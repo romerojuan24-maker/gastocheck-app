@@ -129,6 +129,18 @@ export default function CaptureScreen() {
         setFolio(    result.internalFolio  ?? '');
         setSuggestedCategory(suggestCategoryFromProvider(prov));
         setStep('confirm');
+      } else {
+        Alert.alert(
+          'No se pudo analizar la foto',
+          'La IA no pudo extraer datos del ticket. Puedes ingresar los datos manualmente.',
+          [
+            { text: 'Retomar foto', style: 'cancel' },
+            {
+              text: 'Ingresar manualmente',
+              onPress: () => setStep('confirm'),
+            },
+          ],
+        );
       }
     }
   }
