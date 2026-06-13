@@ -109,6 +109,10 @@ export default function Home() {
         <View style={styles.ownerPanel}>
           <Text style={styles.ownerPanelTitle}>Panel de administración</Text>
           <View style={styles.ownerRow}>
+            <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/supervisor')}>
+              <Text style={styles.ownerBtnIcon}>📋</Text>
+              <Text style={styles.ownerBtnLabel}>Pólizas</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/events')}>
               <Text style={styles.ownerBtnIcon}>📅</Text>
               <Text style={styles.ownerBtnLabel}>Eventos</Text>
@@ -141,22 +145,33 @@ export default function Home() {
       ) : (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Sin póliza activa</Text>
-          <Text style={styles.noPolicy}>Pide a tu supervisor que cree una póliza para ti.</Text>
+          {userRole && OWNER_ROLES.includes(userRole) ? (
+            <>
+              <Text style={styles.noPolicy}>Crea una póliza para ti o para un empleado desde el Panel de supervisor.</Text>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { marginTop: 12, marginBottom: 0 }]}
+                onPress={() => router.push('/supervisor')}
+              >
+                <Text style={styles.primaryBtnText}>📋 Ir al Panel de supervisor</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.noPolicy}>Pide a tu supervisor que cree una póliza para ti.</Text>
+          )}
         </View>
       )}
 
       {/* ── Botones de acción ── */}
       <TouchableOpacity
-        style={[styles.primaryBtn, !policy && { opacity: 0.5 }]}
+        style={styles.primaryBtn}
         onPress={() => router.push('/capture')}
-        disabled={!policy}
       >
         <Text style={styles.primaryBtnText}>📷 Tomar foto del ticket</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.secondaryBtn, !policy && { opacity: 0.5 }]}
-        disabled={!policy}
+        style={styles.secondaryBtn}
+        onPress={() => router.push('/capture')}
       >
         <Text style={styles.secondaryBtnText}>📄 Subir XML o PDF</Text>
       </TouchableOpacity>
@@ -179,9 +194,8 @@ export default function Home() {
         style={[styles.receiptsBtn, { borderColor: BRAND.blue, borderWidth: 1.5 }]}
         onPress={() => router.push('/item-search')}
       >
-        <Text style={[styles.receiptsBtnText, { color: BRAND.blue }]}>
-          🔍 ¿Dónde compro? — historial de artículos
-        </Text>
+        <Text style={[styles.receiptsBtnText, { color: BRAND.blue }]}>🔍 ¿Dónde compro?</Text>
+        <Text style={styles.receiptsBtnHint}>Consulta precios históricos y proveedores por artículo</Text>
       </TouchableOpacity>
 
       {/* ── Lista de gastos ── */}
@@ -259,6 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 10,
   },
   receiptsBtnText: { color: BRAND.navy, fontSize: 15, fontWeight: '600' },
+  receiptsBtnHint: { color: '#90A4AE', fontSize: 11, marginTop: 3 },
   refreshBtn: { alignItems: 'center', padding: 16, marginTop: 8 },
   refreshBtnText: { color: BRAND.blue, fontSize: 14, fontWeight: '600' },
   ownerPanel: { backgroundColor: '#EEF2FF', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: BRAND.blue + '30' },

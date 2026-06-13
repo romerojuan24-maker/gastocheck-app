@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
@@ -81,7 +82,10 @@ export default function AdvanceRequestScreen() {
       Alert.alert('Motivo requerido', 'Describe para qué necesitas el anticipo');
       return;
     }
-    if (!companyId || !userId) return;
+    if (!companyId || !userId) {
+      Alert.alert('Sin empresa', 'Debes pertenecer a una empresa para enviar solicitudes de anticipo. Ve a Ajustes para crear o unirte a una empresa.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -192,54 +196,56 @@ export default function AdvanceRequestScreen() {
       </TouchableOpacity>
 
       {/* Modal nueva solicitud */}
-      <Modal visible={showModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Solicitar anticipo</Text>
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => { setShowModal(false); setAmount(''); setReason(''); }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Solicitar anticipo</Text>
 
-            <Text style={styles.fieldLabel}>Monto solicitado ($)</Text>
-            <TextInput
-              style={styles.input}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 2500.00"
-              placeholderTextColor="#B0BEC5"
-            />
+              <Text style={styles.fieldLabel}>Monto solicitado ($)</Text>
+              <TextInput
+                style={styles.input}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 2500.00"
+                placeholderTextColor="#B0BEC5"
+              />
 
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>¿Para qué necesitas el anticipo?</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={reason}
-              onChangeText={setReason}
-              multiline
-              numberOfLines={3}
-              placeholder="Ej: Compra de refacciones para vehículo #003, viáticos para visita cliente Monterrey..."
-              placeholderTextColor="#B0BEC5"
-              textAlignVertical="top"
-            />
+              <Text style={[styles.fieldLabel, { marginTop: 14 }]}>¿Para qué necesitas el anticipo?</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={reason}
+                onChangeText={setReason}
+                multiline
+                numberOfLines={3}
+                placeholder="Ej: Compra de refacciones para vehículo #003, viáticos para visita cliente Monterrey..."
+                placeholderTextColor="#B0BEC5"
+                textAlignVertical="top"
+              />
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => { setShowModal(false); setAmount(''); setReason(''); }}
-                disabled={saving}
-              >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.submitBtn, saving && { opacity: 0.6 }]}
-                onPress={handleSubmit}
-                disabled={saving}
-              >
-                {saving
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.submitBtnText}>Enviar solicitud</Text>
-                }
-              </TouchableOpacity>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => { setShowModal(false); setAmount(''); setReason(''); }}
+                  disabled={saving}
+                >
+                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.submitBtn, saving && { opacity: 0.6 }]}
+                  onPress={handleSubmit}
+                  disabled={saving}
+                >
+                  {saving
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.submitBtnText}>Enviar solicitud</Text>
+                  }
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -317,8 +323,8 @@ const styles = StyleSheet.create({
   fieldLabel:     { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 6 },
   input:          { backgroundColor: BRAND.gray, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: BRAND.navy, borderWidth: 1, borderColor: '#E0E0E0' },
   textArea:       { minHeight: 90, paddingTop: 12 },
-  modalButtons:   { flexDirection: 'row', gap: 12, marginTop: 20 },
-  modalBtn:       { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  modalButtons:   { flexDirection: 'column', gap: 10, marginTop: 20 },
+  modalBtn:       { borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', width: '100%' },
   cancelBtn:      { backgroundColor: '#F5F5F5' },
   cancelBtnText:  { fontSize: 15, fontWeight: '600', color: '#666' },
   submitBtn:      { backgroundColor: BRAND.blue },

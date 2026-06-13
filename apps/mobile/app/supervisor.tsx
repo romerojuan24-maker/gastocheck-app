@@ -87,7 +87,7 @@ export default function SupervisorScreen() {
         .eq('user_id', user.id)
         .single();
 
-      if (!member || !['admin', 'supervisor'].includes(member.role)) {
+      if (!member || !['owner', 'admin', 'supervisor'].includes(member.role)) {
         Alert.alert('Sin acceso', 'Solo supervisores y administradores pueden ver este panel.');
         return;
       }
