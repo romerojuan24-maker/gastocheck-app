@@ -5,6 +5,7 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
+import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 
 interface PendingExpense {
@@ -41,6 +42,7 @@ const money = (n: number) =>
 type Tab = 'expenses' | 'requests' | 'policies' | 'employees';
 
 export default function SupervisorScreen() {
+  const router = useRouter();
   const [companyId,  setCompanyId]  = useState<string | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [expenses,   setExpenses]   = useState<PendingExpense[]>([]);
@@ -99,7 +101,7 @@ export default function SupervisorScreen() {
           .from('expenses')
           .select('id, provider_name, total, expense_date, status, spender_id, policy_id')
           .eq('company_id', member.company_id)
-          .in('status', ['captured', 'submitted'])
+          .in('status', ['captured', 'submitted', 'pending_auth'])
           .order('created_at', { ascending: false })
           .limit(50),
 
@@ -328,9 +330,17 @@ export default function SupervisorScreen() {
               <Text style={styles.expDate}>{e.expense_date}</Text>
               <View style={styles.expRow}>
                 <Text style={styles.expAmount}>{money(e.total)}</Text>
-                <View style={[styles.badge, { backgroundColor: e.status === 'submitted' ? '#E3F2FD' : '#FFF8E1' }]}>
-                  <Text style={[styles.badgeText, { color: e.status === 'submitted' ? BRAND.blue : BRAND.orange }]}>
-                    {e.status === 'submitted' ? 'En revisión' : 'Capturado'}
+                <View style={[styles.badge, {
+                    backgroundColor: e.status === 'submitted' ? '#E3F2FD'
+                      : e.status === 'pending_auth' ? '#FFF8E1' : '#F5F5F5',
+                  }]}>
+                  <Text style={[styles.badgeText, {
+                    color: e.status === 'submitted' ? BRAND.blue
+                      : e.status === 'pending_auth' ? BRAND.orange : '#90A4AE',
+                  }]}>
+                    {e.status === 'submitted'    ? 'En revisión'
+                    : e.status === 'pending_auth' ? '⏳ Pend. autorización'
+                    : 'Capturado'}
                   </Text>
                 </View>
               </View>
@@ -411,27 +421,26 @@ export default function SupervisorScreen() {
         />
       )}
 
-      {/* ── Tab: Pólizas ── */}
+      {/* ── Tab: Pólizas — redirige a la pantalla completa ── */}
       {tab === 'policies' && (
-        <View style={{ flex: 1 }}>
-          <TouchableOpacity style={styles.createBtn} onPress={() => setShowPolicy(true)}>
-            <Text style={styles.createBtnText}>+ Crear póliza</Text>
+        <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
+          <Text style={[styles.emptyText, { marginBottom: 6, color: BRAND.navy, fontWeight: '700' }]}>
+            Gestión de pólizas
+          </Text>
+          <Text style={[styles.emptyText, { fontSize: 13, marginBottom: 20, textAlign: 'center' }]}>
+            Crea pólizas, agrega comprobantes, verifica en el SAT y autoriza los gastos.
+          </Text>
+          <TouchableOpacity
+            style={[styles.createBtn, { width: '100%', marginHorizontal: 0 }]}
+            onPress={() => router.push('/polizas' as any)}>
+            <Text style={styles.createBtnText}>Ir a Pólizas →</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.createBtn, { backgroundColor: BRAND.green, marginTop: 0 }]} onPress={() => setShowAdvance(true)}>
+          <TouchableOpacity
+            style={[styles.createBtn, { backgroundColor: BRAND.green, width: '100%', marginHorizontal: 0, marginTop: 8 }]}
+            onPress={() => setShowAdvance(true)}>
             <Text style={styles.createBtnText}>+ Registrar anticipo</Text>
           </TouchableOpacity>
-          <FlatList
-            data={policies}
-            keyExtractor={(p) => p.id}
-            contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
-            ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyText}>Sin pólizas abiertas</Text></View>}
-            renderItem={({ item: p }) => (
-              <View style={styles.polCard}>
-                <Text style={styles.polName}>{p.name}</Text>
-                <Text style={styles.polId}>ID: {p.id.slice(0, 8)}…</Text>
-              </View>
-            )}
-          />
         </View>
       )}
 

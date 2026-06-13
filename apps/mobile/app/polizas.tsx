@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, Alert, Modal, ScrollView, TextInput,
+  ActivityIndicator, Alert, Modal, ScrollView, TextInput, Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -239,6 +239,55 @@ export default function PolizasScreen() {
     }
   }
 
+  // ── Compartir documento de póliza ───────────────────────────────────────────
+
+  async function handleShare() {
+    if (!selectedPolicy) return;
+
+    const total = policyExpenses.reduce((s, e) => s + (e.total ?? 0), 0);
+    const autorizados = policyExpenses.filter(e => e.authorization_status === 'authorized');
+    const pendientes  = policyExpenses.filter(e => e.authorization_status === 'pending_auth' || e.authorization_status === 'captured');
+    const rechazados  = policyExpenses.filter(e => e.authorization_status === 'rejected');
+
+    const lineas = policyExpenses.map((e, i) => {
+      const cfdi  = e.cfdi_type === 'con_cfdi'
+        ? (e.sat_validation_status === 'validated' ? '✅ CFDI Vigente' : '❌ CFDI Cancelado/Error')
+        : '📄 Sin Comprobante Fiscal';
+      const auth  = e.authorization_status === 'authorized' ? '✓ Autorizado'
+        : e.authorization_status === 'rejected' ? '✗ Rechazado'
+        : '⏳ Pendiente';
+      return `${i + 1}. ${e.provider_name ?? 'Sin proveedor'}
+   Fecha: ${e.expense_date ?? '—'}  |  Folio: ${e.receipt_folio ?? '—'}
+   Monto: ${fmt(e.total)}
+   ${cfdi}
+   ${auth}`;
+    }).join('\n\n');
+
+    const doc = [
+      '════════════════════════════════',
+      `PÓLIZA DE GASTOS — DOCUMENTO DE AUTORIZACIÓN`,
+      '════════════════════════════════',
+      `Póliza:   ${selectedPolicy.name}`,
+      selectedPolicy.gc_folio ? `Folio:    ${selectedPolicy.gc_folio}` : '',
+      `Estado:   ${selectedPolicy.status === 'open' ? 'Abierta' : 'Cerrada'}`,
+      `────────────────────────────────`,
+      `RESUMEN`,
+      `Total gastos:    ${fmt(total)}`,
+      `✓ Autorizados:   ${autorizados.length}  (${fmt(autorizados.reduce((s,e) => s+(e.total??0),0))})`,
+      `⏳ Pendientes:   ${pendientes.length}`,
+      `✗ Rechazados:    ${rechazados.length}`,
+      `────────────────────────────────`,
+      `DETALLE DE COMPROBANTES`,
+      '',
+      lineas,
+      '',
+      '════════════════════════════════',
+      `Generado: ${new Date().toLocaleString('es-MX')}`,
+    ].filter(Boolean).join('\n');
+
+    await Share.share({ message: doc, title: `Póliza ${selectedPolicy.name}` });
+  }
+
   // ── Cerrar póliza ────────────────────────────────────────────────────────────
 
   async function handleClosePolicy() {
@@ -307,19 +356,24 @@ export default function PolizasScreen() {
         </View>
 
         {/* Botones de acción */}
-        {selectedPolicy.status === 'open' && (
-          <View style={styles.actionRow}>
+        <View style={styles.actionRow}>
+          {selectedPolicy.status === 'open' && (
             <TouchableOpacity style={styles.actionBtn} onPress={openSelectReceipts}>
-              <Text style={styles.actionBtnText}>+ Agregar comprobantes</Text>
+              <Text style={styles.actionBtnText}>+ Comprobantes</Text>
             </TouchableOpacity>
-            {isAdmin && (
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: BRAND.navy }]}
-                onPress={handleClosePolicy}>
-                <Text style={styles.actionBtnText}>Cerrar póliza</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+          )}
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: BRAND.blue }]}
+            onPress={handleShare}>
+            <Text style={styles.actionBtnText}>↑ Compartir</Text>
+          </TouchableOpacity>
+          {isAdmin && selectedPolicy.status === 'open' && (
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: BRAND.navy }]}
+              onPress={handleClosePolicy}>
+              <Text style={styles.actionBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Lista de gastos */}
         {policyLoading ? (

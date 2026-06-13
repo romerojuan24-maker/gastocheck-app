@@ -126,7 +126,7 @@ export default function Home() {
               <Text style={{ color: BRAND.navy }}>Gasto</Text>
               <Text style={{ color: BRAND.green }}>Check</Text>
             </Text>
-            <Text style={styles.brandVersion}>v1.0.6</Text>
+            <Text style={styles.brandVersion}>v1.0.10</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
@@ -162,16 +162,10 @@ export default function Home() {
           <View style={styles.noPolicyCard}>
             <Text style={styles.noPolicyIcon}>📋</Text>
             <Text style={styles.noPolicyTitle}>Sin póliza activa</Text>
-            {userRole && OWNER_ROLES.includes(userRole) ? (
-              <>
-                <Text style={styles.noPolicyHint}>Crea una póliza desde el panel de supervisor.</Text>
-                <TouchableOpacity style={styles.noPolicyBtn} onPress={() => router.push('/supervisor')}>
-                  <Text style={styles.noPolicyBtnText}>Ir al Panel de supervisor</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <Text style={styles.noPolicyHint}>Pide a tu supervisor que cree una póliza para ti.</Text>
-            )}
+            <Text style={styles.noPolicyHint}>Crea una póliza para integrar tus comprobantes.</Text>
+            <TouchableOpacity style={styles.noPolicyBtn} onPress={() => router.push('/polizas' as any)}>
+              <Text style={styles.noPolicyBtnText}>+ Crear póliza</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -185,20 +179,34 @@ export default function Home() {
           <Text style={{ fontSize: 20, color: '#fff' }}>›</Text>
         </TouchableOpacity>
 
+        {/* ── Acceso a pólizas — TODOS los usuarios ── */}
+        <TouchableOpacity style={styles.polizaBtn} onPress={() => router.push('/polizas' as any)}>
+          <Text style={styles.polizaBtnIcon}>📋</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.polizaBtnTitle}>Mis pólizas</Text>
+            <Text style={styles.polizaBtnHint}>
+              {userRole && OWNER_ROLES.includes(userRole)
+                ? 'Crear, revisar y autorizar gastos'
+                : 'Crear póliza e integrar comprobantes'}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 18, color: BRAND.blue }}>›</Text>
+        </TouchableOpacity>
+
         {/* ── Panel de administración (owner/admin/supervisor) ── */}
         {userRole && OWNER_ROLES.includes(userRole) && (
           <View style={styles.ownerPanel}>
             <Text style={styles.ownerPanelTitle}>Administración</Text>
             <View style={styles.ownerRow}>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/supervisor')}>
-                <Text style={styles.ownerBtnIcon}>📋</Text>
-                <Text style={styles.ownerBtnLabel}>Pólizas</Text>
+              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/supervisor' as any)}>
+                <Text style={styles.ownerBtnIcon}>🧑‍💼</Text>
+                <Text style={styles.ownerBtnLabel}>Supervisor</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/events')}>
+              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/events' as any)}>
                 <Text style={styles.ownerBtnIcon}>📅</Text>
                 <Text style={styles.ownerBtnLabel}>Eventos</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/gastadores')}>
+              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/gastadores' as any)}>
                 <Text style={styles.ownerBtnIcon}>👤</Text>
                 <Text style={styles.ownerBtnLabel}>Gastadores</Text>
               </TouchableOpacity>
@@ -296,6 +304,16 @@ const styles = StyleSheet.create({
   noPolicyHint:{ fontSize: 13, color: '#90A4AE', textAlign: 'center' },
   noPolicyBtn: { marginTop: 12, backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
   noPolicyBtnText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Botón pólizas (acceso universal)
+  polizaBtn:  {
+    backgroundColor: '#EEF2FF', borderRadius: 14, padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
+    borderWidth: 1, borderColor: BRAND.blue + '30',
+  },
+  polizaBtnIcon:  { fontSize: 26 },
+  polizaBtnTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  polizaBtnHint:  { fontSize: 12, color: '#90A4AE', marginTop: 1 },
 
   // Botón captura
   captureBtn:  {

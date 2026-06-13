@@ -182,15 +182,52 @@ export default function ReceiptDetailScreen() {
       {(receipt.fiscal_uuid || receipt.provider_rfc || receipt.subtotal_amount != null) && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Datos fiscales</Text>
-          {receipt.provider_rfc     && <InfoRow label="RFC Emisor"   value={receipt.provider_rfc} />}
-          {receipt.fiscal_uuid      && <InfoRow label="UUID CFDI"    value={receipt.fiscal_uuid} mono />}
-          {receipt.internal_folio   && <InfoRow label="Folio"        value={receipt.internal_folio} />}
+          {receipt.provider_rfc     && <InfoRow label="RFC Emisor"    value={receipt.provider_rfc} />}
+          {receipt.fiscal_uuid      && <InfoRow label="UUID CFDI"     value={receipt.fiscal_uuid} mono />}
+          {receipt.internal_folio   && <InfoRow label="Folio interno" value={receipt.internal_folio} />}
           {receipt.payment_method   && <InfoRow label="Forma de pago" value={receipt.payment_method} />}
-          {receipt.subtotal_amount != null && <InfoRow label="Subtotal"  value={money(receipt.subtotal_amount)} />}
-          {receipt.tax_amount != null      && <InfoRow label="IVA"       value={money(receipt.tax_amount)} />}
-          {receipt.total_amount != null    && <InfoRow label="Total"     value={money(receipt.total_amount)} bold />}
+          {receipt.subtotal_amount != null && <InfoRow label="Subtotal" value={money(receipt.subtotal_amount)} />}
+          {receipt.tax_amount != null      && <InfoRow label="IVA"      value={money(receipt.tax_amount)} />}
+          {receipt.total_amount != null    && <InfoRow label="Total"    value={money(receipt.total_amount)} bold />}
         </View>
       )}
+
+      {/* ── Validación SAT ── */}
+      {receipt.fiscal_uuid && (() => {
+        const sat = (receipt as any).sat_validation_status as string | null;
+        const reason = (receipt as any).sat_validation_reason as string | null;
+        const at = (receipt as any).sat_validation_at as string | null;
+        const isOk   = sat === 'validated';
+        const isFail = sat === 'cancelled' || sat === 'not_found';
+        const isErr  = sat === 'error';
+        const pending = !sat;
+
+        const icon  = isOk ? '✅' : isFail ? '❌' : isErr ? '⚠️' : '⏳';
+        const label = isOk   ? 'CFDI Vigente en el SAT'
+          : sat === 'cancelled'  ? 'CFDI Cancelado en el SAT'
+          : sat === 'not_found'  ? 'CFDI No Encontrado en el SAT'
+          : isErr  ? 'SAT no respondió al verificar'
+          : 'Pendiente de verificación en el SAT';
+        const color = isOk ? '#2E7D32' : isFail ? '#C62828' : isErr ? '#E65100' : '#90A4AE';
+        const bg    = isOk ? '#E8F5E9' : isFail ? '#FFEBEE' : isErr ? '#FFF3E0' : '#F5F5F5';
+
+        return (
+          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: color }]}>
+            <Text style={styles.sectionTitle}>Verificación SAT</Text>
+            <View style={[styles.satBanner, { backgroundColor: bg }]}>
+              <Text style={styles.satIcon}>{icon}</Text>
+              <Text style={[styles.satLabel, { color }]}>{label}</Text>
+            </View>
+            {reason && <InfoRow label="Código SAT" value={reason} />}
+            {at && <InfoRow label="Verificado el" value={at.slice(0, 16).replace('T', ' ')} />}
+            {pending && (
+              <Text style={styles.satHint}>
+                La verificación ocurre automáticamente al asignar este comprobante a una póliza.
+              </Text>
+            )}
+          </View>
+        );
+      })()}
 
       {/* ── Confianza OCR ── */}
       {receipt.ocr_confidence != null && (
@@ -355,6 +392,11 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8 },
   noteText:     { fontSize: 14, color: BRAND.navy, lineHeight: 20 },
+
+  satBanner:    { flexDirection: 'row', alignItems: 'center', borderRadius: 10, padding: 10, gap: 8, marginBottom: 8 },
+  satIcon:      { fontSize: 20 },
+  satLabel:     { fontSize: 14, fontWeight: '700', flex: 1 },
+  satHint:      { fontSize: 12, color: '#90A4AE', lineHeight: 18, marginTop: 4 },
 
   ocrBar:       { height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
   ocrFill:      { height: 8, borderRadius: 4 },

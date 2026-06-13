@@ -12,15 +12,18 @@ import { supabase } from '../lib/supabase';
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface ReceiptRow {
-  id:               string;
-  provider_name:    string | null;
-  total_amount:     number | null;
-  receipt_date:     string | null;
-  status:           ReceiptStatus;
-  duplicate_status: DuplicateStatus;
-  source_type:      string;
-  batch_id:         string | null;
-  created_at:       string;
+  id:                    string;
+  gc_folio:              string | null;
+  provider_name:         string | null;
+  total_amount:          number | null;
+  receipt_date:          string | null;
+  status:                ReceiptStatus;
+  duplicate_status:      DuplicateStatus;
+  source_type:           string;
+  batch_id:              string | null;
+  fiscal_uuid:           string | null;
+  sat_validation_status: string | null;
+  created_at:            string;
 }
 
 type FilterStatus = ReceiptStatus | 'all';
@@ -63,8 +66,8 @@ export default function ReceiptsScreen() {
       let query = supabase
         .from('receipts')
         .select(
-          'id, provider_name, total_amount, receipt_date, status, ' +
-          'duplicate_status, source_type, batch_id, created_at',
+          'id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
+          'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at',
         )
         .or(`employee_id.eq.${user.id},uploaded_by.eq.${user.id}`)
         .neq('status', 'cancelled')
@@ -102,22 +105,30 @@ export default function ReceiptsScreen() {
     const statusMeta = RECEIPT_STATUS_META[item.status];
     const dupMeta    = DUPLICATE_STATUS_META[item.duplicate_status];
     const isWarning  = item.duplicate_status !== 'no_duplicate';
+    const inPoliza   = item.status === 'submitted';
+
+    // Estado SAT
+    const satOk     = item.sat_validation_status === 'validated';
+    const satFail   = item.sat_validation_status === 'cancelled' || item.sat_validation_status === 'not_found';
+    const satPend   = item.fiscal_uuid && !item.sat_validation_status;
+    const hasCfdi   = !!item.fiscal_uuid;
 
     return (
       <TouchableOpacity
-        style={[styles.card, isWarning && styles.cardWarning]}
-        onPress={() => router.push(`/receipt-detail?id=${item.id}`)}
+        style={[styles.card, isWarning && styles.cardWarning, inPoliza && styles.cardInPoliza]}
+        onPress={() => router.push(`/receipt-detail?id=${item.id}` as any)}
       >
-        {/* Encabezado */}
+        {/* Encabezado: proveedor + monto */}
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <Text style={styles.provider} numberOfLines={1}>
               {item.provider_name ?? '(sin proveedor)'}
             </Text>
             <Text style={styles.date}>
               {item.receipt_date ?? item.created_at?.slice(0, 10) ?? '—'}
-              {' · '}
+              {'  '}
               {item.source_type === 'photo' ? '📷' : item.source_type === 'xml' ? '📄' : '📎'}
+              {item.gc_folio ? `  ·  ${item.gc_folio}` : ''}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -132,6 +143,34 @@ export default function ReceiptsScreen() {
           </View>
         </View>
 
+        {/* Fila de indicadores: CFDI + SAT + póliza */}
+        {(hasCfdi || inPoliza || item.batch_id) && (
+          <View style={styles.tagsRow}>
+            {hasCfdi && (
+              <View style={[styles.tag,
+                { backgroundColor: satOk ? '#E8F5E9' : satFail ? '#FFEBEE' : '#FFF8E1' }]}>
+                <Text style={[styles.tagText,
+                  { color: satOk ? '#2E7D32' : satFail ? '#C62828' : '#E65100' }]}>
+                  {satOk   ? '✅ CFDI Vigente'
+                  : satFail ? '❌ CFDI Cancelado'
+                  : satPend ? '🧾 Con CFDI'
+                  : '⏳ CFDI sin verificar'}
+                </Text>
+              </View>
+            )}
+            {inPoliza && (
+              <View style={[styles.tag, { backgroundColor: '#EEF2FF' }]}>
+                <Text style={[styles.tagText, { color: BRAND.blue }]}>📋 En póliza</Text>
+              </View>
+            )}
+            {item.batch_id && (
+              <View style={[styles.tag, { backgroundColor: '#E8F5E9' }]}>
+                <Text style={[styles.tagText, { color: '#2E7D32' }]}>📁 En relación</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Advertencia de duplicado */}
         {isWarning && (
           <View style={[styles.dupRow, { backgroundColor: dupMeta.color + '15' }]}>
@@ -139,11 +178,6 @@ export default function ReceiptsScreen() {
               {dupMeta.icon} {dupMeta.label}
             </Text>
           </View>
-        )}
-
-        {/* Indicador de relación */}
-        {item.batch_id && (
-          <Text style={styles.batchText}>📁 Incluido en relación</Text>
         )}
       </TouchableOpacity>
     );
@@ -264,9 +298,12 @@ const styles = StyleSheet.create({
   amount:       { fontSize: 16, fontWeight: '800', color: BRAND.navy },
   badge:        { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
   badgeText:    { fontSize: 11, fontWeight: '700' },
+  cardInPoliza: { borderColor: BRAND.blue + '50', borderWidth: 1.5 },
+  tagsRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tag:          { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  tagText:      { fontSize: 11, fontWeight: '600' },
   dupRow:       { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8 },
   dupText:      { fontSize: 12, fontWeight: '700' },
-  batchText:    { fontSize: 11, color: '#2E7D32', marginTop: 6, fontWeight: '600' },
   center:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyIcon:    { fontSize: 48, marginBottom: 8 },
   emptyText:    { fontSize: 16, color: '#90A4AE', textAlign: 'center' },
