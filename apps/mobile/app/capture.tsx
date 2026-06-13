@@ -43,7 +43,7 @@ interface DuplicateResult {
 
 export default function CaptureScreen() {
   const router = useRouter();
-  const { extractFromImage, loading: ocrLoading } = useOcr();
+  const { extractFromImage, loading: ocrLoading, error: ocrError } = useOcr();
 
   // Setup offline sync monitor
   useEffect(() => {
@@ -134,8 +134,8 @@ export default function CaptureScreen() {
         setStep('confirm');
       } else {
         Alert.alert(
-          'No se pudo analizar la foto',
-          'La IA no pudo extraer datos del ticket. Puedes ingresar los datos manualmente.',
+          'OCR falló',
+          ocrError ?? 'La IA no pudo extraer datos del ticket.',
           [
             { text: 'Retomar foto', style: 'cancel' },
             {
@@ -183,8 +183,8 @@ export default function CaptureScreen() {
         setStep('confirm');
       } else {
         Alert.alert(
-          'No se pudo analizar la imagen',
-          'La IA no pudo extraer datos. Puedes ingresar los datos manualmente.',
+          'OCR falló',
+          ocrError ?? 'La IA no pudo extraer datos de la imagen.',
           [
             { text: 'Elegir otra imagen', style: 'cancel' },
             {
