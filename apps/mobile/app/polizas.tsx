@@ -333,72 +333,83 @@ export default function PolizasScreen() {
               <Text style={styles.empty}>Sin comprobantes. Toca "+ Agregar comprobantes"</Text>
             }
             renderItem={({ item: e }) => {
-              const hasCfdi  = e.cfdi_type === 'con_cfdi';
-              const satOk    = e.sat_validation_status === 'validated';
-              const satFail  = e.sat_validation_status === 'cancelled' || e.sat_validation_status === 'not_found';
+              const hasCfdi   = e.cfdi_type === 'con_cfdi';
+              const satOk     = e.sat_validation_status === 'validated';
+              const satFail   = e.sat_validation_status === 'cancelled' || e.sat_validation_status === 'not_found';
+              const satError  = e.sat_validation_status === 'error' || e.sat_validation_status == null;
               const isPending = e.authorization_status === 'pending_auth' || e.authorization_status === 'captured';
-              const isAuth   = e.authorization_status === 'authorized';
-              const isRej    = e.authorization_status === 'rejected';
+              const isAuth    = e.authorization_status === 'authorized';
+              const isRej     = e.authorization_status === 'rejected';
+
+              // Color de la barra izquierda = estado de autorización
+              const barColor = isAuth ? BRAND.green : isRej ? BRAND.red : BRAND.orange;
+
+              // Etiqueta CFDI — texto completo en fila propia
+              const cfdiIcon  = hasCfdi
+                ? (satOk ? '✅' : satFail ? '❌' : '⏳')
+                : '📄';
+              const cfdiLabel = hasCfdi
+                ? (satOk   ? 'Con CFDI — Vigente en SAT'
+                  : satFail ? 'Con CFDI — Cancelado / No encontrado'
+                  : satError ? 'Con CFDI — SAT sin respuesta'
+                  : 'Con CFDI — pendiente verificación')
+                : 'Sin Comprobante Fiscal';
+              const cfdiColor = hasCfdi
+                ? (satOk ? '#2E7D32' : satFail ? '#C62828' : '#E65100')
+                : '#6A1B9A';
+
+              const authLabel = isAuth ? '✓ Autorizado' : isRej ? '✗ Rechazado' : '⏳ Pendiente autorización';
+              const authColor = isAuth ? '#2E7D32'    : isRej ? '#C62828'    : '#E65100';
 
               return (
-                <View style={styles.expenseCard}>
-                  {/* Proveedor y monto */}
-                  <View style={styles.expenseTop}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.expenseProv}>{e.provider_name ?? 'Sin proveedor'}</Text>
-                      <Text style={styles.expenseDate}>{e.expense_date ?? ''}</Text>
-                      {e.receipt_folio && (
-                        <Text style={styles.expenseFolio}>{e.receipt_folio}</Text>
-                      )}
-                    </View>
-                    <Text style={styles.expenseTotal}>{fmt(e.total)}</Text>
-                  </View>
+                <View style={[styles.expenseCard, { flexDirection: 'row' }]}>
+                  {/* Barra de color izquierda — estado de un vistazo */}
+                  <View style={[styles.expenseBar, { backgroundColor: barColor }]} />
 
-                  {/* Clasificación CFDI */}
-                  <View style={styles.cfdiRow}>
-                    {hasCfdi ? (
-                      <View style={[styles.badge,
-                        { backgroundColor: satOk ? '#E8F5E9' : satFail ? '#FFEBEE' : '#FFF8E1' }]}>
-                        <Text style={[styles.badgeText,
-                          { color: satOk ? '#2E7D32' : satFail ? '#C62828' : '#E65100' }]}>
-                          {satOk   ? '✅ CFDI Vigente (SAT)'
-                          : satFail ? '❌ CFDI Cancelado/No encontrado'
-                          : '⏳ CFDI — SAT no verificado'}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.badge, { backgroundColor: '#F3E5F5' }]}>
-                        <Text style={[styles.badgeText, { color: '#6A1B9A' }]}>
-                          📄 Sin Comprobante Fiscal
-                        </Text>
+                  <View style={{ flex: 1, padding: 12 }}>
+                    {/* Fila 1: proveedor + monto (monto ancho fijo para no competir) */}
+                    <View style={styles.expenseTop}>
+                      <Text
+                        style={styles.expenseProv}
+                        numberOfLines={1}
+                        ellipsizeMode="tail">
+                        {e.provider_name ?? 'Sin proveedor'}
+                      </Text>
+                      <Text style={styles.expenseTotal}>{fmt(e.total)}</Text>
+                    </View>
+
+                    {/* Fila 2: fecha y folio */}
+                    <Text style={styles.expenseMeta}>
+                      {[e.expense_date, e.receipt_folio].filter(Boolean).join('  ·  ')}
+                    </Text>
+
+                    {/* Fila 3: clasificación CFDI — línea completa sin compartir */}
+                    <View style={styles.expenseDivider} />
+                    <Text style={[styles.expenseTag, { color: cfdiColor }]}>
+                      {cfdiIcon}{'  '}{cfdiLabel}
+                    </Text>
+
+                    {/* Fila 4: estado de autorización — línea completa */}
+                    <Text style={[styles.expenseTag, { color: authColor, marginTop: 3 }]}>
+                      {authLabel}
+                    </Text>
+
+                    {/* Botones autorizar / rechazar — solo admin, pendientes, póliza abierta */}
+                    {isAdmin && isPending && selectedPolicy.status === 'open' && (
+                      <View style={styles.authRow}>
+                        <TouchableOpacity
+                          style={[styles.authBtn, { backgroundColor: BRAND.green }]}
+                          onPress={() => handleAuthorize(e.expense_id, true)}>
+                          <Text style={styles.authBtnText}>✓  Autorizar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.authBtn, { backgroundColor: BRAND.red }]}
+                          onPress={() => handleAuthorize(e.expense_id, false)}>
+                          <Text style={styles.authBtnText}>✗  Rechazar</Text>
+                        </TouchableOpacity>
                       </View>
                     )}
-
-                    {/* Status de autorización */}
-                    <View style={[styles.badge,
-                      { backgroundColor: isAuth ? '#E8F5E9' : isRej ? '#FFEBEE' : '#FFF8E1' }]}>
-                      <Text style={[styles.badgeText,
-                        { color: isAuth ? '#2E7D32' : isRej ? '#C62828' : '#E65100' }]}>
-                        {isAuth ? '✓ Autorizado' : isRej ? '✗ Rechazado' : '⏳ Pendiente'}
-                      </Text>
-                    </View>
                   </View>
-
-                  {/* Botones de autorización (solo admin, solo pendientes) */}
-                  {isAdmin && isPending && selectedPolicy.status === 'open' && (
-                    <View style={styles.authRow}>
-                      <TouchableOpacity
-                        style={[styles.authBtn, { backgroundColor: BRAND.green }]}
-                        onPress={() => handleAuthorize(e.expense_id, true)}>
-                        <Text style={styles.authBtnText}>✓ Autorizar</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.authBtn, { backgroundColor: BRAND.red }]}
-                        onPress={() => handleAuthorize(e.expense_id, false)}>
-                        <Text style={styles.authBtnText}>✗ Rechazar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
               );
             }}
@@ -434,21 +445,44 @@ export default function PolizasScreen() {
                         sel ? next.delete(r.id) : next.add(r.id);
                         return next;
                       });
-                    }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.receiptProv, sel && { color: '#fff' }]}>
+                    }}
+                    activeOpacity={0.75}>
+
+                    {/* Checkbox visual */}
+                    <View style={[styles.checkbox, sel && styles.checkboxSel]}>
+                      {sel && <Text style={styles.checkboxMark}>✓</Text>}
+                    </View>
+
+                    {/* Datos del comprobante — flex:1 para tomar todo el espacio disponible */}
+                    <View style={{ flex: 1, marginHorizontal: 10 }}>
+                      {/* Nombre del proveedor — siempre en 1 línea, corta con … */}
+                      <Text
+                        style={[styles.receiptProv, sel && { color: '#fff' }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail">
                         {r.provider_name ?? 'Sin proveedor'}
                       </Text>
-                      <Text style={[styles.receiptDate, sel && { color: '#cce' }]}>
-                        {r.receipt_date ?? ''} · {r.gc_folio ?? ''}
+                      {/* Fecha y folio en la misma línea con separador */}
+                      <Text
+                        style={[styles.receiptMeta, sel && { color: '#AAB8C2' }]}
+                        numberOfLines={1}>
+                        {[r.receipt_date, r.gc_folio].filter(Boolean).join('  ·  ')}
                       </Text>
-                      {r.fiscal_uuid && (
-                        <Text style={[styles.receiptCfdi, sel && { color: '#aef' }]}>
-                          🧾 Con CFDI
-                        </Text>
-                      )}
+                      {/* Indicador CFDI — solo si tiene UUID */}
+                      {r.fiscal_uuid
+                        ? <Text style={[styles.receiptCfdiTag, sel && { color: '#7EE8A2' }]}>
+                            🧾 Con CFDI — se verificará en SAT
+                          </Text>
+                        : <Text style={[styles.receiptNoCfdiTag, sel && { color: '#D8B4FE' }]}>
+                            📄 Sin CFDI
+                          </Text>
+                      }
                     </View>
-                    <Text style={[styles.receiptTotal, sel && { color: '#fff' }]}>
+
+                    {/* Monto — ancho fijo 80px para no competir con el nombre */}
+                    <Text
+                      style={[styles.receiptTotal, sel && { color: '#fff' }]}
+                      numberOfLines={1}>
                       {fmt(r.total_amount)}
                     </Text>
                   </TouchableOpacity>
@@ -593,30 +627,41 @@ const styles = StyleSheet.create({
   policyDate:   { fontSize: 12, color: '#90A4AE', marginTop: 2 },
   statusBadge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText:   { fontSize: 12, fontWeight: '700' },
+  // ── Tarjeta de gasto (detalle de póliza) ─────────────────────────────────
   expenseCard:  {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+    backgroundColor: '#fff', borderRadius: 14, marginBottom: 10, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 5, elevation: 2,
   },
-  expenseTop:   { flexDirection: 'row', marginBottom: 8 },
-  expenseProv:  { fontSize: 14, fontWeight: '700', color: BRAND.navy },
-  expenseDate:  { fontSize: 12, color: '#90A4AE', marginTop: 2 },
-  expenseFolio: { fontSize: 11, color: '#B0BEC5', marginTop: 1 },
-  expenseTotal: { fontSize: 16, fontWeight: '800', color: BRAND.navy },
-  cfdiRow:      { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
-  badge:        { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  badgeText:    { fontSize: 11, fontWeight: '600' },
-  authRow:      { flexDirection: 'row', gap: 8, marginTop: 4 },
+  expenseBar:   { width: 5 },                           // barra de color izquierda
+  expenseTop:   { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 2 },
+  expenseProv:  { flex: 1, fontSize: 14, fontWeight: '700', color: BRAND.navy, marginRight: 8 },
+  expenseMeta:  { fontSize: 12, color: '#90A4AE', marginBottom: 6 },
+  expenseDivider: { height: 1, backgroundColor: '#F0F0F0', marginBottom: 6 },
+  expenseTag:   { fontSize: 12, fontWeight: '600', lineHeight: 18 },
+  expenseTotal: { fontSize: 15, fontWeight: '800', color: BRAND.navy, minWidth: 72, textAlign: 'right' },
+  authRow:      { flexDirection: 'row', gap: 8, marginTop: 10 },
   authBtn:      { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
   authBtnText:  { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  // ── Chips de selección de comprobantes ────────────────────────────────────
   receiptChip:  {
     backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8,
-    flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E0E0E0',
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#E0E0E0',
   },
   receiptChipSelected: { backgroundColor: BRAND.navy, borderColor: BRAND.navy },
+  checkbox:     {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#B0BEC5',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxSel:  { backgroundColor: BRAND.green, borderColor: BRAND.green },
+  checkboxMark: { color: '#fff', fontSize: 13, fontWeight: '800', lineHeight: 16 },
   receiptProv:  { fontSize: 14, fontWeight: '700', color: BRAND.navy },
-  receiptDate:  { fontSize: 12, color: '#90A4AE', marginTop: 2 },
-  receiptCfdi:  { fontSize: 11, color: '#388E3C', marginTop: 2 },
-  receiptTotal: { fontSize: 15, fontWeight: '800', color: BRAND.navy },
+  receiptMeta:  { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  receiptCfdiTag:   { fontSize: 11, color: '#2E7D32', marginTop: 3, fontWeight: '600' },
+  receiptNoCfdiTag: { fontSize: 11, color: '#7B1FA2', marginTop: 3, fontWeight: '600' },
+  receiptTotal: { fontSize: 14, fontWeight: '800', color: BRAND.navy, width: 80, textAlign: 'right' },
+  // ── Modal footer ─────────────────────────────────────────────────────────
   modalFooter:  { flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 32 },
   confirmBtn:   { flex: 2, backgroundColor: BRAND.green, padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmBtnText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
