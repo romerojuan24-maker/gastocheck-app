@@ -65,6 +65,7 @@ export default function CaptureScreen() {
   const [iva,        setIva]        = useState('');
   const [fecha,      setFecha]      = useState('');
   const [folio,      setFolio]      = useState('');
+  const [description, setDescription] = useState('');
 
   // Fuente: foto o XML
   const [isXml,      setIsXml]      = useState(false);
@@ -137,6 +138,55 @@ export default function CaptureScreen() {
           'La IA no pudo extraer datos del ticket. Puedes ingresar los datos manualmente.',
           [
             { text: 'Retomar foto', style: 'cancel' },
+            {
+              text: 'Ingresar manualmente',
+              onPress: () => {
+                if (!fecha) setFecha(new Date().toISOString().slice(0, 10));
+                setStep('confirm');
+              },
+            },
+          ],
+        );
+      }
+    }
+  }
+
+  // ── Elegir de galería ──────────────────────────────────────────────────────
+
+  async function pickFromGallery() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a la galería para seleccionar fotos');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      base64: true,
+    });
+    if (res.canceled || !res.assets[0]) return;
+    const asset = res.assets[0];
+    setPhoto({ uri: asset.uri, base64: asset.base64 });
+    if (asset.base64) {
+      const result = await extractFromImage(asset.base64, 'image/jpeg');
+      if (result) {
+        setExtracted(result);
+        const prov = result.providerName ?? '';
+        setProveedor(prov);
+        setRfc(      result.providerRfc    ?? '');
+        setTotal(    String(result.total   ?? ''));
+        setSubtotal( String(result.subtotal ?? ''));
+        setIva(      String(result.tax     ?? ''));
+        setFecha(    result.receiptDate    ?? '');
+        setFolio(    result.internalFolio  ?? '');
+        setSuggestedCategory(suggestCategoryFromProvider(prov));
+        setStep('confirm');
+      } else {
+        Alert.alert(
+          'No se pudo analizar la imagen',
+          'La IA no pudo extraer datos. Puedes ingresar los datos manualmente.',
+          [
+            { text: 'Elegir otra imagen', style: 'cancel' },
             {
               text: 'Ingresar manualmente',
               onPress: () => {
@@ -364,6 +414,7 @@ export default function CaptureScreen() {
                             : extracted?.confidence === 'medium' ? 65 : 40,
             extracted_json:   extracted ?? null,
             line_items:       extracted?.lineItems ?? [],
+            notes:            description.trim() || null,
             vehicle_id:       vehicleId  ?? null,
             operator_id:      operatorId ?? null,
             force_save:       forceSave,
@@ -423,16 +474,20 @@ export default function CaptureScreen() {
       }
 
       // Éxito
-      const dupStatus = submitData.duplicate_status;
-      const dupMeta   = DUPLICATE_STATUS_META[dupStatus as DuplicateStatus];
+      const dupStatus  = submitData.duplicate_status;
+      const dupMeta    = DUPLICATE_STATUS_META[dupStatus as DuplicateStatus];
+      const folioLabel = submitData.gc_folio ? `Folio: ${submitData.gc_folio}` : '';
 
       Alert.alert(
         '✓ Comprobante guardado',
-        `${proveedor || 'Proveedor'} · $${total}\n${
+        [
+          proveedor || 'Proveedor',
+          total ? `$${total}` : '',
+          folioLabel,
           dupStatus !== 'no_duplicate'
-            ? `\n⚠ ${dupMeta?.label ?? 'Duplicado probable'} — revisará el supervisor`
-            : ''
-        }`,
+            ? `⚠ ${dupMeta?.label ?? 'Duplicado probable'} — revisará el supervisor`
+            : '',
+        ].filter(Boolean).join('\n'),
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err: any) {
@@ -586,6 +641,18 @@ export default function CaptureScreen() {
           <DatePickerField label="Fecha" value={fecha} onChange={setFecha} />
           <Field label="Folio (si aplica)" value={folio} onChangeText={setFolio} />
 
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>¿De qué es este gasto?</Text>
+            <TextInput
+              style={[styles.fieldInput, { minHeight: 60, textAlignVertical: 'top', paddingTop: 10 }]}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              placeholder="Ej: Comida para reunión con cliente, gasolina para reparto..."
+              placeholderTextColor="#B0BEC5"
+            />
+          </View>
+
           {suggestedCategory && (
             <View style={styles.categoryBox}>
               <Text style={styles.categoryLabel}>💡 Categoría sugerida</Text>
@@ -697,7 +764,7 @@ export default function CaptureScreen() {
 
           <TouchableOpacity
             style={[styles.secondaryBtn]}
-            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); }}
+            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); }}
             disabled={busy}
           >
             <Text style={styles.secondaryBtnText}>Retomar foto</Text>
@@ -729,6 +796,15 @@ export default function CaptureScreen() {
           ? <><ActivityIndicator color="#fff" />
               <Text style={[styles.cameraBtnText, { marginLeft: 8 }]}>Analizando...</Text></>
           : <Text style={styles.cameraBtnText}>📷 Tomar foto del ticket</Text>
+        }
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.galleryBtn, busy && { opacity: 0.6 }]}
+        onPress={pickFromGallery} disabled={busy}>
+        {ocrLoading
+          ? <><ActivityIndicator color={BRAND.navy} size="small" />
+              <Text style={[styles.galleryBtnText, { marginLeft: 8 }]}>Analizando...</Text></>
+          : <Text style={styles.galleryBtnText}>🖼️ Elegir de galería</Text>
         }
       </TouchableOpacity>
 
@@ -817,6 +893,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center',
   },
   cameraBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
+  galleryBtn:     {
+    backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', marginBottom: 10, borderWidth: 1.5, borderColor: '#90A4AE',
+    flexDirection: 'row', justifyContent: 'center',
+  },
+  galleryBtnText: { color: BRAND.navy, fontSize: 15, fontWeight: '600' },
   xmlBtn:         {
     backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14,
     alignItems: 'center', marginBottom: 10, borderWidth: 1.5, borderColor: BRAND.blue,

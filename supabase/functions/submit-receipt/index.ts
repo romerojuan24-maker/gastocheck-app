@@ -252,9 +252,17 @@ Deno.serve(async (req) => {
       status:                    'submitted',
     };
 
+    // Obtener folio correlativo GastoCheck antes de insertar
+    let gc_folio: string | null = null;
+    try {
+      const { data: folioData } = await supabase
+        .rpc('next_gc_folio', { p_company_id: company_id, p_type: 'receipt' });
+      gc_folio = folioData ?? null;
+    } catch { /* no bloquea el guardado */ }
+
     const { data: receipt, error: receiptErr } = await supabase
       .from('receipts')
-      .insert(receiptData)
+      .insert({ ...receiptData, gc_folio })
       .select('id')
       .single();
 
@@ -365,6 +373,7 @@ Deno.serve(async (req) => {
       {
         ok:               true,
         receipt_id:       receipt.id,
+        gc_folio,
         expense_id:       expense?.id ?? null,
         supplier_id,
         duplicate_status: duplicateStatus,

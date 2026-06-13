@@ -154,12 +154,22 @@ export default function SupervisorScreen() {
   async function createPolicy() {
     if (!companyId || !polName.trim() || !polHolder.trim()) return;
     setSavingPol(true);
+
+    // Obtener folio correlativo para la póliza
+    let gc_folio: string | null = null;
+    try {
+      const { data: folioData } = await supabase
+        .rpc('next_gc_folio', { p_company_id: companyId, p_type: 'policy' });
+      gc_folio = folioData ?? null;
+    } catch { /* no bloquea la creación */ }
+
     const { error } = await supabase.from('policies').insert({
       company_id:      companyId,
       name:            polName.trim(),
       holder_id:       polHolder.trim(),
       opening_balance: parseFloat(polBalance) || 0,
       status:          'open',
+      gc_folio,
     });
     setSavingPol(false);
     if (error) Alert.alert('Error', error.message);
