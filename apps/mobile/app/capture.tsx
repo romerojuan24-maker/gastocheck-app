@@ -43,7 +43,7 @@ interface DuplicateResult {
 
 export default function CaptureScreen() {
   const router = useRouter();
-  const { extractFromImage, loading: ocrLoading, error: ocrError } = useOcr();
+  const { extractFromImage, loading: ocrLoading } = useOcr();
 
   // Setup offline sync monitor
   useEffect(() => {
@@ -112,14 +112,14 @@ export default function CaptureScreen() {
       return;
     }
 
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.85, base64: true });
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
     if (res.canceled || !res.assets[0]) return;
 
     const asset = res.assets[0];
     setPhoto({ uri: asset.uri, base64: asset.base64 });
 
     if (asset.base64) {
-      const result = await extractFromImage(asset.base64, 'image/jpeg');
+      const { data: result, error: ocrErr } = await extractFromImage(asset.base64, 'image/jpeg');
       if (result) {
         setExtracted(result);
         const prov = result.providerName ?? '';
@@ -135,7 +135,7 @@ export default function CaptureScreen() {
       } else {
         Alert.alert(
           'OCR falló',
-          ocrError ?? 'La IA no pudo extraer datos del ticket.',
+          ocrErr ?? 'La IA no pudo extraer datos del ticket.',
           [
             { text: 'Retomar foto', style: 'cancel' },
             {
@@ -161,14 +161,14 @@ export default function CaptureScreen() {
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
+      quality: 0.5,
       base64: true,
     });
     if (res.canceled || !res.assets[0]) return;
     const asset = res.assets[0];
     setPhoto({ uri: asset.uri, base64: asset.base64 });
     if (asset.base64) {
-      const result = await extractFromImage(asset.base64, 'image/jpeg');
+      const { data: result, error: ocrErr } = await extractFromImage(asset.base64, 'image/jpeg');
       if (result) {
         setExtracted(result);
         const prov = result.providerName ?? '';
@@ -184,7 +184,7 @@ export default function CaptureScreen() {
       } else {
         Alert.alert(
           'OCR falló',
-          ocrError ?? 'La IA no pudo extraer datos de la imagen.',
+          ocrErr ?? 'La IA no pudo extraer datos de la imagen.',
           [
             { text: 'Elegir otra imagen', style: 'cancel' },
             {

@@ -4,14 +4,12 @@ import { supabase } from '../lib/supabase';
 
 export function useOcr() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function extractFromImage(
     base64: string,
     mimeType: string = 'image/jpeg',
-  ): Promise<OcrResult | null> {
+  ): Promise<{ data: OcrResult | null; error: string | null }> {
     setLoading(true);
-    setError(null);
     try {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
       const { data: { session } } = await supabase.auth.getSession();
@@ -28,19 +26,18 @@ export function useOcr() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'OCR falló');
+        const err = await res.json().catch(() => ({}));
+        return { data: null, error: err.error || err.detail || `Error ${res.status}` };
       }
 
-      const { data } = await res.json();
-      return data as OcrResult;
+      const body = await res.json();
+      return { data: body.data as OcrResult, error: null };
     } catch (e) {
-      setError(String(e));
-      return null;
+      return { data: null, error: String(e) };
     } finally {
       setLoading(false);
     }
   }
 
-  return { extractFromImage, loading, error };
+  return { extractFromImage, loading };
 }
