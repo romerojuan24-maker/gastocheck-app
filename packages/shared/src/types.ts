@@ -123,6 +123,7 @@ export interface Policy {
   opening_balance: number;
   closing_balance: number | null;
   status: PolicyStatus;
+  policy_type: 'anticipo' | 'reembolso';
   previous_policy_id: string | null;
   closed_at: string | null;
 }
@@ -199,6 +200,7 @@ export interface Receipt {
   total_amount: number | null;
   subtotal_amount: number | null;
   tax_amount: number | null;
+  discount_amount: number | null;
   currency: string;
 
   fiscal_uuid: string | null;
@@ -253,6 +255,7 @@ export interface OcrResult {
   receiptTime?: string | null;
   subtotal?: number | null;
   tax?: number | null;
+  discount?: number | null;
   total?: number | null;
   currency?: string;
   fiscalUuid?: string | null;

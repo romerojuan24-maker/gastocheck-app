@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, TextInput, ScrollView,
+  ActivityIndicator, TextInput, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND, RECEIPT_STATUS_META, DUPLICATE_STATUS_META } from '@gastocheck/shared';
@@ -46,12 +46,37 @@ const money = (n: number) =>
 export default function ReceiptsScreen() {
   const router = useRouter();
 
-  const [receipts,   setReceipts]   = useState<ReceiptRow[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [search,     setSearch]     = useState('');
+  const [receipts,     setReceipts]     = useState<ReceiptRow[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
-  const [page,       setPage]       = useState(0);
+  const [page,         setPage]         = useState(0);
   const PAGE_SIZE = 20;
+
+  // Modo selección para reembolso
+  const [selectMode,  setSelectMode]  = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string, status: ReceiptStatus) {
+    if (status !== 'captured') {
+      Alert.alert('No disponible', 'Solo puedes seleccionar comprobantes en estado "Capturado" (sin asignar).');
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleStartReembolso() {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds).join(',');
+    router.push({ pathname: '/reembolso', params: { ids } } as any);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
 
   // ── Cargar comprobantes ────────────────────────────────────────────────────
 
@@ -102,10 +127,12 @@ export default function ReceiptsScreen() {
   // ── Renderizado de cada comprobante ───────────────────────────────────────
 
   function renderReceipt({ item }: { item: ReceiptRow }) {
-    const statusMeta = RECEIPT_STATUS_META[item.status];
-    const dupMeta    = DUPLICATE_STATUS_META[item.duplicate_status];
-    const isWarning  = item.duplicate_status !== 'no_duplicate';
-    const inPoliza   = item.status === 'submitted';
+    const statusMeta  = RECEIPT_STATUS_META[item.status];
+    const dupMeta     = DUPLICATE_STATUS_META[item.duplicate_status];
+    const isWarning   = item.duplicate_status !== 'no_duplicate';
+    const inPoliza    = item.status === 'submitted';
+    const isSelectable = item.status === 'captured';
+    const isSelected   = selectedIds.has(item.id);
 
     // Estado SAT
     const satOk     = item.sat_validation_status === 'validated';
@@ -113,11 +140,39 @@ export default function ReceiptsScreen() {
     const satPend   = item.fiscal_uuid && !item.sat_validation_status;
     const hasCfdi   = !!item.fiscal_uuid;
 
+    // Alerta de dato faltante (para item 4)
+    const needsData = isSelectable && (!item.provider_name || !item.total_amount);
+
     return (
       <TouchableOpacity
-        style={[styles.card, isWarning && styles.cardWarning, inPoliza && styles.cardInPoliza]}
-        onPress={() => router.push(`/receipt-detail?id=${item.id}` as any)}
+        style={[
+          styles.card,
+          isWarning && styles.cardWarning,
+          inPoliza && styles.cardInPoliza,
+          selectMode && isSelected && styles.cardSelected,
+          selectMode && !isSelectable && { opacity: 0.45 },
+        ]}
+        onPress={() => {
+          if (selectMode) {
+            toggleSelect(item.id, item.status);
+          } else {
+            router.push(`/receipt-detail?id=${item.id}` as any);
+          }
+        }}
       >
+        {/* Checkbox en modo selección */}
+        {selectMode && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+              {isSelected && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>}
+            </View>
+            {needsData && (
+              <Text style={{ fontSize: 11, color: '#E65100', flex: 1 }}>
+                ⚠ Falta proveedor o monto — revisa antes de incluir
+              </Text>
+            )}
+          </View>
+        )}
         {/* Encabezado: proveedor + monto */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1, marginRight: 8 }}>
@@ -187,6 +242,25 @@ export default function ReceiptsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+      {/* Barra de acción: búsqueda o modo selección */}
+      {selectMode ? (
+        <View style={styles.selectBar}>
+          <Text style={styles.selectBarText}>
+            {selectedIds.size > 0
+              ? `${selectedIds.size} comprobante${selectedIds.size !== 1 ? 's' : ''} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
+              : 'Toca los comprobantes a incluir'}
+          </Text>
+          <TouchableOpacity onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.reembolsoBar} onPress={() => setSelectMode(true)}>
+          <Text style={styles.reembolsoBarText}>📋 Integrar Reembolso</Text>
+          <Text style={styles.reembolsoBarHint}>Selecciona comprobantes →</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Barra de búsqueda */}
       <View style={styles.searchBar}>
         <TextInput
@@ -248,7 +322,7 @@ export default function ReceiptsScreen() {
           data={receipts}
           keyExtractor={(r) => r.id}
           renderItem={renderReceipt}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, selectMode && selectedIds.size > 0 && { paddingBottom: 90 }]}
           onEndReached={() => {
             setPage((p) => p + 1);
             loadReceipts(false);
@@ -260,6 +334,15 @@ export default function ReceiptsScreen() {
             loading ? <ActivityIndicator color={BRAND.blue} style={{ padding: 16 }} /> : null
           }
         />
+      )}
+
+      {/* Botón flotante cuando hay seleccionados */}
+      {selectMode && selectedIds.size > 0 && (
+        <TouchableOpacity style={styles.floatingReembolsoBtn} onPress={handleStartReembolso}>
+          <Text style={styles.floatingReembolsoBtnText}>
+            Solicitar Reembolso ({selectedIds.size}) →
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -304,6 +387,37 @@ const styles = StyleSheet.create({
   tagText:      { fontSize: 11, fontWeight: '600' },
   dupRow:       { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8 },
   dupText:      { fontSize: 12, fontWeight: '700' },
+
+  // Modo selección y reembolso
+  reembolsoBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#EEF2FF', marginHorizontal: 12, marginTop: 8, marginBottom: 4,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: BRAND.blue + '30',
+  },
+  reembolsoBarText: { fontSize: 14, fontWeight: '700', color: BRAND.blue },
+  reembolsoBarHint: { fontSize: 12, color: '#90A4AE' },
+  selectBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: BRAND.blue, marginHorizontal: 12, marginTop: 8, marginBottom: 4,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  selectBarText: { fontSize: 14, fontWeight: '700', color: '#fff', flex: 1 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+    borderColor: '#B0BEC5', marginRight: 8, alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxSelected: { backgroundColor: BRAND.green, borderColor: BRAND.green },
+  cardSelected: { borderColor: BRAND.green, borderWidth: 2 },
+  floatingReembolsoBtn: {
+    position: 'absolute', bottom: 20, left: 16, right: 16,
+    backgroundColor: BRAND.green, borderRadius: 16, paddingVertical: 16,
+    alignItems: 'center', elevation: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8,
+  },
+  floatingReembolsoBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+
   center:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyIcon:    { fontSize: 48, marginBottom: 8 },
   emptyText:    { fontSize: 16, color: '#90A4AE', textAlign: 'center' },

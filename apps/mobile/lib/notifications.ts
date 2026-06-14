@@ -53,7 +53,7 @@ export async function setupNotifications() {
 }
 
 /**
- * Envía notificación local (para testing)
+ * Envía notificación local
  */
 export async function sendLocalNotification(title: string, message: string) {
   await Notifications.scheduleNotificationAsync({
@@ -65,4 +65,36 @@ export async function sendLocalNotification(title: string, message: string) {
     },
     trigger: { seconds: 1 },
   });
+}
+
+/**
+ * Recordatorio de cierre de mes: último día del mes avisa al comprador
+ * si tiene comprobantes sin asignar a reembolso o póliza.
+ */
+export async function checkMonthEndReminder() {
+  try {
+    const today   = new Date();
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    if (today.getDate() !== lastDay) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { count } = await supabase
+      .from('receipts')
+      .select('id', { count: 'exact', head: true })
+      .eq('uploaded_by', user.id)
+      .eq('status', 'captured');
+
+    if (!count || count === 0) return;
+
+    const mes = today.toLocaleString('es-MX', { month: 'long' });
+    await sendLocalNotification(
+      '📅 Cierra tus comprobantes del mes',
+      `Tienes ${count} comprobante${count !== 1 ? 's' : ''} sin asignar. ` +
+      `Solicita tu reembolso antes de que termine ${mes} para mantener el control contable.`,
+    );
+  } catch (e) {
+    console.warn('Month-end reminder error:', e);
+  }
 }

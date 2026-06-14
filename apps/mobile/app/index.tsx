@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { computeBalance, STATUS_META, BRAND, type Expense, type Policy, type Advance } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
+import { checkMonthEndReminder } from '../lib/notifications';
 
 const OWNER_ROLES = ['owner', 'admin', 'supervisor'];
 
@@ -35,6 +36,8 @@ export default function Home() {
   const [policy,   setPolicy]   = useState<Policy | null>(null);
   const [advances, setAdvances] = useState<Pick<Advance, 'amount'>[]>([]);
   const [expenses, setExpenses] = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
+  const [pendingReceiptsCount,   setPendingReceiptsCount]   = useState(0);
+  const [totalReceiptsScanned,   setTotalReceiptsScanned]   = useState(0);
 
   useEffect(() => { loadData(); }, []);
 
@@ -63,33 +66,47 @@ export default function Home() {
         .maybeSingle();
       if (member?.role) setUserRole(member.role);
 
-      // Póliza abierta más reciente del usuario
+      // Póliza de anticipo abierta más reciente del usuario
       const { data: policies } = await supabase
         .from('policies')
         .select('*')
         .eq('holder_id', user.id)
         .eq('status', 'open')
+        .eq('policy_type', 'anticipo')
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (!policies || policies.length === 0) { setLoading(false); return; }
-      const pol = policies[0] as Policy;
-      setPolicy(pol);
+      // Carga póliza solo si existe — la ausencia de anticipo no bloquea el escaneo
+      if (policies && policies.length > 0) {
+        const pol = policies[0] as Policy;
+        setPolicy(pol);
 
-      const { data: advData } = await supabase
-        .from('advances')
-        .select('amount')
-        .eq('policy_id', pol.id);
-      setAdvances(advData ?? []);
+        const [{ data: advData }, { data: expData }] = await Promise.all([
+          supabase.from('advances').select('amount').eq('policy_id', pol.id),
+          supabase.from('expenses')
+            .select('id, provider_name, total, status')
+            .eq('policy_id', pol.id)
+            .not('status', 'in', '(deleted,duplicate)')
+            .order('created_at', { ascending: false })
+            .limit(10),
+        ]);
+        setAdvances(advData ?? []);
+        setExpenses(expData ?? []);
+      }
 
-      const { data: expData } = await supabase
-        .from('expenses')
-        .select('id, provider_name, total, status')
-        .eq('policy_id', pol.id)
-        .not('status', 'in', '(deleted,duplicate)')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      setExpenses(expData ?? []);
+      // Recordatorio cierre de mes (solo el último día)
+      checkMonthEndReminder().catch(() => null);
+
+      // Siempre cargar comprobantes pendientes del usuario (escaneados sin reembolso)
+      const { data: pendingR, count: pendingCount } = await supabase
+        .from('receipts')
+        .select('total_amount', { count: 'exact' })
+        .eq('uploaded_by', user.id)
+        .eq('status', 'captured');
+      setPendingReceiptsCount(pendingCount ?? 0);
+      setTotalReceiptsScanned(
+        (pendingR ?? []).reduce((s, r) => s + ((r as any).total_amount ?? 0), 0),
+      );
     } finally {
       setLoading(false);
     }
@@ -126,7 +143,7 @@ export default function Home() {
               <Text style={{ color: BRAND.navy }}>Gasto</Text>
               <Text style={{ color: BRAND.green }}>Check</Text>
             </Text>
-            <Text style={styles.brandVersion}>v1.0.10</Text>
+            <Text style={styles.brandVersion}>v1.0.11</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
@@ -142,29 +159,51 @@ export default function Home() {
           {getGreeting()}{userName ? `, ${userName}` : ''}
         </Text>
 
-        {/* ── Saldo / Póliza ── */}
+        {/* ── Saldo / Anticipos ── */}
         {balance ? (
           <View style={styles.balanceCard}>
             <View style={styles.balanceRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.balanceLabel}>Saldo disponible</Text>
+                <Text style={styles.balanceLabel}>Saldo contable</Text>
                 <Text style={styles.balanceAmount}>{money(balance.available)}</Text>
-                <Text style={styles.policyName}>{policy?.name ?? 'Mi póliza'}</Text>
+                {totalReceiptsScanned > 0 && (
+                  <View style={styles.balanceDualRow}>
+                    <Text style={styles.balanceDualLabel}>Con comprobantes pendientes</Text>
+                    <Text style={styles.balanceDualAmount}>
+                      {money(balance.available - totalReceiptsScanned)}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.policyName}>{policy?.name ?? 'Mi anticipo'}</Text>
               </View>
               <View style={styles.balanceStats}>
-                <Stat label="Anticipos" value={money(balance.advances)} />
-                <Stat label="Autorizado" value={money(balance.authorizedSpent)} color={BRAND.green} />
-                <Stat label="Por comprobar" value={money(balance.pendingToVerify)} color={BRAND.orange} />
+                <Stat label="Anticipos"     value={money(balance.advances)} />
+                <Stat label="Autorizado"    value={money(balance.authorizedSpent)}  color={BRAND.green} />
+                <Stat label="Por comprobar" value={money(balance.pendingToVerify)}  color={BRAND.orange} />
+                {pendingReceiptsCount > 0 && (
+                  <Stat label="Escaneados" value={`${pendingReceiptsCount} tickets`} color="#90A4AE" />
+                )}
               </View>
             </View>
           </View>
         ) : (
           <View style={styles.noPolicyCard}>
-            <Text style={styles.noPolicyIcon}>📋</Text>
-            <Text style={styles.noPolicyTitle}>Sin póliza activa</Text>
-            <Text style={styles.noPolicyHint}>Crea una póliza para integrar tus comprobantes.</Text>
-            <TouchableOpacity style={styles.noPolicyBtn} onPress={() => router.push('/polizas' as any)}>
-              <Text style={styles.noPolicyBtnText}>+ Crear póliza</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Text style={styles.noPolicyIcon}>💸</Text>
+              <Text style={styles.noPolicyTitle}>Sin anticipo activo</Text>
+            </View>
+            <Text style={styles.noPolicyHint}>
+              Puedes escanear tickets y solicitar un reembolso desde Mis Comprobantes.
+            </Text>
+            {pendingReceiptsCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>
+                  {pendingReceiptsCount} comprobante{pendingReceiptsCount !== 1 ? 's' : ''} listos para reembolso
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity style={styles.noPolicyBtn} onPress={() => router.push('/receipts' as any)}>
+              <Text style={styles.noPolicyBtnText}>Mis Comprobantes →</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -288,22 +327,27 @@ const styles = StyleSheet.create({
   greeting:    { fontSize: 20, fontWeight: '700', color: BRAND.navy, marginTop: 18, marginBottom: 14 },
 
   // Tarjeta saldo
-  balanceCard: { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 16 },
-  balanceRow:  { flexDirection: 'row', gap: 16 },
-  balanceLabel:{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '500' },
-  balanceAmount:{ color: '#fff', fontSize: 32, fontWeight: '800', marginTop: 2 },
-  policyName:  { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 4 },
-  balanceStats:{ gap: 0, justifyContent: 'center', minWidth: 110 },
-  statLabel:   { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '500' },
-  statValue:   { color: '#fff', fontSize: 13, fontWeight: '700' },
+  balanceCard:      { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 16 },
+  balanceRow:       { flexDirection: 'row', gap: 16 },
+  balanceLabel:     { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '500' },
+  balanceAmount:    { color: '#fff', fontSize: 32, fontWeight: '800', marginTop: 2 },
+  balanceDualRow:   { marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 8 },
+  balanceDualLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '500' },
+  balanceDualAmount:{ color: '#FFD54F', fontSize: 18, fontWeight: '700', marginTop: 2 },
+  policyName:       { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6 },
+  balanceStats:     { gap: 0, justifyContent: 'center', minWidth: 110 },
+  statLabel:        { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '500' },
+  statValue:        { color: '#fff', fontSize: 13, fontWeight: '700' },
 
-  // Sin póliza
-  noPolicyCard:{ backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 16, alignItems: 'center' },
-  noPolicyIcon:{ fontSize: 36, marginBottom: 8 },
-  noPolicyTitle:{ fontSize: 16, fontWeight: '700', color: BRAND.navy, marginBottom: 4 },
-  noPolicyHint:{ fontSize: 13, color: '#90A4AE', textAlign: 'center' },
-  noPolicyBtn: { marginTop: 12, backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20 },
-  noPolicyBtnText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
+  // Sin anticipo
+  noPolicyCard:     { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 16 },
+  noPolicyIcon:     { fontSize: 28 },
+  noPolicyTitle:    { fontSize: 16, fontWeight: '700', color: BRAND.navy },
+  noPolicyHint:     { fontSize: 13, color: '#90A4AE' },
+  pendingBadge:     { marginTop: 10, backgroundColor: BRAND.orange + '15', borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12 },
+  pendingBadgeText: { fontSize: 13, fontWeight: '700', color: BRAND.orange },
+  noPolicyBtn:      { marginTop: 12, backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, alignSelf: 'flex-start' },
+  noPolicyBtnText:  { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   // Botón pólizas (acceso universal)
   polizaBtn:  {

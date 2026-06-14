@@ -63,6 +63,7 @@ export default function CaptureScreen() {
   const [total,      setTotal]      = useState('');
   const [subtotal,   setSubtotal]   = useState('');
   const [iva,        setIva]        = useState('');
+  const [descuento,  setDescuento]  = useState('');
   const [fecha,      setFecha]      = useState('');
   const [folio,      setFolio]      = useState('');
   const [description, setDescription] = useState('');
@@ -128,6 +129,7 @@ export default function CaptureScreen() {
         setTotal(    String(result.total   ?? ''));
         setSubtotal( String(result.subtotal ?? ''));
         setIva(      String(result.tax     ?? ''));
+        setDescuento(String(result.discount ?? ''));
         setFecha(    result.receiptDate    ?? '');
         setFolio(    result.internalFolio  ?? '');
         setSuggestedCategory(suggestCategoryFromProvider(prov));
@@ -177,6 +179,7 @@ export default function CaptureScreen() {
         setTotal(    String(result.total   ?? ''));
         setSubtotal( String(result.subtotal ?? ''));
         setIva(      String(result.tax     ?? ''));
+        setDescuento(String(result.discount ?? ''));
         setFecha(    result.receiptDate    ?? '');
         setFolio(    result.internalFolio  ?? '');
         setSuggestedCategory(suggestCategoryFromProvider(prov));
@@ -295,20 +298,8 @@ export default function CaptureScreen() {
 
   // ── Verificar duplicados antes de guardar ─────────────────────────────────
 
-  async function checkDuplicate(): Promise<DuplicateResult | null> {
+  async function checkDuplicate(companyId: string): Promise<DuplicateResult | null> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: policies } = await supabase
-        .from('policies')
-        .select('company_id')
-        .eq('holder_id', user.id)
-        .eq('status', 'open')
-        .limit(1);
-
-      if (!policies?.length) return null;
-
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) return null;
@@ -322,7 +313,7 @@ export default function CaptureScreen() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            company_id:    policies[0].company_id,
+            company_id:    companyId,
             fiscal_uuid:   extracted?.fiscalUuid  ?? null,
             provider_name: proveedor               || null,
             provider_rfc:  rfc                     || null,
@@ -340,7 +331,7 @@ export default function CaptureScreen() {
     }
   }
 
-  // ── Guardar comprobante ────────────────────────────────────────────────────
+  // ── Guardar comprobante (sin póliza — va directo a Mis Comprobantes) ───────
 
   async function handleConfirm(forceSave = false, forceRsn = '') {
     if (!photo?.base64) return;
@@ -351,29 +342,31 @@ export default function CaptureScreen() {
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
       if (authErr || !user) throw new Error('No autenticado');
 
-      const { data: policies, error: polErr } = await supabase
-        .from('policies')
-        .select('id, company_id')
-        .eq('holder_id', user.id)
-        .eq('status', 'open')
+      // Obtener company_id del membership (sin necesidad de póliza abierta)
+      const { data: membership, error: memErr } = await supabase
+        .from('company_members')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (polErr) throw new Error('Error obteniendo póliza: ' + polErr.message);
-      if (!policies?.length) {
-        Alert.alert('Sin póliza activa', 'Pide a tu supervisor que cree una póliza para ti.');
+      if (memErr) throw new Error('Error obteniendo empresa: ' + memErr.message);
+      if (!membership?.company_id) {
+        Alert.alert('Sin empresa', 'No tienes una empresa activa. Contacta a tu administrador.');
         return;
       }
 
-      const policy = policies[0];
+      const companyId = membership.company_id;
 
       // Cargar datos fleet si aplica (lazy, una sola vez)
-      if (!isFleet) loadFleetData(policy.company_id);
+      if (!isFleet) loadFleetData(companyId);
 
       // Subir archivo a Storage (XML o foto)
       const ext         = isXml ? 'xml' : 'jpg';
       const contentType = isXml ? 'text/xml' : 'image/jpeg';
-      const storagePath = `${policy.company_id}/${Date.now()}/comprobante.${ext}`;
+      const storagePath = `${companyId}/${Date.now()}/comprobante.${ext}`;
       const arrayBuffer = decode(photo.base64);
 
       const { error: storErr } = await supabase.storage
@@ -382,7 +375,7 @@ export default function CaptureScreen() {
 
       if (storErr) console.warn('Storage upload warn:', storErr.message);
 
-      // Llamar a submit-receipt (crea receipt + expense + supplier + purchase_items)
+      // Llamar a submit-receipt (crea receipt + supplier + purchase_items, SIN póliza)
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
 
@@ -395,8 +388,7 @@ export default function CaptureScreen() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            company_id:       policy.company_id,
-            policy_id:        policy.id,
+            company_id:       companyId,
             employee_id:      user.id,
             source_type:      isXml ? 'xml' : 'photo',
             file_storage_path: storErr ? null : storagePath,
@@ -406,6 +398,7 @@ export default function CaptureScreen() {
             total_amount:     parseFloat(total)    || null,
             subtotal_amount:  parseFloat(subtotal) || null,
             tax_amount:       parseFloat(iva)      || null,
+            discount_amount:  parseFloat(descuento) || null,
             fiscal_uuid:      extracted?.fiscalUuid ?? null,
             internal_folio:   folio      || null,
             payment_method:   extracted?.paymentMethod ?? null,
@@ -428,20 +421,20 @@ export default function CaptureScreen() {
       // Si falla pero estamos offline, encolador
       if (!submitRes.ok && submitRes.status >= 500) {
         await enqueueOffline('receipt', 'create', {
-          company_id: policy.company_id,
-          policy_id: policy.id,
-          employee_id: user.id,
-          source_type: isXml ? 'xml' : 'photo',
-          provider_name: proveedor || null,
-          provider_rfc: rfc || null,
-          receipt_date: fecha || new Date().toISOString().slice(0, 10),
-          total_amount: parseFloat(total) || null,
+          company_id:     companyId,
+          employee_id:    user.id,
+          source_type:    isXml ? 'xml' : 'photo',
+          provider_name:  proveedor || null,
+          provider_rfc:   rfc || null,
+          receipt_date:   fecha || new Date().toISOString().slice(0, 10),
+          total_amount:    parseFloat(total)    || null,
           subtotal_amount: parseFloat(subtotal) || null,
-          tax_amount: parseFloat(iva) || null,
-          fiscal_uuid: extracted?.fiscalUuid ?? null,
+          tax_amount:      parseFloat(iva)      || null,
+          discount_amount: parseFloat(descuento) || null,
+          fiscal_uuid:     extracted?.fiscalUuid ?? null,
           internal_folio: folio || null,
-          vehicle_id: vehicleId ?? null,
-          operator_id: operatorId ?? null,
+          vehicle_id:     vehicleId ?? null,
+          operator_id:    operatorId ?? null,
         });
         Alert.alert(
           '📱 Guardado offline',
@@ -501,7 +494,16 @@ export default function CaptureScreen() {
 
   async function handlePressConfirm() {
     setSaving(true);
-    const dup = await checkDuplicate();
+    // Obtener company_id para el check de duplicados
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: membership } = user
+      ? await supabase.from('company_members').select('company_id')
+          .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
+      : { data: null };
+
+    const dup = membership?.company_id
+      ? await checkDuplicate(membership.company_id)
+      : null;
     setSaving(false);
 
     if (dup && dup.duplicate_status !== 'no_duplicate') {
@@ -638,6 +640,33 @@ export default function CaptureScreen() {
           <Field label="Total"          value={total}    onChangeText={setTotal}   keyboardType="decimal-pad" />
           <Field label="Subtotal"       value={subtotal} onChangeText={setSubtotal} keyboardType="decimal-pad" />
           <Field label="IVA"            value={iva}      onChangeText={setIva}     keyboardType="decimal-pad" />
+          <Field label="Descuento"      value={descuento} onChangeText={setDescuento} keyboardType="decimal-pad" placeholder="0.00 (si aplica)" />
+
+          {/* Validación de cuadre de montos */}
+          {(() => {
+            const t = parseFloat(total) || 0;
+            const s = parseFloat(subtotal) || 0;
+            const v = parseFloat(iva) || 0;
+            const d = parseFloat(descuento) || 0;
+            if (t > 0 && s > 0) {
+              const computed = s - d + v;
+              const diff = Math.abs(t - computed);
+              if (diff > 0.10) {
+                return (
+                  <View style={styles.validationWarn}>
+                    <Text style={styles.validationText}>
+                      ⚠ Los montos no cuadran:{'\n'}
+                      Subtotal ${s.toFixed(2)} − Desc. ${d.toFixed(2)} + IVA ${v.toFixed(2)} = ${computed.toFixed(2)}{'\n'}
+                      pero el Total capturado es ${t.toFixed(2)} (diferencia: ${diff.toFixed(2)}){'\n'}
+                      Revisa si hay IEPS u otro impuesto, o corrige los campos.
+                    </Text>
+                  </View>
+                );
+              }
+            }
+            return null;
+          })()}
+
           <DatePickerField label="Fecha" value={fecha} onChange={setFecha} />
           <Field label="Folio (si aplica)" value={folio} onChangeText={setFolio} />
 
@@ -764,7 +793,7 @@ export default function CaptureScreen() {
 
           <TouchableOpacity
             style={[styles.secondaryBtn]}
-            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); }}
+            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); setDescuento(''); }}
             disabled={busy}
           >
             <Text style={styles.secondaryBtnText}>Retomar foto</Text>
@@ -856,6 +885,8 @@ const styles = StyleSheet.create({
   confidence:      { fontWeight: '700' },
   warningBox:      { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 8 },
   warningText:     { fontSize: 12, color: '#E65100', marginBottom: 2 },
+  validationWarn:  { backgroundColor: '#FFF3E0', borderRadius: 10, padding: 10, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#E65100' },
+  validationText:  { fontSize: 12, color: '#BF360C', lineHeight: 18 },
   placeholder:     {
     backgroundColor: '#fff', borderRadius: 16, paddingVertical: 48,
     alignItems: 'center', marginBottom: 24, borderWidth: 2,
