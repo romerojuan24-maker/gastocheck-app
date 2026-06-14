@@ -68,8 +68,10 @@ export default function Layout() {
       <Stack.Screen name="settings"      options={{ title: 'Ajustes' }} />
       <Stack.Screen name="supervisor"    options={{ title: 'Panel de supervisor' }} />
       <Stack.Screen name="gastadores"    options={{ title: 'Mis Compradores' }} />
-      <Stack.Screen name="events"        options={{ title: 'Eventos' }} />
-      <Stack.Screen name="event-detail"  options={{ title: 'Detalle del Evento' }} />
+      <Stack.Screen name="events"          options={{ title: 'Eventos' }} />
+      <Stack.Screen name="event-detail"    options={{ title: 'Detalle del Evento' }} />
+      <Stack.Screen name="administracion"  options={{ title: 'Administración' }} />
+      <Stack.Screen name="herramientas"    options={{ title: 'Herramientas' }} />
     </Stack>
   );
 }

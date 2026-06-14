@@ -5,39 +5,30 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
-import { computeBalance, STATUS_META, BRAND, APP_VERSION, type Expense, type Policy, type Advance } from '@gastocheck/shared';
+import { computeBalance, BRAND, APP_VERSION, type Expense, type Policy, type Advance } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 import { checkMonthEndReminder } from '../lib/notifications';
 
-const OWNER_ROLES = ['owner', 'admin', 'supervisor'];
+const ADMIN_ROLES = ['owner', 'admin'];
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Buenos días';
-  if (h < 19) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
 export default function Home() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const [loading,   setLoading]   = useState(true);
-  const [userRole,  setUserRole]  = useState<string | null>(null);
-  const [userName,  setUserName]  = useState<string>('');
+  const [loading,      setLoading]      = useState(true);
+  const [userRole,     setUserRole]     = useState<string | null>(null);
+  const [policy,       setPolicy]       = useState<Policy | null>(null);
+  const [advances,     setAdvances]     = useState<Pick<Advance, 'amount'>[]>([]);
+  const [expenses,     setExpenses]     = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingTotal, setPendingTotal] = useState(0);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
-
-  const [policy,   setPolicy]   = useState<Policy | null>(null);
-  const [advances, setAdvances] = useState<Pick<Advance, 'amount'>[]>([]);
-  const [expenses, setExpenses] = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
-  const [pendingReceiptsCount,   setPendingReceiptsCount]   = useState(0);
-  const [totalReceiptsScanned,   setTotalReceiptsScanned]   = useState(0);
 
   useEffect(() => { loadData(); }, []);
 
@@ -47,17 +38,6 @@ export default function Home() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      // Nombre del usuario
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile?.full_name) {
-        setUserName(profile.full_name.split(' ')[0]);
-      }
-
-      // Rol del usuario en la empresa
       const { data: member } = await supabase
         .from('company_members')
         .select('role')
@@ -66,7 +46,6 @@ export default function Home() {
         .maybeSingle();
       if (member?.role) setUserRole(member.role);
 
-      // Póliza de anticipo abierta más reciente del usuario
       const { data: policies } = await supabase
         .from('policies')
         .select('*')
@@ -76,11 +55,9 @@ export default function Home() {
         .order('created_at', { ascending: false })
         .limit(1);
 
-      // Carga póliza solo si existe — la ausencia de anticipo no bloquea el escaneo
-      if (policies && policies.length > 0) {
+      if (policies?.length) {
         const pol = policies[0] as Policy;
         setPolicy(pol);
-
         const [{ data: advData }, { data: expData }] = await Promise.all([
           supabase.from('advances').select('amount').eq('policy_id', pol.id),
           supabase.from('expenses')
@@ -88,25 +65,21 @@ export default function Home() {
             .eq('policy_id', pol.id)
             .not('status', 'in', '(deleted,duplicate)')
             .order('created_at', { ascending: false })
-            .limit(10),
+            .limit(5),
         ]);
         setAdvances(advData ?? []);
         setExpenses(expData ?? []);
       }
 
-      // Recordatorio cierre de mes (solo el último día)
       checkMonthEndReminder().catch(() => null);
 
-      // Siempre cargar comprobantes pendientes del usuario (escaneados sin reembolso)
-      const { data: pendingR, count: pendingCount } = await supabase
+      const { data: pendingR, count } = await supabase
         .from('receipts')
         .select('total_amount', { count: 'exact' })
         .eq('uploaded_by', user.id)
         .eq('status', 'captured');
-      setPendingReceiptsCount(pendingCount ?? 0);
-      setTotalReceiptsScanned(
-        (pendingR ?? []).reduce((s, r) => s + ((r as any).total_amount ?? 0), 0),
-      );
+      setPendingCount(count ?? 0);
+      setPendingTotal((pendingR ?? []).reduce((s, r) => s + ((r as any).total_amount ?? 0), 0));
     } finally {
       setLoading(false);
     }
@@ -122,28 +95,34 @@ export default function Home() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0FBF4' }}>
         <ActivityIndicator size="large" color={BRAND.green} />
       </View>
     );
   }
 
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ paddingBottom: 32 }}>
+  const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
 
-      {/* ── Encabezado de marca ── */}
-      <View style={styles.brandHeader}>
-        <View style={styles.brandLeft}>
-          <Image
-            source={require('../assets/icon.png')}
-            style={styles.brandIcon}
-          />
-          <View style={{ marginLeft: 10 }}>
-            <Text style={styles.brandName}>
-              <Text style={{ color: BRAND.navy }}>Gasto</Text>
-              <Text style={{ color: BRAND.green }}>Check</Text>
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: BRAND.gray }}
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
+      {/* ── Header estilo splash ── */}
+      <View style={styles.splashHeader}>
+        <View style={styles.circleTopRight} />
+        <View style={styles.circleBottomLeft} />
+        <View style={styles.splashContent}>
+          <Image source={require('../assets/icon.png')} style={styles.splashIcon} />
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <View style={styles.splashTitleRow}>
+              <Text style={styles.splashTitleGasto}>Gasto</Text>
+              <Text style={styles.splashTitleCheck}>Check</Text>
+            </View>
+            <Text style={styles.splashTagline}>
+              Tus gastos claros.{' '}
+              <Text style={{ color: BRAND.green }}>Tus saldos bajo control.</Text>
             </Text>
-            <Text style={styles.brandVersion}>{APP_VERSION}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
@@ -151,26 +130,21 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ paddingHorizontal: 16 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <TrialBanner onUpgrade={() => router.push('/settings')} />
 
-        {/* ── Saludo ── */}
-        <Text style={styles.greeting}>
-          {getGreeting()}{userName ? `, ${userName}` : ''}
-        </Text>
-
-        {/* ── Saldo / Anticipos ── */}
+        {/* ── Saldo de anticipo ── */}
         {balance ? (
           <View style={styles.balanceCard}>
             <View style={styles.balanceRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.balanceLabel}>Saldo contable</Text>
+                <Text style={styles.balanceLabel}>Saldo disponible</Text>
                 <Text style={styles.balanceAmount}>{money(balance.available)}</Text>
-                {totalReceiptsScanned > 0 && (
+                {pendingTotal > 0 && (
                   <View style={styles.balanceDualRow}>
                     <Text style={styles.balanceDualLabel}>Con comprobantes pendientes</Text>
                     <Text style={styles.balanceDualAmount}>
-                      {money(balance.available - totalReceiptsScanned)}
+                      {money(balance.available - pendingTotal)}
                     </Text>
                   </View>
                 )}
@@ -178,115 +152,64 @@ export default function Home() {
               </View>
               <View style={styles.balanceStats}>
                 <Stat label="Anticipos"     value={money(balance.advances)} />
-                <Stat label="Autorizado"    value={money(balance.authorizedSpent)}  color={BRAND.green} />
-                <Stat label="Por comprobar" value={money(balance.pendingToVerify)}  color={BRAND.orange} />
-                {pendingReceiptsCount > 0 && (
-                  <Stat label="Escaneados" value={`${pendingReceiptsCount} tickets`} color="#90A4AE" />
-                )}
+                <Stat label="Autorizado"    value={money(balance.authorizedSpent)} color={BRAND.green} />
+                <Stat label="Por comprobar" value={money(balance.pendingToVerify)} color={BRAND.orange} />
               </View>
             </View>
           </View>
-        ) : (
-          <View style={styles.noPolicyCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Text style={styles.noPolicyIcon}>💸</Text>
-              <Text style={styles.noPolicyTitle}>Sin anticipo activo</Text>
-            </View>
-            <Text style={styles.noPolicyHint}>
-              Puedes escanear tickets y solicitar un reembolso desde Mis Comprobantes.
+        ) : pendingCount > 0 ? (
+          <View style={styles.pendingCard}>
+            <Text style={styles.pendingCardTitle}>
+              {pendingCount} comprobante{pendingCount !== 1 ? 's' : ''} sin reembolso
             </Text>
-            {pendingReceiptsCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>
-                  {pendingReceiptsCount} comprobante{pendingReceiptsCount !== 1 ? 's' : ''} listos para reembolso
-                </Text>
-              </View>
-            )}
-            <TouchableOpacity style={styles.noPolicyBtn} onPress={() => router.push('/receipts' as any)}>
-              <Text style={styles.noPolicyBtnText}>Mis Comprobantes →</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Botón principal de captura ── */}
-        <TouchableOpacity style={styles.captureBtn} onPress={() => router.push('/capture')}>
-          <Text style={styles.captureBtnIcon}>📷</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.captureBtnTitle}>Capturar ticket</Text>
-            <Text style={styles.captureBtnHint}>La IA lo analiza y asigna folio automático</Text>
-          </View>
-          <Text style={{ fontSize: 20, color: '#fff' }}>›</Text>
-        </TouchableOpacity>
-
-        {/* ── Acceso a pólizas — TODOS los usuarios ── */}
-        <TouchableOpacity style={styles.polizaBtn} onPress={() => router.push('/polizas' as any)}>
-          <Text style={styles.polizaBtnIcon}>📋</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.polizaBtnTitle}>Mis pólizas</Text>
-            <Text style={styles.polizaBtnHint}>
-              {userRole && OWNER_ROLES.includes(userRole)
-                ? 'Crear, revisar y autorizar gastos'
-                : 'Crear póliza e integrar comprobantes'}
+            <Text style={styles.pendingCardHint}>
+              Total: {money(pendingTotal)} · Solicita tu reembolso desde Mis Comprobantes
             </Text>
           </View>
-          <Text style={{ fontSize: 18, color: BRAND.blue }}>›</Text>
-        </TouchableOpacity>
+        ) : null}
 
-        {/* ── Panel de administración (owner/admin/supervisor) ── */}
-        {userRole && OWNER_ROLES.includes(userRole) && (
-          <View style={styles.ownerPanel}>
-            <Text style={styles.ownerPanelTitle}>Administración</Text>
-            <View style={styles.ownerRow}>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/supervisor' as any)}>
-                <Text style={styles.ownerBtnIcon}>🧑‍💼</Text>
-                <Text style={styles.ownerBtnLabel}>Supervisor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/events' as any)}>
-                <Text style={styles.ownerBtnIcon}>📅</Text>
-                <Text style={styles.ownerBtnLabel}>Eventos</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/gastadores' as any)}>
-                <Text style={styles.ownerBtnIcon}>👤</Text>
-                <Text style={styles.ownerBtnLabel}>Compradores</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* ── Menú principal ── */}
+        <MenuBtn
+          icon="📷"
+          label="Capturar ticket"
+          hint="La IA lo analiza y asigna folio automático"
+          bg={BRAND.green}
+          textColor="#fff"
+          onPress={() => router.push('/capture')}
+          large
+        />
+        <MenuBtn
+          icon="🧾"
+          label="Mis comprobantes"
+          hint={
+            pendingCount > 0
+              ? `${pendingCount} listo${pendingCount !== 1 ? 's' : ''} para reembolso`
+              : 'Historial de tickets escaneados'
+          }
+          onPress={() => router.push('/receipts')}
+        />
+        <MenuBtn
+          icon="📋"
+          label="Mis pólizas"
+          hint={isAdmin ? 'Crear, revisar y autorizar gastos' : 'Crear póliza e integrar comprobantes'}
+          onPress={() => router.push('/polizas' as any)}
+        />
+        <MenuBtn
+          icon="🔧"
+          label="Herramientas"
+          hint="Eventos, moneda, idioma y configuración"
+          onPress={() => router.push('/herramientas' as any)}
+        />
+        {isAdmin && (
+          <MenuBtn
+            icon="🏢"
+            label="Administración"
+            hint="Empresa, compradores y definir perfil"
+            bg={BRAND.navy}
+            textColor="#fff"
+            onPress={() => router.push('/administracion' as any)}
+          />
         )}
-
-        {/* ── Grid de accesos rápidos ── */}
-        <View style={styles.grid}>
-          <GridBtn icon="🧾" label="Mis comprobantes" onPress={() => router.push('/receipts')} />
-          <GridBtn icon="💸" label="Solicitar anticipo" onPress={() => router.push('/advance-request')} />
-          <GridBtn icon="📁" label="Relaciones" onPress={() => router.push('/batches')} />
-          <GridBtn icon="🔍" label="¿Dónde compro?" onPress={() => router.push('/item-search')} />
-        </View>
-
-        {/* ── Últimos gastos ── */}
-        <Text style={styles.sectionTitle}>Gastos recientes</Text>
-
-        {expenses.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No hay gastos registrados aún.</Text>
-            <Text style={styles.emptyHint}>Toma foto de tu primer ticket.</Text>
-          </View>
-        ) : (
-          expenses.map((e) => {
-            const meta = STATUS_META[e.status];
-            return (
-              <View key={e.id} style={styles.expenseRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.provider}>{e.provider_name ?? '(sin nombre)'}</Text>
-                  <Text style={[styles.badge, { color: meta.color }]}>● {meta.label}</Text>
-                </View>
-                <Text style={styles.expenseAmount}>{money(e.total)}</Text>
-              </View>
-            );
-          })
-        )}
-
-        <TouchableOpacity style={styles.refreshBtn} onPress={loadData}>
-          <Text style={styles.refreshBtnText}>↻ Actualizar</Text>
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -301,100 +224,84 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-function GridBtn({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+function MenuBtn({
+  icon, label, hint, onPress, bg, textColor, large = false,
+}: {
+  icon: string; label: string; hint: string;
+  onPress: () => void; bg?: string; textColor?: string; large?: boolean;
+}) {
+  const bgColor = bg ?? '#fff';
+  const tc = textColor ?? BRAND.navy;
+  const hc = textColor ? 'rgba(255,255,255,0.75)' : '#90A4AE';
+  const arrowColor = textColor ?? BRAND.blue;
   return (
-    <TouchableOpacity style={styles.gridBtn} onPress={onPress}>
-      <Text style={styles.gridBtnIcon}>{icon}</Text>
-      <Text style={styles.gridBtnLabel}>{label}</Text>
+    <TouchableOpacity
+      style={[styles.menuBtn, large && styles.menuBtnLarge, { backgroundColor: bgColor }]}
+      onPress={onPress}
+      activeOpacity={0.82}
+    >
+      <Text style={[styles.menuBtnIcon, large && { fontSize: 36 }]}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.menuBtnLabel, { color: tc }, large && { fontSize: 19 }]}>{label}</Text>
+        <Text style={[styles.menuBtnHint, { color: hc }]}>{hint}</Text>
+      </View>
+      <Text style={{ fontSize: 22, color: arrowColor }}>›</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  // Header de marca
-  brandHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#E8ECF0',
+  splashHeader: {
+    backgroundColor: '#F0FBF4',
+    paddingTop: 54, paddingBottom: 22, paddingHorizontal: 20,
+    overflow: 'hidden', position: 'relative',
   },
-  brandLeft:   { flexDirection: 'row', alignItems: 'center' },
-  brandIcon:   { width: 36, height: 36, borderRadius: 8 },
-  brandName:   { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  brandVersion:{ fontSize: 11, color: '#90A4AE', fontWeight: '500', marginTop: 1 },
-  settingsBtn: { padding: 6 },
-
-  // Saludo
-  greeting:    { fontSize: 20, fontWeight: '700', color: BRAND.navy, marginTop: 18, marginBottom: 14 },
-
-  // Tarjeta saldo
-  balanceCard:      { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 16 },
-  balanceRow:       { flexDirection: 'row', gap: 16 },
-  balanceLabel:     { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '500' },
-  balanceAmount:    { color: '#fff', fontSize: 32, fontWeight: '800', marginTop: 2 },
-  balanceDualRow:   { marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 8 },
-  balanceDualLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '500' },
-  balanceDualAmount:{ color: '#FFD54F', fontSize: 18, fontWeight: '700', marginTop: 2 },
-  policyName:       { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6 },
-  balanceStats:     { gap: 0, justifyContent: 'center', minWidth: 110 },
-  statLabel:        { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '500' },
-  statValue:        { color: '#fff', fontSize: 13, fontWeight: '700' },
-
-  // Sin anticipo
-  noPolicyCard:     { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 16 },
-  noPolicyIcon:     { fontSize: 28 },
-  noPolicyTitle:    { fontSize: 16, fontWeight: '700', color: BRAND.navy },
-  noPolicyHint:     { fontSize: 13, color: '#90A4AE' },
-  pendingBadge:     { marginTop: 10, backgroundColor: BRAND.orange + '15', borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12 },
-  pendingBadgeText: { fontSize: 13, fontWeight: '700', color: BRAND.orange },
-  noPolicyBtn:      { marginTop: 12, backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, alignSelf: 'flex-start' },
-  noPolicyBtnText:  { color: '#fff', fontWeight: '700', fontSize: 14 },
-
-  // Botón pólizas (acceso universal)
-  polizaBtn:  {
-    backgroundColor: '#EEF2FF', borderRadius: 14, padding: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
-    borderWidth: 1, borderColor: BRAND.blue + '30',
+  circleTopRight: {
+    position: 'absolute', top: -40, right: -40,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: BRAND.green + '22',
   },
-  polizaBtnIcon:  { fontSize: 26 },
-  polizaBtnTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  polizaBtnHint:  { fontSize: 12, color: '#90A4AE', marginTop: 1 },
-
-  // Botón captura
-  captureBtn:  {
-    backgroundColor: BRAND.green, borderRadius: 16, padding: 18,
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14,
+  circleBottomLeft: {
+    position: 'absolute', bottom: -30, left: -30,
+    width: 120, height: 120, borderRadius: 60,
+    backgroundColor: '#7986CB22',
   },
-  captureBtnIcon: { fontSize: 32 },
-  captureBtnTitle:{ color: '#fff', fontSize: 18, fontWeight: '800' },
-  captureBtnHint: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  splashContent:    { flexDirection: 'row', alignItems: 'center' },
+  splashIcon:       { width: 58, height: 58, borderRadius: 14 },
+  splashTitleRow:   { flexDirection: 'row', alignItems: 'baseline' },
+  splashTitleGasto: { fontSize: 30, fontWeight: '800', color: BRAND.navy },
+  splashTitleCheck: { fontSize: 30, fontWeight: '800', color: BRAND.green },
+  splashTagline:    { fontSize: 12, color: BRAND.navy + 'AA', marginTop: 3 },
+  settingsBtn:      { position: 'absolute', top: 54, right: 16, padding: 8 },
 
-  // Panel admin
-  ownerPanel:  { backgroundColor: '#EEF2FF', borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: BRAND.blue + '30' },
-  ownerPanelTitle:{ fontSize: 11, fontWeight: '700', color: BRAND.blue, textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5 },
-  ownerRow:    { flexDirection: 'row', gap: 10 },
-  ownerBtn:    { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: BRAND.blue + '40' },
-  ownerBtnIcon:{ fontSize: 24, marginBottom: 4 },
-  ownerBtnLabel:{ fontSize: 12, fontWeight: '700', color: BRAND.navy },
+  balanceCard:       { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 12 },
+  balanceRow:        { flexDirection: 'row', gap: 16 },
+  balanceLabel:      { color: 'rgba(255,255,255,0.55)', fontSize: 12 },
+  balanceAmount:     { color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 2 },
+  balanceDualRow:    { marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 8 },
+  balanceDualLabel:  { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
+  balanceDualAmount: { color: '#FFD54F', fontSize: 17, fontWeight: '700', marginTop: 2 },
+  policyName:        { color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 6 },
+  balanceStats:      { justifyContent: 'center', minWidth: 110 },
+  statLabel:         { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
+  statValue:         { color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 4 },
 
-  // Grid de accesos
-  grid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  gridBtn:     { width: '47%', backgroundColor: '#fff', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E8ECF0' },
-  gridBtnIcon: { fontSize: 28, marginBottom: 6 },
-  gridBtnLabel:{ fontSize: 12, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
-
-  // Gastos
-  sectionTitle:{ fontSize: 16, fontWeight: '700', color: BRAND.navy, marginBottom: 10 },
-  expenseRow:  {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 8,
+  pendingCard: {
+    backgroundColor: BRAND.orange + '15', borderRadius: 14, padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: BRAND.orange + '40',
   },
-  provider:    { fontSize: 14, fontWeight: '600', color: BRAND.navy },
-  badge:       { fontSize: 11, marginTop: 3, fontWeight: '600' },
-  expenseAmount:{ fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  emptyState:  { backgroundColor: '#fff', borderRadius: 14, padding: 24, alignItems: 'center' },
-  emptyText:   { fontSize: 15, fontWeight: '600', color: BRAND.navy },
-  emptyHint:   { fontSize: 12, color: '#90A4AE', marginTop: 4 },
-  refreshBtn:  { alignItems: 'center', padding: 16, marginTop: 4 },
-  refreshBtnText:{ color: BRAND.blue, fontSize: 13, fontWeight: '600' },
+  pendingCardTitle: { fontSize: 14, fontWeight: '700', color: BRAND.orange },
+  pendingCardHint:  { fontSize: 12, color: '#90A4AE', marginTop: 3 },
+
+  menuBtn: {
+    borderRadius: 16, padding: 16, marginTop: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 4,
+  },
+  menuBtnLarge:  { padding: 20, marginTop: 12 },
+  menuBtnIcon:   { fontSize: 28 },
+  menuBtnLabel:  { fontSize: 16, fontWeight: '700' },
+  menuBtnHint:   { fontSize: 12, marginTop: 2 },
 });

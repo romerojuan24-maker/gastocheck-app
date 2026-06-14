@@ -24,4 +24,4 @@ export const BRAND = {
 } as const;
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 15 · v1.0.15';
+export const APP_VERSION = 'OTA 16 · v1.0.16';

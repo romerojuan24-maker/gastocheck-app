@@ -1,0 +1,90 @@
+// Herramientas — Eventos, configuración y accesos adicionales
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { BRAND } from '@gastocheck/shared';
+
+function ToolBtn({ icon, title, hint, onPress, accent }: {
+  icon: string; title: string; hint: string;
+  onPress: () => void; accent?: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.toolBtn, accent && { borderLeftWidth: 4, borderLeftColor: accent }]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Text style={styles.toolIcon}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.toolTitle}>{title}</Text>
+        <Text style={styles.toolHint}>{hint}</Text>
+      </View>
+      <Text style={styles.arrow}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
+export default function HerramientasScreen() {
+  const router = useRouter();
+
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+
+      {/* ── Módulos operativos ── */}
+      <Text style={styles.sectionTitle}>Módulos</Text>
+
+      <ToolBtn
+        icon="📅"
+        title="Eventos y viáticos"
+        hint="Controla el presupuesto de cada evento o comisión"
+        accent={BRAND.blue}
+        onPress={() => router.push('/events' as any)}
+      />
+      <ToolBtn
+        icon="🔍"
+        title="¿Dónde compro?"
+        hint="Historial de proveedores y precios por categoría"
+        accent={BRAND.green}
+        onPress={() => router.push('/item-search' as any)}
+      />
+      <ToolBtn
+        icon="📁"
+        title="Relaciones de gastos"
+        hint="Agrupaciones de comprobantes para contabilidad"
+        accent={BRAND.orange}
+        onPress={() => router.push('/batches' as any)}
+      />
+
+      {/* ── Configuración ── */}
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Configuración</Text>
+
+      <ToolBtn
+        icon="⚙️"
+        title="Ajustes generales"
+        hint="Cuenta, notificaciones, versión y actualizaciones"
+        onPress={() => router.push('/settings')}
+      />
+      <ToolBtn
+        icon="💸"
+        title="Solicitar anticipo"
+        hint="Pide un anticipo a tu jefe o administrador"
+        onPress={() => router.push('/advance-request' as any)}
+      />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  sectionTitle: { fontSize: 12, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  toolBtn: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#F0F0F0',
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3,
+  },
+  toolIcon:  { fontSize: 28 },
+  toolTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  toolHint:  { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  arrow:     { fontSize: 22, color: '#B0BEC5' },
+});
