@@ -25,6 +25,10 @@ interface ComprasTipo { category: string; total: number; count: number }
 interface GastoRow { id: string; provider_name: string | null; total_amount: number; receipt_date: string; category: string | null; buyer: string | null }
 interface ProveedorRow { provider_name: string; total: number; count: number }
 interface UnidadRow { vehicle_alias: string; vehicle_type: string; total: number; count: number }
+interface EmpleadoRow { user_id: string; nombre: string | null; total: number; count: number; con_cfdi: number; sin_cfdi: number }
+interface FiscalKpi { con_total: number; con_count: number; sin_total: number; sin_count: number; validado: number; cancelado: number }
+interface AnticipoRow { policy_id: string; nombre: string; holder: string | null; dias: number; entregado: number }
+interface MesRow { mes: string; total: number; count: number }
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
@@ -40,6 +44,10 @@ export default function ReportesScreen() {
   const [gastos,        setGastos]        = useState<GastoRow[]>([]);
   const [proveedores,   setProveedores]   = useState<ProveedorRow[]>([]);
   const [unidades,      setUnidades]      = useState<UnidadRow[]>([]);
+  const [empleados,     setEmpleados]     = useState<EmpleadoRow[]>([]);
+  const [fiscal,        setFiscal]        = useState<FiscalKpi | null>(null);
+  const [anticipos,     setAnticipos]     = useState<AnticipoRow[]>([]);
+  const [tendencia,     setTendencia]     = useState<MesRow[]>([]);
 
   // Filtros gastos del mes
   const [fechaInicio, setFechaInicio] = useState(firstOfMonth);
@@ -218,6 +226,150 @@ export default function ReportesScreen() {
       );
     } finally {
       setLoading(l => ({ ...l, unidades: false }));
+    }
+  }, [companyId]);
+
+  const loadEmpleados = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, empleados: true }));
+    try {
+      const { data } = await supabase
+        .from('receipts')
+        .select('uploaded_by, total_amount, fiscal_uuid')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate,cancelled)')
+        .gte('receipt_date', fechaInicio)
+        .lte('receipt_date', fechaFin);
+
+      const map: Record<string, { total: number; count: number; con_cfdi: number; sin_cfdi: number }> = {};
+      (data ?? []).forEach((r: any) => {
+        const k = r.uploaded_by ?? '_sin_usuario';
+        if (!map[k]) map[k] = { total: 0, count: 0, con_cfdi: 0, sin_cfdi: 0 };
+        map[k].total += r.total_amount ?? 0;
+        map[k].count += 1;
+        if (r.fiscal_uuid) map[k].con_cfdi++; else map[k].sin_cfdi++;
+      });
+
+      const uploaderIds = Object.keys(map).filter(id => id !== '_sin_usuario');
+      let nameMap: Record<string, string> = {};
+      if (uploaderIds.length) {
+        const { data: profiles } = await supabase
+          .from('profiles').select('id, full_name').in('id', uploaderIds);
+        (profiles ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name ?? ''; });
+      }
+
+      setEmpleados(
+        Object.entries(map)
+          .map(([user_id, v]) => ({ user_id, nombre: nameMap[user_id] ?? null, ...v }))
+          .sort((a, b) => b.total - a.total),
+      );
+    } finally {
+      setLoading(l => ({ ...l, empleados: false }));
+    }
+  }, [companyId, fechaInicio, fechaFin]);
+
+  const loadFiscal = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, fiscal: true }));
+    try {
+      const { data } = await supabase
+        .from('receipts')
+        .select('total_amount, fiscal_uuid, sat_validation_status')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate,cancelled)')
+        .gte('receipt_date', fechaInicio)
+        .lte('receipt_date', fechaFin);
+
+      const kpi: FiscalKpi = { con_total: 0, con_count: 0, sin_total: 0, sin_count: 0, validado: 0, cancelado: 0 };
+      (data ?? []).forEach((r: any) => {
+        const amt = r.total_amount ?? 0;
+        if (r.fiscal_uuid) {
+          kpi.con_total += amt; kpi.con_count++;
+          if (r.sat_validation_status === 'validated') kpi.validado++;
+          else if (r.sat_validation_status === 'cancelled' || r.sat_validation_status === 'not_found') kpi.cancelado++;
+        } else {
+          kpi.sin_total += amt; kpi.sin_count++;
+        }
+      });
+      setFiscal(kpi);
+    } finally {
+      setLoading(l => ({ ...l, fiscal: false }));
+    }
+  }, [companyId, fechaInicio, fechaFin]);
+
+  const loadAnticipos = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, anticipos: true }));
+    try {
+      const { data: polData } = await supabase
+        .from('policies')
+        .select('id, name, holder_id, opening_balance, created_at')
+        .eq('company_id', companyId)
+        .eq('status', 'open')
+        .order('created_at', { ascending: true });
+
+      const ids = (polData ?? []).map((p: any) => p.id);
+      const holderIds = [...new Set((polData ?? []).map((p: any) => p.holder_id).filter(Boolean))];
+
+      const [advRes, profilesRes] = await Promise.all([
+        ids.length
+          ? supabase.from('advances').select('policy_id, amount').in('policy_id', ids)
+          : Promise.resolve({ data: [] }),
+        holderIds.length
+          ? supabase.from('profiles').select('id, full_name').in('id', holderIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const advMap: Record<string, number> = {};
+      ((advRes as any).data ?? []).forEach((a: any) => {
+        advMap[a.policy_id] = (advMap[a.policy_id] ?? 0) + (a.amount ?? 0);
+      });
+      const nameMap: Record<string, string> = {};
+      ((profilesRes as any).data ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name ?? ''; });
+
+      const hoy = new Date();
+      setAnticipos(
+        (polData ?? []).map((p: any) => {
+          const dias = Math.floor((hoy.getTime() - new Date(p.created_at).getTime()) / 86400000);
+          const entregado = (p.opening_balance ?? 0) + (advMap[p.id] ?? 0);
+          return { policy_id: p.id, nombre: p.name, holder: nameMap[p.holder_id] ?? null, dias, entregado };
+        }),
+      );
+    } finally {
+      setLoading(l => ({ ...l, anticipos: false }));
+    }
+  }, [companyId]);
+
+  const loadTendencia = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, tendencia: true }));
+    try {
+      const since = new Date();
+      since.setMonth(since.getMonth() - 5);
+      const sinceStr = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-01`;
+
+      const { data } = await supabase
+        .from('receipts')
+        .select('receipt_date, total_amount')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate,cancelled)')
+        .gte('receipt_date', sinceStr);
+
+      const map: Record<string, { total: number; count: number }> = {};
+      (data ?? []).forEach((r: any) => {
+        const mes = r.receipt_date?.slice(0, 7) ?? '';
+        if (!mes) return;
+        if (!map[mes]) map[mes] = { total: 0, count: 0 };
+        map[mes].total += r.total_amount ?? 0;
+        map[mes].count += 1;
+      });
+      setTendencia(
+        Object.entries(map)
+          .map(([mes, v]) => ({ mes, ...v }))
+          .sort((a, b) => a.mes.localeCompare(b.mes)),
+      );
+    } finally {
+      setLoading(l => ({ ...l, tendencia: false }));
     }
   }, [companyId]);
 
@@ -419,6 +571,193 @@ export default function ReportesScreen() {
         </Section>
       )}
 
+      {/* ── 6. Gastos por empleado ── */}
+      <Section
+        title="👥 Gastos por empleado"
+        subtitle="Quién gastó cuánto en el período"
+        color="#00838F"
+        open={open === 'empleados'}
+        loading={loading.empleados}
+        onToggle={() => toggle('empleados', loadEmpleados)}
+      >
+        {/* Nota: usa el mismo rango de fechas que "Gastos del mes" */}
+        <Text style={[styles.rowMeta, { marginBottom: 8 }]}>
+          Período: {fechaInicio} → {fechaFin}
+        </Text>
+        {empleados.length === 0
+          ? <Empty text="Sin comprobantes en el período." />
+          : (() => {
+              const grandTotal = empleados.reduce((s, e) => s + e.total, 0);
+              return empleados.map((e, i) => {
+                const pct     = grandTotal > 0 ? Math.round((e.total / grandTotal) * 100) : 0;
+                const pctCfdi = e.count > 0    ? Math.round((e.con_cfdi / e.count) * 100) : 0;
+                return (
+                  <View key={e.user_id} style={styles.row}>
+                    <Text style={styles.rankNum}>{i + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>{e.nombre ?? '(sin nombre)'}</Text>
+                      <Text style={styles.rowMeta}>
+                        {e.count} comprobante{e.count !== 1 ? 's' : ''} · {pctCfdi}% con CFDI
+                      </Text>
+                      <View style={styles.barWrap}>
+                        <View style={[styles.bar, { width: `${pct}%` as any, backgroundColor: '#00838F' }]} />
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', minWidth: 90 }}>
+                      <Text style={styles.rowAmt}>{money(e.total)}</Text>
+                      <Text style={styles.rowPct}>{pct}%</Text>
+                    </View>
+                  </View>
+                );
+              });
+            })()
+        }
+      </Section>
+
+      {/* ── 7. Exposición fiscal ── */}
+      <Section
+        title="🧾 Exposición fiscal"
+        subtitle="Deducible vs no deducible en el período"
+        color={BRAND.red}
+        open={open === 'fiscal'}
+        loading={loading.fiscal}
+        onToggle={() => toggle('fiscal', loadFiscal)}
+      >
+        {!fiscal
+          ? <Empty text="Sin datos en el período." />
+          : (() => {
+              const total   = fiscal.con_total + fiscal.sin_total;
+              const pctCon  = total > 0 ? Math.round((fiscal.con_total / total) * 100) : 0;
+              const pctSin  = total > 0 ? Math.round((fiscal.sin_total / total) * 100) : 0;
+              return (
+                <>
+                  {/* Barra deducible/no-deducible */}
+                  <View style={{ marginBottom: 16 }}>
+                    <View style={styles.fiscalBarRow}>
+                      <View style={[styles.fiscalBar, { flex: pctCon || 1, backgroundColor: BRAND.green }]} />
+                      <View style={[styles.fiscalBar, { flex: pctSin || 0, backgroundColor: BRAND.red }]} />
+                    </View>
+                    <View style={styles.fiscalLegend}>
+                      <Text style={[styles.fiscalLegendItem, { color: BRAND.green }]}>
+                        ✅ {pctCon}% deducible
+                      </Text>
+                      <Text style={[styles.fiscalLegendItem, { color: BRAND.red }]}>
+                        ⚠️ {pctSin}% en riesgo
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>Con CFDI (deducible)</Text>
+                      <Text style={styles.rowMeta}>{fiscal.con_count} comprobantes</Text>
+                    </View>
+                    <Text style={[styles.rowAmt, { color: BRAND.green }]}>{money(fiscal.con_total)}</Text>
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>Sin CFDI (no deducible)</Text>
+                      <Text style={styles.rowMeta}>{fiscal.sin_count} comprobantes · riesgo fiscal</Text>
+                    </View>
+                    <Text style={[styles.rowAmt, { color: BRAND.red }]}>{money(fiscal.sin_total)}</Text>
+                  </View>
+
+                  {fiscal.cancelado > 0 && (
+                    <View style={[styles.row, { borderBottomWidth: 0 }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.rowTitle}>CFDIs cancelados / no encontrados</Text>
+                        <Text style={styles.rowMeta}>Requieren atención del proveedor</Text>
+                      </View>
+                      <Text style={[styles.rowAmt, { color: BRAND.orange }]}>{fiscal.cancelado}</Text>
+                    </View>
+                  )}
+                </>
+              );
+            })()
+        }
+      </Section>
+
+      {/* ── 8. Anticipos pendientes de comprobación ── */}
+      <Section
+        title="💰 Anticipos sin comprobar"
+        subtitle="Dinero entregado en pólizas aún abiertas"
+        color={BRAND.orange}
+        open={open === 'anticipos'}
+        loading={loading.anticipos}
+        onToggle={() => toggle('anticipos', loadAnticipos)}
+      >
+        {anticipos.length === 0
+          ? <Empty text="Sin pólizas abiertas con anticipo pendiente." />
+          : (() => {
+              const totalPendiente = anticipos.reduce((s, a) => s + a.entregado, 0);
+              return (
+                <>
+                  <View style={styles.totalBanner}>
+                    <Text style={styles.totalBannerLabel}>Total sin comprobar</Text>
+                    <Text style={[styles.totalBannerAmt, { color: BRAND.orange }]}>{money(totalPendiente)}</Text>
+                  </View>
+                  {anticipos.map((a) => (
+                    <View key={a.policy_id} style={styles.row}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.rowTitle}>{a.nombre}</Text>
+                        <Text style={styles.rowMeta}>
+                          {a.holder ?? 'Sin titular'} · {a.dias} día{a.dias !== 1 ? 's' : ''} abierta
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.rowAmt, { color: a.dias > 10 ? BRAND.red : BRAND.navy }]}>
+                          {money(a.entregado)}
+                        </Text>
+                        {a.dias > 10 && (
+                          <Text style={{ fontSize: 10, color: BRAND.red, fontWeight: '700' }}>⚠ vencida</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </>
+              );
+            })()
+        }
+      </Section>
+
+      {/* ── 9. Tendencia mensual ── */}
+      <Section
+        title="📈 Tendencia mensual"
+        subtitle="Gasto total de los últimos 6 meses"
+        color={BRAND.blue}
+        open={open === 'tendencia'}
+        loading={loading.tendencia}
+        onToggle={() => toggle('tendencia', loadTendencia)}
+      >
+        {tendencia.length === 0
+          ? <Empty text="Sin datos de los últimos 6 meses." />
+          : (() => {
+              const maxTotal = Math.max(...tendencia.map(m => m.total));
+              return tendencia.map((m) => {
+                const pct = maxTotal > 0 ? Math.round((m.total / maxTotal) * 100) : 0;
+                const [y, mo] = m.mes.split('-');
+                const label = new Date(parseInt(y), parseInt(mo) - 1, 1)
+                  .toLocaleString('es-MX', { month: 'short', year: '2-digit' });
+                return (
+                  <View key={m.mes} style={styles.row}>
+                    <View style={{ width: 52 }}>
+                      <Text style={[styles.rowTitle, { fontSize: 12, textTransform: 'capitalize' }]}>{label}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.barWrap}>
+                        <View style={[styles.bar, { width: `${pct}%` as any, backgroundColor: BRAND.blue }]} />
+                      </View>
+                      <Text style={[styles.rowMeta, { marginTop: 3 }]}>{m.count} comprobante{m.count !== 1 ? 's' : ''}</Text>
+                    </View>
+                    <Text style={[styles.rowAmt, { marginLeft: 8 }]}>{money(m.total)}</Text>
+                  </View>
+                );
+              });
+            })()
+        }
+      </Section>
+
     </ScrollView>
   );
 }
@@ -521,4 +860,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '700' },
 
   emptyText: { fontSize: 13, color: '#90A4AE', textAlign: 'center', paddingVertical: 20 },
+
+  fiscalBarRow:    { flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginBottom: 8 },
+  fiscalBar:       { height: 14 },
+  fiscalLegend:    { flexDirection: 'row', justifyContent: 'space-between' },
+  fiscalLegendItem:{ fontSize: 12, fontWeight: '700' },
 });
