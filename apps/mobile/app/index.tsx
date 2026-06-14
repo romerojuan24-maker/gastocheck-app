@@ -125,9 +125,6 @@ export default function Home() {
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
-          <Text style={{ fontSize: 22 }}>⚙️</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
@@ -197,7 +194,7 @@ export default function Home() {
         <MenuBtn
           icon="🔧"
           label="Herramientas"
-          hint="Eventos, moneda, idioma y configuración"
+          hint="Reportes, búsqueda de proveedores y ajustes"
           onPress={() => router.push('/herramientas' as any)}
         />
         {isAdmin && (

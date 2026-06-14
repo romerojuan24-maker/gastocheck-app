@@ -72,6 +72,7 @@ export default function CaptureScreen() {
   const [fecha,      setFecha]      = useState('');
   const [folio,      setFolio]      = useState('');
   const [description, setDescription] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
 
   // Fuente: foto o XML
   const [isXml,      setIsXml]      = useState(false);
@@ -159,6 +160,7 @@ export default function CaptureScreen() {
         setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
         setFecha(   result.receiptDate   ?? '');
         setFolio(   result.internalFolio ?? '');
+        if (result.paymentMethod) setPaymentMethod(result.paymentMethod);
         setStep('confirm');
       } else {
         Alert.alert(
@@ -299,6 +301,7 @@ export default function CaptureScreen() {
       setIva(    String(data.tax_amount ?? data.tax ?? ''));
       setFecha(  (data.receipt_date ?? data.date ?? '').slice(0, 10));
       setFolio(  data.internal_folio ?? data.folio ?? '');
+      if (data.payment_method) setPaymentMethod(data.payment_method);
       setSuggestedCategory(suggestCategoryFromProvider(prov));
 
       setIsXml(true);
@@ -439,7 +442,7 @@ export default function CaptureScreen() {
             retencion_isr:    parseFloat(retencionIsr) || null,
             fiscal_uuid:      extracted?.fiscalUuid ?? null,
             internal_folio:   folio      || null,
-            payment_method:   extracted?.paymentMethod ?? null,
+            payment_method:   paymentMethod || extracted?.paymentMethod || null,
             ocr_text:         extracted?.fullText ?? null,
             ocr_confidence:   extracted?.confidence === 'high' ? 90
                             : extracted?.confidence === 'medium' ? 65 : 40,
@@ -727,6 +730,27 @@ export default function CaptureScreen() {
           <DatePickerField label="Fecha" value={fecha} onChange={setFecha} />
           <Field label="Folio (si aplica)" value={folio} onChangeText={setFolio} />
 
+          {/* Forma de pago */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Forma de pago</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {['Efectivo','Transferencia','T. Crédito','T. Débito','Cheque','Otro'].map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[
+                    styles.pmChip,
+                    paymentMethod === m && styles.pmChipActive,
+                  ]}
+                  onPress={() => setPaymentMethod(paymentMethod === m ? '' : m)}
+                >
+                  <Text style={[styles.pmChipText, paymentMethod === m && { color: '#fff' }]}>
+                    {m === 'Efectivo' ? '💵 ' : m === 'Transferencia' ? '🏦 ' : m === 'T. Crédito' ? '💳 ' : m === 'T. Débito' ? '🏧 ' : m === 'Cheque' ? '📝 ' : '•  '}{m}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>¿De qué es este gasto?</Text>
             <TextInput
@@ -1000,6 +1024,9 @@ const styles = StyleSheet.create({
   xmlIcon:        { fontSize: 40, marginBottom: 8 },
   xmlLabel:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
   xmlUuid:        { fontSize: 11, color: '#388E3C', marginTop: 4, fontFamily: 'monospace', maxWidth: '90%' },
+  pmChip:         { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E0E0E0' },
+  pmChipActive:   { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+  pmChipText:     { fontSize: 13, fontWeight: '600', color: BRAND.navy },
   categoryBox:    { backgroundColor: '#EDE7F6', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   categoryLabel:  { fontSize: 12, color: '#6A1B9A', fontWeight: '600' },
   categoryValue:  { fontSize: 14, color: '#4A148C', fontWeight: '700', flex: 1 },
