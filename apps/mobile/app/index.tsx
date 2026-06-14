@@ -203,7 +203,7 @@ export default function Home() {
         {isAdmin && (
           <MenuBtn
             icon="🏢"
-            label="Administración"
+            label="Alta Empresa"
             hint="Empresa, compradores y definir perfil"
             bg={BRAND.navy}
             textColor="#fff"
