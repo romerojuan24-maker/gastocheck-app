@@ -1,11 +1,12 @@
-// Herramientas — Módulos, reportes y configuración
+// Herramientas — contenido diferenciado por rol
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
-const REPORT_ROLES = ['owner', 'admin', 'supervisor'];
+const REPORT_ROLES    = ['owner', 'admin', 'supervisor'];
+const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];  // Eventos, Relaciones
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;
@@ -45,10 +46,14 @@ export default function HerramientasScreen() {
     })();
   }, []);
 
-  const canSeeReports = userRole && REPORT_ROLES.includes(userRole);
+  const canSeeReports   = userRole && REPORT_ROLES.includes(userRole);
+  const canSeeExtended  = userRole && EXTENDED_ROLES.includes(userRole);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: BRAND.gray }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+    >
 
       {/* ── Reportes (supervisor / admin / dueño) ── */}
       {canSeeReports && (
@@ -64,52 +69,62 @@ export default function HerramientasScreen() {
         </>
       )}
 
-      {/* ── Módulos operativos ── */}
-      <Text style={[styles.sectionTitle, canSeeReports ? { marginTop: 20 } : {}]}>Módulos</Text>
-
-      <ToolBtn
-        icon="📅"
-        title="Eventos y viáticos"
-        hint="Controla el presupuesto de cada evento o comisión"
-        accent={BRAND.blue}
-        onPress={() => router.push('/events' as any)}
-      />
+      {/* ── Consulta de proveedores (todos los roles) ── */}
+      <Text style={[styles.sectionTitle, canSeeReports && { marginTop: 20 }]}>
+        Consultas
+      </Text>
       <ToolBtn
         icon="🔍"
         title="¿Dónde compro?"
-        hint="Historial de proveedores y precios por categoría"
+        hint="Proveedores y precios de compras anteriores de la empresa"
         accent={BRAND.green}
         onPress={() => router.push('/item-search' as any)}
       />
-      <ToolBtn
-        icon="📁"
-        title="Relaciones de gastos"
-        hint="Agrupaciones de comprobantes para contabilidad"
-        accent={BRAND.orange}
-        onPress={() => router.push('/batches' as any)}
-      />
 
-      {/* ── Configuración ── */}
+      {/* ── Módulos extendidos (supervisor / admin / dueño) ── */}
+      {canSeeExtended && (
+        <>
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Módulos</Text>
+          <ToolBtn
+            icon="📅"
+            title="Eventos y viáticos"
+            hint="Controla el presupuesto de cada evento o comisión"
+            accent={BRAND.blue}
+            onPress={() => router.push('/events' as any)}
+          />
+          <ToolBtn
+            icon="📁"
+            title="Relaciones de gastos"
+            hint="Agrupaciones de comprobantes para contabilidad"
+            accent={BRAND.orange}
+            onPress={() => router.push('/batches' as any)}
+          />
+        </>
+      )}
+
+      {/* ── Configuración (todos los roles) ── */}
       <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Configuración</Text>
-
-      <ToolBtn
-        icon="⚙️"
-        title="Ajustes generales"
-        hint="Cuenta, notificaciones, versión y actualizaciones"
-        onPress={() => router.push('/settings')}
-      />
       <ToolBtn
         icon="💸"
         title="Solicitar anticipo"
         hint="Pide un anticipo a tu jefe o administrador"
         onPress={() => router.push('/advance-request' as any)}
       />
+      <ToolBtn
+        icon="⚙️"
+        title="Ajustes generales"
+        hint="Cuenta, notificaciones, versión y actualizaciones"
+        onPress={() => router.push('/settings')}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { fontSize: 12, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 12, fontWeight: '800', color: '#90A4AE',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+  },
   toolBtn: {
     backgroundColor: '#fff', borderRadius: 14, padding: 16,
     flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,

@@ -18,6 +18,7 @@ const SECTOR_OPTIONS = [
   { key: 'manufactura',       label: '🏭 Manufactura' },
   { key: 'servicios_tecnicos', label: '🔧 Servicios Técnicos' },
   { key: 'comercio',          label: '🛒 Comercio' },
+  { key: 'hogar',             label: '🏠 Hogar / Casa' },
   { key: 'otro',              label: '💼 Otro' },
 ];
 
