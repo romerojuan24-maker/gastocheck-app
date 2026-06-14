@@ -164,7 +164,11 @@ export interface CfdiData {
   rfc_emisor: string;
   rfc_receptor: string;
   subtotal: number;
+  descuento: number;
   iva: number;
+  ieps: number;
+  retencion_iva: number;
+  retencion_isr: number;
   total: number;
   fecha: string;
   metodo_pago: string;
@@ -201,6 +205,10 @@ export interface Receipt {
   subtotal_amount: number | null;
   tax_amount: number | null;
   discount_amount: number | null;
+  ieps_amount: number | null;
+  ish_amount: number | null;
+  retencion_iva: number | null;
+  retencion_isr: number | null;
   currency: string;
 
   fiscal_uuid: string | null;
@@ -256,6 +264,10 @@ export interface OcrResult {
   subtotal?: number | null;
   tax?: number | null;
   discount?: number | null;
+  ieps?: number | null;
+  ish?: number | null;
+  retencionIva?: number | null;
+  retencionIsr?: number | null;
   total?: number | null;
   currency?: string;
   fiscalUuid?: string | null;

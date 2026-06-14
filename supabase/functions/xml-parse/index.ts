@@ -83,12 +83,21 @@ Deno.serve(async (req) => {
       warnings.push('RFC emisor y receptor son iguales — verifique el CFDI');
     }
 
-    // 6. Validar matemática: subtotal + iva ≈ total (tolerancia $0.10)
-    if (data.subtotal && data.iva !== undefined && data.total) {
-      const diff = Math.abs((data.subtotal + data.iva) - data.total);
+    // 6. Validar matemática completa: subtotal − descuento + iva + ieps − ret_iva − ret_isr ≈ total
+    if (data.subtotal && data.total) {
+      const computed = data.subtotal
+        - (data.descuento      ?? 0)
+        + (data.iva            ?? 0)
+        + (data.ieps           ?? 0)
+        - (data.retencion_iva  ?? 0)
+        - (data.retencion_isr  ?? 0);
+      const diff = Math.abs(computed - data.total);
       if (diff > 0.10) {
         warnings.push(
-          `Discrepancia fiscal: subtotal(${data.subtotal}) + iva(${data.iva}) = ${data.subtotal + data.iva}, total declarado: ${data.total}`,
+          `Discrepancia fiscal: subtotal(${data.subtotal}) - desc(${data.descuento ?? 0}) ` +
+          `+ IVA(${data.iva ?? 0}) + IEPS(${data.ieps ?? 0}) ` +
+          `- ret_IVA(${data.retencion_iva ?? 0}) - ret_ISR(${data.retencion_isr ?? 0}) ` +
+          `= ${computed.toFixed(2)}, total declarado: ${data.total}`,
         );
       }
     }

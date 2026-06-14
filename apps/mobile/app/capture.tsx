@@ -64,6 +64,11 @@ export default function CaptureScreen() {
   const [subtotal,   setSubtotal]   = useState('');
   const [iva,        setIva]        = useState('');
   const [descuento,  setDescuento]  = useState('');
+  const [ieps,       setIeps]       = useState('');
+  const [ish,        setIsh]        = useState('');
+  const [retencionIva, setRetencionIva] = useState('');
+  const [retencionIsr, setRetencionIsr] = useState('');
+  const [showExtraImpuestos, setShowExtraImpuestos] = useState(false);
   const [fecha,      setFecha]      = useState('');
   const [folio,      setFolio]      = useState('');
   const [description, setDescription] = useState('');
@@ -78,6 +83,19 @@ export default function CaptureScreen() {
 
   // Auto-categoría sugerida por proveedor
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+
+  // ── Detecta qué impuestos extra aplican según la categoría sugerida ─────────
+  function categoryExtraTax(cat: string | null) {
+    if (!cat) return { ieps: false, ish: false, retenciones: false };
+    const u = cat.toUpperCase();
+    return {
+      ieps: u.includes('COMBUSTIBLE') || u.includes('GASOLINA') || u.includes('DIESEL') ||
+            u.includes('BEBIDA') || u.includes('ALCOHOL') || u.includes('CERVEZA') ||
+            u.includes('CIGARRO') || u.includes('TABACO'),
+      ish: u.includes('HOSPEDAJE') || u.includes('HOTEL'),
+      retenciones: u.includes('HONORARIO') || u.includes('ARRENDAMIENTO') || u.includes('RENTA'),
+    };
+  }
 
   // Fleet (se activa si company.sector es flotillas/transportistas/distribucion)
   const [isFleet,    setIsFleet]    = useState(false);
@@ -125,14 +143,22 @@ export default function CaptureScreen() {
         setExtracted(result);
         const prov = result.providerName ?? '';
         setProveedor(prov);
-        setRfc(      result.providerRfc    ?? '');
-        setTotal(    String(result.total   ?? ''));
-        setSubtotal( String(result.subtotal ?? ''));
-        setIva(      String(result.tax     ?? ''));
-        setDescuento(String(result.discount ?? ''));
-        setFecha(    result.receiptDate    ?? '');
-        setFolio(    result.internalFolio  ?? '');
-        setSuggestedCategory(suggestCategoryFromProvider(prov));
+        setRfc(         result.providerRfc     ?? '');
+        setTotal(       String(result.total    ?? ''));
+        setSubtotal(    String(result.subtotal ?? ''));
+        setIva(         String(result.tax      ?? ''));
+        setDescuento(   String(result.discount ?? ''));
+        setIeps(        String(result.ieps        ?? ''));
+        setIsh(         String(result.ish         ?? ''));
+        setRetencionIva(String(result.retencionIva ?? ''));
+        setRetencionIsr(String(result.retencionIsr ?? ''));
+        const cat = suggestCategoryFromProvider(prov);
+        setSuggestedCategory(cat);
+        const flags = categoryExtraTax(cat);
+        const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
+        setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
+        setFecha(   result.receiptDate   ?? '');
+        setFolio(   result.internalFolio ?? '');
         setStep('confirm');
       } else {
         Alert.alert(
@@ -175,14 +201,22 @@ export default function CaptureScreen() {
         setExtracted(result);
         const prov = result.providerName ?? '';
         setProveedor(prov);
-        setRfc(      result.providerRfc    ?? '');
-        setTotal(    String(result.total   ?? ''));
-        setSubtotal( String(result.subtotal ?? ''));
-        setIva(      String(result.tax     ?? ''));
-        setDescuento(String(result.discount ?? ''));
-        setFecha(    result.receiptDate    ?? '');
-        setFolio(    result.internalFolio  ?? '');
-        setSuggestedCategory(suggestCategoryFromProvider(prov));
+        setRfc(         result.providerRfc     ?? '');
+        setTotal(       String(result.total    ?? ''));
+        setSubtotal(    String(result.subtotal ?? ''));
+        setIva(         String(result.tax      ?? ''));
+        setDescuento(   String(result.discount ?? ''));
+        setIeps(        String(result.ieps        ?? ''));
+        setIsh(         String(result.ish         ?? ''));
+        setRetencionIva(String(result.retencionIva ?? ''));
+        setRetencionIsr(String(result.retencionIsr ?? ''));
+        const cat = suggestCategoryFromProvider(prov);
+        setSuggestedCategory(cat);
+        const flags = categoryExtraTax(cat);
+        const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
+        setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
+        setFecha(   result.receiptDate   ?? '');
+        setFolio(   result.internalFolio ?? '');
         setStep('confirm');
       } else {
         Alert.alert(
@@ -399,6 +433,10 @@ export default function CaptureScreen() {
             subtotal_amount:  parseFloat(subtotal) || null,
             tax_amount:       parseFloat(iva)      || null,
             discount_amount:  parseFloat(descuento) || null,
+            ieps_amount:      parseFloat(ieps)        || null,
+            ish_amount:       parseFloat(ish)         || null,
+            retencion_iva:    parseFloat(retencionIva) || null,
+            retencion_isr:    parseFloat(retencionIsr) || null,
             fiscal_uuid:      extracted?.fiscalUuid ?? null,
             internal_folio:   folio      || null,
             payment_method:   extracted?.paymentMethod ?? null,
@@ -431,6 +469,10 @@ export default function CaptureScreen() {
           subtotal_amount: parseFloat(subtotal) || null,
           tax_amount:      parseFloat(iva)      || null,
           discount_amount: parseFloat(descuento) || null,
+          ieps_amount:     parseFloat(ieps)        || null,
+          ish_amount:      parseFloat(ish)         || null,
+          retencion_iva:   parseFloat(retencionIva) || null,
+          retencion_isr:   parseFloat(retencionIsr) || null,
           fiscal_uuid:     extracted?.fiscalUuid ?? null,
           internal_folio: folio || null,
           vehicle_id:     vehicleId ?? null,
@@ -642,23 +684,58 @@ export default function CaptureScreen() {
           <Field label="IVA"            value={iva}      onChangeText={setIva}     keyboardType="decimal-pad" />
           <Field label="Descuento"      value={descuento} onChangeText={setDescuento} keyboardType="decimal-pad" placeholder="0.00 (si aplica)" />
 
+          {/* Otros impuestos: IEPS, ISH, retenciones */}
+          <TouchableOpacity
+            style={styles.extraTaxToggle}
+            onPress={() => setShowExtraImpuestos(!showExtraImpuestos)}
+          >
+            <Text style={styles.extraTaxToggleText}>
+              {showExtraImpuestos ? '▼' : '▶'} Otros impuestos (IEPS / ISH / retenciones)
+            </Text>
+          </TouchableOpacity>
+
+          {showExtraImpuestos && (
+            <View style={styles.extraTaxSection}>
+              <Text style={styles.extraTaxInfo}>
+                IEPS: combustibles, alcohol, tabacos · ISH: hospedaje · Retenciones: honorarios, arrendamiento
+              </Text>
+              <Field label="IEPS" value={ieps} onChangeText={setIeps} keyboardType="decimal-pad" placeholder="0.00" />
+              <Field label="ISH (Impuesto al Hospedaje)" value={ish} onChangeText={setIsh} keyboardType="decimal-pad" placeholder="0.00" />
+              <Field label="Retención IVA" value={retencionIva} onChangeText={setRetencionIva} keyboardType="decimal-pad" placeholder="0.00" />
+              <Field label="Retención ISR" value={retencionIsr} onChangeText={setRetencionIsr} keyboardType="decimal-pad" placeholder="0.00" />
+            </View>
+          )}
+
           {/* Validación de cuadre de montos */}
           {(() => {
-            const t = parseFloat(total) || 0;
-            const s = parseFloat(subtotal) || 0;
-            const v = parseFloat(iva) || 0;
-            const d = parseFloat(descuento) || 0;
+            const t = parseFloat(total)      || 0;
+            const s = parseFloat(subtotal)   || 0;
+            const v = parseFloat(iva)        || 0;
+            const d = parseFloat(descuento)  || 0;
+            const e = parseFloat(ieps)       || 0;
+            const h = parseFloat(ish)        || 0;
+            const ri = parseFloat(retencionIva) || 0;
+            const rs = parseFloat(retencionIsr) || 0;
             if (t > 0 && s > 0) {
-              const computed = s - d + v;
+              const computed = s - d + v + e + h - ri - rs;
               const diff = Math.abs(t - computed);
               if (diff > 0.10) {
+                const partes = [
+                  `Subtotal $${s.toFixed(2)}`,
+                  d   > 0 ? `− Desc. $${d.toFixed(2)}`   : null,
+                  v   > 0 ? `+ IVA $${v.toFixed(2)}`     : null,
+                  e   > 0 ? `+ IEPS $${e.toFixed(2)}`    : null,
+                  h   > 0 ? `+ ISH $${h.toFixed(2)}`     : null,
+                  ri  > 0 ? `− Ret.IVA $${ri.toFixed(2)}` : null,
+                  rs  > 0 ? `− Ret.ISR $${rs.toFixed(2)}` : null,
+                ].filter(Boolean).join(' ');
                 return (
                   <View style={styles.validationWarn}>
                     <Text style={styles.validationText}>
                       ⚠ Los montos no cuadran:{'\n'}
-                      Subtotal ${s.toFixed(2)} − Desc. ${d.toFixed(2)} + IVA ${v.toFixed(2)} = ${computed.toFixed(2)}{'\n'}
-                      pero el Total capturado es ${t.toFixed(2)} (diferencia: ${diff.toFixed(2)}){'\n'}
-                      Revisa si hay IEPS u otro impuesto, o corrige los campos.
+                      {partes} = ${computed.toFixed(2)}{'\n'}
+                      pero el Total es ${t.toFixed(2)} (diferencia: ${diff.toFixed(2)}){'\n'}
+                      Verifica o agrega impuestos en "Otros impuestos".
                     </Text>
                   </View>
                 );
@@ -793,7 +870,7 @@ export default function CaptureScreen() {
 
           <TouchableOpacity
             style={[styles.secondaryBtn]}
-            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); setDescuento(''); }}
+            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); setDescuento(''); setIeps(''); setIsh(''); setRetencionIva(''); setRetencionIsr(''); setShowExtraImpuestos(false); }}
             disabled={busy}
           >
             <Text style={styles.secondaryBtnText}>Retomar foto</Text>
@@ -885,8 +962,12 @@ const styles = StyleSheet.create({
   confidence:      { fontWeight: '700' },
   warningBox:      { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 8 },
   warningText:     { fontSize: 12, color: '#E65100', marginBottom: 2 },
-  validationWarn:  { backgroundColor: '#FFF3E0', borderRadius: 10, padding: 10, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#E65100' },
-  validationText:  { fontSize: 12, color: '#BF360C', lineHeight: 18 },
+  validationWarn:    { backgroundColor: '#FFF3E0', borderRadius: 10, padding: 10, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#E65100' },
+  validationText:    { fontSize: 12, color: '#BF360C', lineHeight: 18 },
+  extraTaxToggle:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 4 },
+  extraTaxToggleText:{ fontSize: 13, fontWeight: '600', color: BRAND.blue },
+  extraTaxSection:   { backgroundColor: '#F3F8FF', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#BBDEFB' },
+  extraTaxInfo:      { fontSize: 11, color: '#5C7FA3', marginBottom: 8, lineHeight: 16 },
   placeholder:     {
     backgroundColor: '#fff', borderRadius: 16, paddingVertical: 48,
     alignItems: 'center', marginBottom: 24, borderWidth: 2,

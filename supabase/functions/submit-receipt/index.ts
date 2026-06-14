@@ -24,7 +24,7 @@ interface OcrLineItem {
 interface SubmitInput {
   // Empresa y empleado
   company_id:    string;
-  policy_id:     string;  // para crear expense en el ledger
+  policy_id?:    string | null;  // opcional — si no viene, el comprobante va a "Mis Comprobantes"
   employee_id:   string;
 
   // Archivo
@@ -37,10 +37,15 @@ interface SubmitInput {
   provider_rfc?:   string | null;
   receipt_date?:   string | null;
   receipt_time?:   string | null;
-  total_amount?:   number | null;
+  total_amount?:    number | null;
   subtotal_amount?: number | null;
-  tax_amount?:     number | null;
-  fiscal_uuid?:    string | null;
+  tax_amount?:      number | null;
+  discount_amount?: number | null;
+  ieps_amount?:     number | null;
+  ish_amount?:      number | null;
+  retencion_iva?:   number | null;
+  retencion_isr?:   number | null;
+  fiscal_uuid?:     string | null;
   internal_folio?: string | null;
   payment_method?: string | null;
   ocr_text?:       string | null;
@@ -79,19 +84,20 @@ Deno.serve(async (req) => {
     const input: SubmitInput = await req.json();
 
     const {
-      company_id, policy_id, employee_id,
+      company_id, policy_id = null, employee_id,
       file_storage_path, file_sha256, source_type,
       provider_name, provider_rfc, receipt_date,
       receipt_time, total_amount, subtotal_amount, tax_amount,
+      discount_amount, ieps_amount, ish_amount, retencion_iva, retencion_isr,
       fiscal_uuid, internal_folio, payment_method,
       ocr_text, ocr_confidence, extracted_json, line_items,
       category_id, cost_center_id, notes,
       force_save = false, force_reason,
     } = input;
 
-    if (!company_id || !policy_id || !employee_id) {
+    if (!company_id || !employee_id) {
       return Response.json(
-        { error: 'company_id, policy_id y employee_id son requeridos' },
+        { error: 'company_id y employee_id son requeridos' },
         { status: 400, headers: CORS },
       );
     }
@@ -234,6 +240,11 @@ Deno.serve(async (req) => {
       total_amount:              total_amount ?? null,
       subtotal_amount:           subtotal_amount ?? null,
       tax_amount:                tax_amount ?? null,
+      discount_amount:           discount_amount ?? null,
+      ieps_amount:               ieps_amount ?? null,
+      ish_amount:                ish_amount ?? null,
+      retencion_iva:             retencion_iva ?? null,
+      retencion_isr:             retencion_isr ?? null,
       fiscal_uuid:               fiscal_uuid ?? null,
       internal_folio:            internal_folio ?? null,
       payment_method:            payment_method ?? null,
@@ -314,42 +325,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 7. Crear expense en el ledger de la póliza ───────────────────────────
-    // Auto-categorizar si no hay categoría especificada
-    let suggestedCategory: string | null = null;
-    if (!category_id && provider_name) {
-      suggestedCategory = suggestCategoryFromProvider(provider_name);
-    }
+    // ── 7. Crear expense en póliza (solo si se especificó policy_id) ─────────
+    let expense: { id: string } | null = null;
 
-    // 🔴 FIX BUG #1: Remover category_name (no existe en schema expenses)
-    // Guardar categoría sugerida en notes en su lugar
-    const notesWithCategory = suggestedCategory
-      ? `[AUTO_CATEGORY: ${suggestedCategory}] ${notes || ''}`.trim()
-      : notes || null;
+    if (policy_id) {
+      let suggestedCategory: string | null = null;
+      if (!category_id && provider_name) {
+        suggestedCategory = suggestCategoryFromProvider(provider_name);
+      }
 
-    const { data: expense, error: expErr } = await supabase
-      .from('expenses')
-      .insert({
-        company_id,
-        policy_id,
-        spender_id:    employee_id,
-        receipt_id:    receipt.id,
-        provider_name: provider_name ?? null,
-        provider_rfc:  provider_rfc ?? null,
-        subtotal:      subtotal_amount ?? null,
-        iva:           tax_amount ?? null,
-        total:         total_amount ?? 0,
-        expense_date:  receipt_date ?? new Date().toISOString().slice(0, 10),
-        category_id:   category_id ?? null,
-        cost_center_id: cost_center_id ?? null,
-        notes:         notesWithCategory,
-        status:        'captured',
-      })
-      .select('id')
-      .single();
+      const notesWithCategory = suggestedCategory
+        ? `[AUTO_CATEGORY: ${suggestedCategory}] ${notes || ''}`.trim()
+        : notes || null;
 
-    if (expErr) {
-      console.warn('Expense creation failed (receipt was saved):', expErr.message);
+      const { data: expData, error: expErr } = await supabase
+        .from('expenses')
+        .insert({
+          company_id,
+          policy_id,
+          spender_id:     employee_id,
+          receipt_id:     receipt.id,
+          provider_name:  provider_name ?? null,
+          provider_rfc:   provider_rfc ?? null,
+          subtotal:       subtotal_amount ?? null,
+          iva:            tax_amount ?? null,
+          total:          total_amount ?? 0,
+          expense_date:   receipt_date ?? new Date().toISOString().slice(0, 10),
+          category_id:    category_id ?? null,
+          cost_center_id: cost_center_id ?? null,
+          notes:          notesWithCategory,
+          status:         'captured',
+        })
+        .select('id')
+        .single();
+
+      if (expErr) {
+        console.warn('Expense creation failed (receipt was saved):', expErr.message);
+      } else {
+        expense = expData;
+      }
     }
 
     // ── 8. Audit log ─────────────────────────────────────────────────────────
