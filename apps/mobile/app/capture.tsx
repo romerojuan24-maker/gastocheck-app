@@ -365,8 +365,8 @@ export default function CaptureScreen() {
         warnings:      [],
       } as OcrResult);
 
-      // Usar una imagen placeholder para el XML
-      setPhoto({ uri: 'xml://' + file.name, base64: btoa(xmlText.slice(0, 5000)) });
+      // Usar una imagen placeholder para el XML (encodeURIComponent maneja UTF-8 correctamente)
+      setPhoto({ uri: 'xml://' + file.name, base64: btoa(unescape(encodeURIComponent(xmlText))) });
       setStep('confirm');
 
       Alert.alert('✅ XML procesado', `CFDI de ${prov || 'proveedor'} cargado correctamente.`);
@@ -594,10 +594,13 @@ export default function CaptureScreen() {
   async function handlePressConfirm() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: membership } = user
-      ? await supabase.from('company_members').select('company_id')
-          .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
-      : { data: null };
+    if (!user) {
+      setSaving(false);
+      Alert.alert('Sesión expirada', 'Inicia sesión nuevamente.');
+      return;
+    }
+    const { data: membership } = await supabase.from('company_members').select('company_id')
+      .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
 
     // 1. Verificación hard-block en cliente (mismo UUID o mismo proveedor+monto+fecha)
     if (membership?.company_id && user) {

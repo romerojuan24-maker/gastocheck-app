@@ -20,9 +20,9 @@ interface PendingExpense {
 }
 
 interface Employee {
-  user_id: string;
-  email:   string;
-  role:    string;
+  user_id:   string;
+  full_name: string | null;
+  role:      string;
 }
 
 interface AdvanceRequest {
@@ -107,7 +107,7 @@ export default function SupervisorScreen() {
 
         supabase
           .from('company_members')
-          .select('user_id, role')
+          .select('user_id, role, profiles:user_id(full_name)')
           .eq('company_id', member.company_id),
 
         supabase
@@ -125,7 +125,11 @@ export default function SupervisorScreen() {
       ]);
 
       setExpenses((expRes.data ?? []) as PendingExpense[]);
-      setEmployees((empRes.data ?? []).map((e: any) => ({ ...e, email: e.user_id })));
+      setEmployees((empRes.data ?? []).map((e: any) => ({
+        user_id:   e.user_id,
+        role:      e.role,
+        full_name: (e.profiles as any)?.full_name ?? null,
+      })));
       setPolicies(polRes.data ?? []);
       setAdvRequests((reqRes.data ?? []) as AdvanceRequest[]);
     } finally {
@@ -134,7 +138,7 @@ export default function SupervisorScreen() {
   }, []);
 
   async function approveExpense(id: string) {
-    const { error } = await supabase.from('expenses').update({ status: 'approved' }).eq('id', id);
+    const { error } = await supabase.from('expenses').update({ status: 'authorized' }).eq('id', id);
     if (error) Alert.alert('Error', error.message);
     else loadData();
   }
@@ -157,6 +161,9 @@ export default function SupervisorScreen() {
     if (!companyId || !polName.trim() || !polHolder.trim()) return;
     setSavingPol(true);
 
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) { setSavingPol(false); return; }
+
     // Obtener folio correlativo para la póliza
     let gc_folio: string | null = null;
     try {
@@ -172,6 +179,7 @@ export default function SupervisorScreen() {
       opening_balance: parseFloat(polBalance) || 0,
       status:          'open',
       gc_folio,
+      created_by:      u.id,
     });
     setSavingPol(false);
     if (error) Alert.alert('Error', error.message);
@@ -185,10 +193,14 @@ export default function SupervisorScreen() {
   async function createAdvance() {
     if (!advPolicy.trim() || !advAmount.trim()) return;
     setSavingAdv(true);
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u || !companyId) { setSavingAdv(false); return; }
     const { error } = await supabase.from('advances').insert({
-      policy_id: advPolicy.trim(),
-      amount:    parseFloat(advAmount),
-      notes:     advNote || null,
+      company_id: companyId,
+      policy_id:  advPolicy.trim(),
+      amount:     parseFloat(advAmount),
+      concept:    advNote || null,
+      created_by: u.id,
     });
     setSavingAdv(false);
     if (error) Alert.alert('Error', error.message);
@@ -210,9 +222,11 @@ export default function SupervisorScreen() {
       const { data: adv, error: advErr } = await supabase
         .from('advances')
         .insert({
-          policy_id: approvePolicy,
-          amount:    approveReq.amount,
-          notes:     `Solicitud aprobada: ${approveReq.reason}`,
+          company_id: companyId!,
+          policy_id:  approvePolicy,
+          amount:     approveReq.amount,
+          concept:    `Solicitud aprobada: ${approveReq.reason}`,
+          created_by: user.id,
         })
         .select('id')
         .single();
@@ -456,7 +470,7 @@ export default function SupervisorScreen() {
                 {e.role === 'admin' ? '👑' : e.role === 'supervisor' ? '🧑‍💼' : '👤'}
               </Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.empId} numberOfLines={1}>{e.user_id}</Text>
+                <Text style={styles.empId} numberOfLines={1}>{e.full_name ?? e.user_id}</Text>
                 <Text style={styles.empRole}>{e.role}</Text>
               </View>
             </View>

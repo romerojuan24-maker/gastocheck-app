@@ -19,6 +19,7 @@ const money = (n: number) =>
 
 interface BatchDetail {
   id:           string;
+  company_id:   string;
   name:         string;
   status:       BatchStatus;
   period_start: string | null;
@@ -72,7 +73,7 @@ export default function BatchDetailScreen() {
     try {
       const { data: b } = await supabase
         .from('receipt_batches')
-        .select('id, name, status, period_start, period_end, notes')
+        .select('id, company_id, name, status, period_start, period_end, notes')
         .eq('id', batch_id)
         .single();
       if (b) setBatch(b as BatchDetail);
@@ -137,7 +138,7 @@ export default function BatchDetailScreen() {
     if (!batch_id) return;
     const { error } = await supabase
       .from('receipt_batch_items')
-      .insert({ batch_id, receipt_id, company_id: receipts[0]?.id ?? undefined });
+      .insert({ batch_id, receipt_id, company_id: batch.company_id });
     if (error) {
       Alert.alert('Error', error.message);
     } else {
@@ -188,7 +189,7 @@ export default function BatchDetailScreen() {
           },
           body: JSON.stringify({
             batch_id,
-            company_id: batch?.id,
+            company_id: batch?.company_id,
           }),
         },
       );
@@ -259,7 +260,7 @@ export default function BatchDetailScreen() {
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            company_id: batch.id,
+            company_id: batch.company_id,
             batch_id: batch_id,
             format: exportFormat,
           }),
@@ -314,7 +315,10 @@ export default function BatchDetailScreen() {
   if (!batch) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: '#90A4AE' }}>Relación no encontrada</Text>
+        <Text style={{ color: '#90A4AE', marginBottom: 16 }}>Relación no encontrada</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={{ color: BRAND.blue, fontWeight: '700' }}>← Volver</Text>
+        </TouchableOpacity>
       </View>
     );
   }

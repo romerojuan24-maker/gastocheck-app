@@ -29,7 +29,7 @@ interface ReceiptItem {
 export default function ReembolsoScreen() {
   const router              = useRouter();
   const { ids }             = useLocalSearchParams<{ ids: string }>();
-  const receiptIds          = (ids ?? '').split(',').filter(Boolean);
+  const receiptIds          = (ids ?? '').split(',').filter(s => s !== '' && s !== 'undefined');
 
   const [receipts,   setReceipts]   = useState<ReceiptItem[]>([]);
   const [loading,    setLoading]    = useState(true);

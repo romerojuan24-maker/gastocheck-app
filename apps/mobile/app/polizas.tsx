@@ -126,6 +126,7 @@ export default function PolizasScreen() {
       opening_balance: parseFloat(newBalance) || 0,
       status:          'open',
       requested_by:    user.id,
+      created_by:      user.id,
     }).select('id').single();
 
     if (error) {
@@ -167,7 +168,7 @@ export default function PolizasScreen() {
       .from('receipts')
       .select('id, gc_folio, provider_name, receipt_date, total_amount, fiscal_uuid, sat_validation_status, status')
       .eq('company_id', member.company_id)
-      .eq('uploaded_by', user.id)
+      .or(`uploaded_by.eq.${user.id},employee_id.eq.${user.id}`)
       .eq('status', 'captured')   // solo los que no están en otra póliza
       .order('created_at', { ascending: false })
       .limit(50);
