@@ -5,12 +5,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { BRAND, isFleetSector } from '@gastocheck/shared';
+import { BRAND, APP_VERSION, isFleetSector } from '@gastocheck/shared';
 import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
-// ── Versión de este OTA (incrementar con cada eas update) ─────────────────────
-const OTA_VERSION = 'OTA 13 · v1.0.13';
+// OTA_VERSION viene de @gastocheck/shared — un solo lugar para actualizar
+const OTA_VERSION = APP_VERSION;
 
 const CREATE_COMPANY_FN = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-company`;
 

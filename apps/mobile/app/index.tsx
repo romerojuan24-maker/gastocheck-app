@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
-import { computeBalance, STATUS_META, BRAND, type Expense, type Policy, type Advance } from '@gastocheck/shared';
+import { computeBalance, STATUS_META, BRAND, APP_VERSION, type Expense, type Policy, type Advance } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 import { checkMonthEndReminder } from '../lib/notifications';
@@ -143,7 +143,7 @@ export default function Home() {
               <Text style={{ color: BRAND.navy }}>Gasto</Text>
               <Text style={{ color: BRAND.green }}>Check</Text>
             </Text>
-            <Text style={styles.brandVersion}>v1.0.11</Text>
+            <Text style={styles.brandVersion}>{APP_VERSION}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>

@@ -9,6 +9,7 @@ export * from './categories';
 export * from './batches';
 export * from './export';
 export * from './fleet-alerts';
+export * from './billing';
 
 // Tokens de marca GastoCheck
 export const BRAND = {
@@ -21,3 +22,6 @@ export const BRAND = {
   red:    '#E53935',
   purple: '#7B1FA2',
 } as const;
+
+// Versión de la app — actualizar con cada OTA
+export const APP_VERSION = 'OTA 13 · v1.0.13';
