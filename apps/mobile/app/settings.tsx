@@ -40,6 +40,7 @@ export default function SettingsScreen() {
   const [showCreateCo,  setShowCreateCo]  = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCo,    setCreatingCo]    = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -77,6 +78,35 @@ export default function SettingsScreen() {
       setConnOk(false);
     } finally {
       setConnChecking(false);
+    }
+  }
+
+  async function checkForUpdate() {
+    setCheckingUpdate(true);
+    try {
+      const check = await Updates.checkForUpdateAsync();
+      if (check.isAvailable) {
+        Alert.alert(
+          '🔄 Actualización disponible',
+          'Hay una nueva versión. ¿Descargar ahora?',
+          [
+            { text: 'Después', style: 'cancel' },
+            {
+              text: 'Actualizar',
+              onPress: async () => {
+                await Updates.fetchUpdateAsync();
+                await Updates.reloadAsync();
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert('✅ Al día', `Tienes la versión más reciente.\n${OTA_VERSION}`);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo verificar actualizaciones.');
+    } finally {
+      setCheckingUpdate(false);
     }
   }
 
@@ -307,6 +337,9 @@ export default function SettingsScreen() {
       <View style={styles.versionBox}>
         <Text style={styles.versionMain}>GastoCheck</Text>
         <Text style={styles.versionOta}>{OTA_VERSION}</Text>
+        {Updates.channel ? (
+          <Text style={styles.versionId}>Canal: {Updates.channel}</Text>
+        ) : null}
         {Updates.updateId ? (
           <Text style={styles.versionId}>
             ID: {Updates.updateId.slice(0, 8)}…
@@ -314,6 +347,16 @@ export default function SettingsScreen() {
         ) : (
           <Text style={styles.versionId}>Build local / dev</Text>
         )}
+        <TouchableOpacity
+          style={[styles.updateBtn, checkingUpdate && { opacity: 0.6 }]}
+          onPress={checkForUpdate}
+          disabled={checkingUpdate}
+        >
+          {checkingUpdate
+            ? <ActivityIndicator size="small" color={BRAND.blue} />
+            : <Text style={styles.updateBtnText}>🔄 Buscar actualización</Text>
+          }
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -355,6 +398,8 @@ const styles = StyleSheet.create({
   versionMain:  { fontSize: 13, fontWeight: '700', color: '#90A4AE' },
   versionOta:   { fontSize: 16, fontWeight: '800', color: BRAND.blue, marginTop: 2 },
   versionId:    { fontSize: 10, color: '#B0BEC5', marginTop: 4, fontFamily: 'monospace' },
+  updateBtn:    { marginTop: 10, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: BRAND.blue, minWidth: 160, alignItems: 'center' },
+  updateBtnText:{ fontSize: 13, color: BRAND.blue, fontWeight: '600' },
   connUrl:      { fontSize: 11, color: '#90A4AE', marginTop: 2 },
   createCoBtn:  { marginTop: 10, backgroundColor: BRAND.blue, borderRadius: 10, padding: 11, alignItems: 'center' },
   createCoBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
