@@ -247,7 +247,7 @@ export default function Home() {
               </TouchableOpacity>
               <TouchableOpacity style={styles.ownerBtn} onPress={() => router.push('/gastadores' as any)}>
                 <Text style={styles.ownerBtnIcon}>👤</Text>
-                <Text style={styles.ownerBtnLabel}>Gastadores</Text>
+                <Text style={styles.ownerBtnLabel}>Compradores</Text>
               </TouchableOpacity>
             </View>
           </View>

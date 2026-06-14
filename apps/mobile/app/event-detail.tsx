@@ -23,7 +23,7 @@ const METHOD_OPTIONS = [
 ];
 
 const TYPE_OPTIONS = [
-  { key: 'advance', label: '💰 Anticipo (dinero dado al gastador)' },
+  { key: 'advance', label: '💰 Anticipo (dinero dado al comprador)' },
   { key: 'expense', label: '🧾 Gasto (comprobante de egreso)' },
 ];
 
@@ -215,7 +215,7 @@ export default function EventDetailScreen() {
     if (!fDesc.trim()) { Alert.alert('Requerido', 'La descripción es obligatoria.'); return; }
     const amt = parseFloat(fAmount.replace(',', '.'));
     if (isNaN(amt) || amt <= 0) { Alert.alert('Monto inválido', 'Ingresa un monto positivo.'); return; }
-    if (!fSpenderId) { Alert.alert('Requerido', 'Selecciona un gastador.'); return; }
+    if (!fSpenderId) { Alert.alert('Requerido', 'Selecciona un comprador.'); return; }
     if (!companyId || !userId || !eventId) return;
 
     setSaving(true);

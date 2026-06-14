@@ -137,7 +137,7 @@ export default function EventsScreen() {
       setEvents(evList.map((e: any) => ({
         ...e,
         amount_spent:  spentByEvent[e.id] ?? 0,
-        gastador_name: e.gastador_id ? (profileMap[e.gastador_id] ?? 'Gastador') : 'Todos',
+        gastador_name: e.gastador_id ? (profileMap[e.gastador_id] ?? 'Comprador') : 'Todos',
       })));
     } finally {
       setLoading(false);
@@ -312,9 +312,9 @@ export default function EventsScreen() {
                 keyboardType="decimal-pad"
               />
 
-              <Text style={styles.fieldLabel}>Gastador asignado</Text>
+              <Text style={styles.fieldLabel}>Comprador asignado</Text>
               {gastadores.length === 0 ? (
-                <Text style={styles.hint}>No hay gastadores activos. Agrégalos en "Mis Gastadores".</Text>
+                <Text style={styles.hint}>No hay compradores activos. Agrégalos en "Mis Compradores".</Text>
               ) : (
                 <View style={styles.chipWrap}>
                   <TouchableOpacity

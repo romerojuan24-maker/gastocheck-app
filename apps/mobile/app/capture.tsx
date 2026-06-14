@@ -456,32 +456,12 @@ export default function CaptureScreen() {
 
       const submitData = await submitRes.json();
 
-      // Si falla pero estamos offline, encolador
+      // Error 5xx del servidor
       if (!submitRes.ok && submitRes.status >= 500) {
-        await enqueueOffline('receipt', 'create', {
-          company_id:     companyId,
-          employee_id:    user.id,
-          source_type:    isXml ? 'xml' : 'photo',
-          provider_name:  proveedor || null,
-          provider_rfc:   rfc || null,
-          receipt_date:   fecha || new Date().toISOString().slice(0, 10),
-          total_amount:    parseFloat(total)    || null,
-          subtotal_amount: parseFloat(subtotal) || null,
-          tax_amount:      parseFloat(iva)      || null,
-          discount_amount: parseFloat(descuento) || null,
-          ieps_amount:     parseFloat(ieps)        || null,
-          ish_amount:      parseFloat(ish)         || null,
-          retencion_iva:   parseFloat(retencionIva) || null,
-          retencion_isr:   parseFloat(retencionIsr) || null,
-          fiscal_uuid:     extracted?.fiscalUuid ?? null,
-          internal_folio: folio || null,
-          vehicle_id:     vehicleId ?? null,
-          operator_id:    operatorId ?? null,
-        });
         Alert.alert(
-          '📱 Guardado offline',
-          'Sin conexión. Se sincronizará automáticamente cuando se reconecte.',
-          [{ text: 'OK', onPress: () => router.back() }],
+          'Error al guardar',
+          submitData?.error ?? 'Error del servidor. Intenta de nuevo en un momento.',
+          [{ text: 'OK' }],
         );
         return;
       }

@@ -391,12 +391,14 @@ const styles = StyleSheet.create({
   // Modo selección y reembolso
   reembolsoBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#EEF2FF', marginHorizontal: 12, marginTop: 8, marginBottom: 4,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: BRAND.blue + '30',
+    backgroundColor: BRAND.green, marginHorizontal: 12, marginTop: 8, marginBottom: 4,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    elevation: 3,
+    shadowColor: BRAND.green, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35, shadowRadius: 6,
   },
-  reembolsoBarText: { fontSize: 14, fontWeight: '700', color: BRAND.blue },
-  reembolsoBarHint: { fontSize: 12, color: '#90A4AE' },
+  reembolsoBarText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  reembolsoBarHint: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
   selectBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: BRAND.blue, marginHorizontal: 12, marginTop: 8, marginBottom: 4,

@@ -126,15 +126,15 @@ export default function GastadoresScreen() {
       const data = await res.json();
 
       if (!res.ok) {
-        Alert.alert('Error', data.error ?? 'No se pudo crear el gastador.');
+        Alert.alert('Error', data.error ?? 'No se pudo crear el comprador.');
         return;
       }
 
       const successMsg = data.temp_password
-        ? `Gastador creado.\n\nContraseña temporal: ${data.temp_password}\n\nGuárdala — no se mostrará de nuevo.`
-        : 'Gastador creado exitosamente.';
+        ? `Comprador creado.\n\nContraseña temporal: ${data.temp_password}\n\nGuárdala — no se mostrará de nuevo.`
+        : 'Comprador creado exitosamente.';
 
-      Alert.alert('✓ Gastador agregado', successMsg, [
+      Alert.alert('✓ Comprador agregado', successMsg, [
         {
           text: 'Entendido',
           onPress: () => {
@@ -155,8 +155,8 @@ export default function GastadoresScreen() {
     const newStatus = gastador.status === 'active' ? 'disabled' : 'active';
     const label = newStatus === 'active' ? 'activar' : 'deshabilitar';
     Alert.alert(
-      `¿${label.charAt(0).toUpperCase() + label.slice(1)} gastador?`,
-      `${gastador.full_name ?? gastador.email ?? 'Este gastador'} quedará ${newStatus === 'active' ? 'activo' : 'inactivo'}.`,
+      `¿${label.charAt(0).toUpperCase() + label.slice(1)} comprador?`,
+      `${gastador.full_name ?? gastador.email ?? 'Este comprador'} quedará ${newStatus === 'active' ? 'activo' : 'inactivo'}.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -212,7 +212,7 @@ export default function GastadoresScreen() {
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
       {/* Botón agregar */}
       <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
-        <Text style={styles.addBtnText}>+ Agregar Gastador</Text>
+        <Text style={styles.addBtnText}>+ Agregar Comprador</Text>
       </TouchableOpacity>
 
       {loading ? (
@@ -222,8 +222,8 @@ export default function GastadoresScreen() {
       ) : gastadores.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>👤</Text>
-          <Text style={styles.emptyTitle}>Sin gastadores</Text>
-          <Text style={styles.emptyText}>Agrega tu primer gastador para que pueda registrar gastos.</Text>
+          <Text style={styles.emptyTitle}>Sin compradores</Text>
+          <Text style={styles.emptyText}>Agrega tu primer comprador para que pueda registrar gastos.</Text>
         </View>
       ) : (
         <FlatList
@@ -242,7 +242,7 @@ export default function GastadoresScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nuevo Gastador</Text>
+              <Text style={styles.modalTitle}>Nuevo Comprador</Text>
               <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
@@ -286,7 +286,7 @@ export default function GastadoresScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.hint}>
-                Si dejas la contraseña vacía, se generará una temporal que deberás compartir con el gastador.
+                Si dejas la contraseña vacía, se generará una temporal que deberás compartir con el comprador.
               </Text>
             </ScrollView>
 
@@ -301,7 +301,7 @@ export default function GastadoresScreen() {
               >
                 {submitting
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.createBtnText}>Agregar Gastador</Text>}
+                  : <Text style={styles.createBtnText}>Agregar Comprador</Text>}
               </TouchableOpacity>
             </View>
           </View>

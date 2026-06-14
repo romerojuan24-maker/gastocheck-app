@@ -251,7 +251,7 @@ export default function LoginScreen() {
 
           {tab === 'register' && (
             <Text style={styles.trialNote}>
-              ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 gastador
+              ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 comprador
             </Text>
           )}
         </View>

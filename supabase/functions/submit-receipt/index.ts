@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
       duplicate_score:           duplicateScore,
       duplicate_of_receipt_id:   dupMatches[0]?.receipt_id ?? null,
       duplicate_reason:          dupMatches[0]?.reason ?? null,
-      status:                    'submitted',
+      status:                    'captured',
     };
 
     // Obtener folio correlativo GastoCheck antes de insertar
