@@ -1,7 +1,11 @@
-// Herramientas — Eventos, configuración y accesos adicionales
+// Herramientas — Módulos, reportes y configuración
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
+import { supabase } from '../lib/supabase';
+
+const REPORT_ROLES = ['owner', 'admin', 'supervisor'];
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;
@@ -25,12 +29,43 @@ function ToolBtn({ icon, title, hint, onPress, accent }: {
 
 export default function HerramientasScreen() {
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: m } = await supabase
+        .from('company_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (m?.role) setUserRole(m.role);
+    })();
+  }, []);
+
+  const canSeeReports = userRole && REPORT_ROLES.includes(userRole);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
 
+      {/* ── Reportes (supervisor / admin / dueño) ── */}
+      {canSeeReports && (
+        <>
+          <Text style={styles.sectionTitle}>Reportes</Text>
+          <ToolBtn
+            icon="📊"
+            title="Reportes de operación"
+            hint="Pólizas, compras por tipo, gastos del mes, proveedores y flotilla"
+            accent={BRAND.navy}
+            onPress={() => router.push('/reportes' as any)}
+          />
+        </>
+      )}
+
       {/* ── Módulos operativos ── */}
-      <Text style={styles.sectionTitle}>Módulos</Text>
+      <Text style={[styles.sectionTitle, canSeeReports ? { marginTop: 20 } : {}]}>Módulos</Text>
 
       <ToolBtn
         icon="📅"
@@ -55,7 +90,7 @@ export default function HerramientasScreen() {
       />
 
       {/* ── Configuración ── */}
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Configuración</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Configuración</Text>
 
       <ToolBtn
         icon="⚙️"
