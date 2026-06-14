@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 const REPORT_ROLES    = ['owner', 'admin', 'supervisor'];
 const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];
 const DEPOSIT_ROLES   = ['owner', 'admin', 'supervisor'];
+const ROUTE_ADMIN_ROLES = ['owner', 'admin', 'supervisor'];
+const ROUTE_FIELD_ROLES = ['spender', 'operator'];
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;
@@ -49,7 +51,9 @@ export default function HerramientasScreen() {
 
   const canSeeReports   = userRole && REPORT_ROLES.includes(userRole);
   const canSeeExtended  = userRole && EXTENDED_ROLES.includes(userRole);
-  const canSeeDeposits  = userRole && DEPOSIT_ROLES.includes(userRole);
+  const canSeeDeposits    = userRole && DEPOSIT_ROLES.includes(userRole);
+  const canSeeRouteAdmin  = userRole && ROUTE_ADMIN_ROLES.includes(userRole);
+  const canSeeRouteField  = userRole && ROUTE_FIELD_ROLES.includes(userRole);
 
   return (
     <ScrollView
@@ -120,6 +124,26 @@ export default function HerramientasScreen() {
           hint="Anticipos y depósitos recibidos de tu empresa"
           accent={BRAND.green}
           onPress={() => router.push('/mis-depositos' as any)}
+        />
+      )}
+
+      {/* ── Control de ruta ── */}
+      {canSeeRouteAdmin && (
+        <ToolBtn
+          icon="🗺"
+          title="Rutas del equipo"
+          hint="Consulta el recorrido del día de cada mensajero o comprador"
+          accent="#00838F"
+          onPress={() => router.push('/rutas-equipo' as any)}
+        />
+      )}
+      {canSeeRouteField && (
+        <ToolBtn
+          icon="📍"
+          title="Mi ruta del día"
+          hint="Registra tu recorrido sin gastar datos — se sincroniza por WiFi"
+          accent="#00838F"
+          onPress={() => router.push('/mi-ruta' as any)}
         />
       )}
 
