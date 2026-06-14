@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -23,10 +23,11 @@ export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
 
-  const [receipt,  setReceipt]  = useState<Receipt | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [myRole,   setMyRole]   = useState<string>('employee');
+  const [receipt,   setReceipt]   = useState<Receipt | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [myRole,    setMyRole]    = useState<string>('employee');
   const [actioning, setActioning] = useState(false);
+  const [photoUrl,  setPhotoUrl]  = useState<string | null>(null);
 
   // ── Cargar comprobante ─────────────────────────────────────────────────────
 
@@ -43,8 +44,17 @@ export default function ReceiptDetailScreen() {
           : Promise.resolve({ data: null }),
       ]);
 
-      setReceipt(rec as Receipt);
+      const r = rec as Receipt;
+      setReceipt(r);
       setMyRole(member?.role ?? 'employee');
+
+      // Generar URL firmada para la foto (bucket privado, 2h de validez)
+      if (r?.file_storage_path && r.source_type !== 'xml') {
+        const { data: signed } = await supabase.storage
+          .from('expense-attachments')
+          .createSignedUrl(r.file_storage_path, 7200);
+        if (signed?.signedUrl) setPhotoUrl(signed.signedUrl);
+      }
     } finally {
       setLoading(false);
     }
@@ -158,6 +168,23 @@ export default function ReceiptDetailScreen() {
           </View>
         )}
       </View>
+
+      {/* ── Foto del comprobante ── */}
+      {photoUrl ? (
+        <View style={styles.photoCard}>
+          <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="contain" />
+        </View>
+      ) : receipt?.source_type === 'xml' ? (
+        <View style={[styles.photoCard, styles.xmlPlaceholder]}>
+          <Text style={{ fontSize: 36 }}>📄</Text>
+          <Text style={{ fontSize: 13, color: '#607D8B', marginTop: 6, fontWeight: '600' }}>CFDI XML</Text>
+          {receipt.fiscal_uuid && (
+            <Text style={{ fontSize: 10, color: '#90A4AE', marginTop: 4, fontFamily: 'monospace' }} numberOfLines={1}>
+              {receipt.fiscal_uuid}
+            </Text>
+          )}
+        </View>
+      ) : null}
 
       {/* ── Proveedor y monto ── */}
       <View style={styles.card}>
@@ -413,4 +440,11 @@ const styles = StyleSheet.create({
   actionBtnText:{ fontSize: 15, fontWeight: '700', color: '#fff' },
 
   meta:         { fontSize: 11, color: '#B0BEC5', textAlign: 'center', lineHeight: 18, marginTop: 8 },
+
+  photoCard:    {
+    backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
+    marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0',
+  },
+  photo:        { width: '100%', height: 260 },
+  xmlPlaceholder: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28 },
 });
