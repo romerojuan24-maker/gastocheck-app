@@ -1,7 +1,8 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
+import * as Updates from 'expo-updates';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
 
@@ -9,6 +10,32 @@ export default function Layout() {
   const router   = useRouter();
   const segments = useSegments();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [updating, setUpdating] = useState(false);
+
+  // ── Auto-update: chequear al arrancar y recargar si hay OTA nueva ──
+  const { isUpdatePending } = Updates.useUpdates();
+
+  useEffect(() => {
+    // Cuando expo-updates termina de descargar un OTA, recarga automáticamente
+    if (isUpdatePending) {
+      setUpdating(true);
+      Updates.reloadAsync().catch(() => setUpdating(false));
+    }
+  }, [isUpdatePending]);
+
+  useEffect(() => {
+    // Chequeo proactivo al arrancar (por si el automático no corrió)
+    if (!Updates.isEnabled) return;
+    Updates.checkForUpdateAsync()
+      .then(async (res) => {
+        if (res.isAvailable) {
+          setUpdating(true);
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      })
+      .catch(() => { /* silencioso en dev/sin red */ });
+  }, []);
 
   useEffect(() => {
     // Sesión inicial
@@ -33,6 +60,18 @@ export default function Layout() {
       router.replace('/');
     }
   }, [session, segments]);
+
+  // Splash mientras se aplica un OTA
+  if (updating) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.navy }}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={{ color: '#fff', marginTop: 16, fontSize: 14, fontWeight: '600' }}>
+          Actualizando GastoCheck…
+        </Text>
+      </View>
+    );
+  }
 
   // Splash de carga mientras resolvemos sesión
   if (session === undefined) {
