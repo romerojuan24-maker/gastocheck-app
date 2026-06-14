@@ -10,7 +10,7 @@ import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
 // ── Versión de este OTA (incrementar con cada eas update) ─────────────────────
-const OTA_VERSION = 'OTA 12 · v1.0.12';
+const OTA_VERSION = 'OTA 13 · v1.0.13';
 
 const CREATE_COMPANY_FN = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-company`;
 
