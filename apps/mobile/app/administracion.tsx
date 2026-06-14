@@ -144,16 +144,35 @@ export default function AdministracionScreen() {
     return company.id.replace(/-/g, '').substring(0, 8).toUpperCase();
   }
 
-  async function shareInvite(role: 'admin' | 'comprador') {
+  async function shareInvite(role: 'admin' | 'supervisor' | 'comprador') {
     if (!company) return;
     const code = inviteCode();
-    const roleLabel = role === 'admin' ? 'Administrador' : 'Comprador';
+
+    const ROLE_INFO: Record<string, { label: string; accesos: string }> = {
+      admin: {
+        label:   'Administrador',
+        accesos: 'Invita usuarios, asigna roles, accede a Alta Empresa y ve toda la operación de la empresa.',
+      },
+      supervisor: {
+        label:   'Supervisor',
+        accesos: 'Genera pólizas, autoriza gastos, reportes de operación y análisis de todos los compradores.',
+      },
+      comprador: {
+        label:   'Comprador',
+        accesos: 'Captura tickets, genera sus pólizas, consulta sus comprobantes y reembolsos, y ve los proveedores de la empresa.',
+      },
+    };
+
+    const { label, accesos } = ROLE_INFO[role];
     const msg =
-      `Hola! Te invito a unirte a *${company.name}* en GastoCheck como ${roleLabel}.\n\n` +
+      `Hola! Te invito a unirte a *${company.name}* en GastoCheck como *${label}*.\n\n` +
+      `📋 *Tus accesos como ${label}:*\n${accesos}\n\n` +
+      `*Para unirte:*\n` +
       `1️⃣ Descarga la app GastoCheck en tu teléfono\n` +
       `2️⃣ Regístrate con tu nombre y correo\n` +
-      `3️⃣ Ingresa el código de empresa: *${code}*\n\n` +
-      `Con ese código quedarás vinculado automáticamente a nuestra empresa. 🙌`;
+      `3️⃣ Ingresa el código de empresa: *${code}*\n` +
+      `4️⃣ Selecciona el rol: *${label}*\n\n` +
+      `¡Listo! Quedarás vinculado a nuestra empresa. 🙌`;
     try {
       await Share.share({ message: msg });
     } catch { /* cancelado */ }
@@ -226,20 +245,51 @@ export default function AdministracionScreen() {
       </TouchableOpacity>
 
       <View style={styles.inviteCard}>
-        <Text style={styles.inviteTitle}>Invitar por WhatsApp</Text>
+        <Text style={styles.inviteTitle}>📲 Invitar por WhatsApp</Text>
         <Text style={styles.inviteHint}>
-          Comparte el código de tu empresa. El nuevo usuario lo escribe al registrarse en la app.
+          Elige el rol antes de compartir — el mensaje explicará claramente los accesos que tendrá.
         </Text>
         <View style={styles.codeBox}>
           <Text style={styles.codeLabel}>Código de empresa</Text>
           <Text style={styles.codeValue}>{inviteCode()}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-          <TouchableOpacity style={[styles.inviteBtn, { flex: 1 }]} onPress={() => shareInvite('comprador')}>
-            <Text style={styles.inviteBtnText}>📲 Invitar comprador</Text>
+
+        {/* Rol: Administrador */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.navy }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>🏢 Administrador</Text>
+            <Text style={styles.roleCardDesc}>
+              Invita usuarios, asigna roles y accede a Alta Empresa. Tiene visibilidad total de la empresa.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.navy }]} onPress={() => shareInvite('admin')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.inviteBtn, styles.inviteBtnAdmin, { flex: 1 }]} onPress={() => shareInvite('admin')}>
-            <Text style={[styles.inviteBtnText, { color: BRAND.blue }]}>📲 Invitar admin</Text>
+        </View>
+
+        {/* Rol: Supervisor */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.blue }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>📋 Supervisor</Text>
+            <Text style={styles.roleCardDesc}>
+              Genera pólizas, autoriza gastos, reportes de operación y análisis de todos los compradores.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.blue }]} onPress={() => shareInvite('supervisor')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rol: Comprador */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.green }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>🛒 Comprador</Text>
+            <Text style={styles.roleCardDesc}>
+              Captura tickets, sus pólizas y comprobantes propios, reembolsos y proveedores de la empresa.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.green }]} onPress={() => shareInvite('comprador')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -379,11 +429,15 @@ const styles = StyleSheet.create({
   },
   codeLabel: { fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase' },
   codeValue: { fontSize: 28, fontWeight: '800', color: BRAND.navy, letterSpacing: 4, marginTop: 4 },
-  inviteBtn: {
-    backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+  roleCard: {
+    backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, marginTop: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderLeftWidth: 4, borderWidth: 1, borderColor: '#E0E0E0',
   },
-  inviteBtnAdmin: { backgroundColor: '#EEF2FF' },
-  inviteBtnText:  { fontSize: 13, fontWeight: '700', color: '#fff' },
+  roleCardTitle: { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  roleCardDesc:  { fontSize: 12, color: '#607D8B', lineHeight: 16 },
+  roleInviteBtn: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 70, alignItems: 'center' },
+  roleInviteBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
   sectorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   sectorChip: {
