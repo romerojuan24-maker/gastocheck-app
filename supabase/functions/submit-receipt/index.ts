@@ -215,14 +215,11 @@ Deno.serve(async (req) => {
         .single();
 
       if (supplierErr) {
-        console.error('Supplier upsert failed:', supplierErr);
-        return Response.json(
-          { ok: false, error: 'Could not save supplier information' },
-          { status: 500, headers: CORS },
-        );
+        // No bloqueante: el ticket se guarda aunque falle el proveedor
+        console.warn('Supplier upsert failed (non-blocking):', supplierErr.message);
+      } else if (supplier) {
+        supplier_id = supplier.id;
       }
-
-      if (supplier) supplier_id = supplier.id;
     }
 
     // ── 4. Crear receipt ─────────────────────────────────────────────────────

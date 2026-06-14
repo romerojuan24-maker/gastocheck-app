@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, Alert, ActivityIndicator, Switch,
-  Share,
+  Share, Modal, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
@@ -34,8 +34,11 @@ interface CompanyData {
   rfc:              string | null;
   nombre_comercial: string | null;
   direccion:        string | null;
+  colonia:          string | null;
   ciudad:           string | null;
+  estado:           string | null;
   cp:               string | null;
+  pais:             string | null;
   telefono:         string | null;
   sector:           string | null;
   tiene_flotilla:   boolean;
@@ -55,13 +58,21 @@ export default function AdministracionScreen() {
   const [fName,            setFName]            = useState('');
   const [fRfc,             setFRfc]             = useState('');
   const [fNombreComercial, setFNombreComercial] = useState('');
+  const [fCp,              setFCp]              = useState('');
+  const [fColonia,         setFColonia]         = useState('');
   const [fDireccion,       setFDireccion]       = useState('');
   const [fCiudad,          setFCiudad]          = useState('');
-  const [fCp,              setFCp]              = useState('');
+  const [fEstado,          setFEstado]          = useState('');
+  const [fPais,            setFPais]            = useState('México');
   const [fTelefono,        setFTelefono]        = useState('');
   const [fSector,          setFSector]          = useState<string | null>(null);
   const [fFlotilla,        setFFlotilla]        = useState(false);
   const [fMoneda,          setFMoneda]          = useState<'MXN' | 'USD'>('MXN');
+
+  // CP lookup
+  const [cpLoading,   setCpLoading]   = useState(false);
+  const [colonias,    setColonias]    = useState<string[]>([]);
+  const [showColonia, setShowColonia] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,7 +90,7 @@ export default function AdministracionScreen() {
 
       const { data: co } = await supabase
         .from('companies')
-        .select('id, name, rfc, nombre_comercial, direccion, ciudad, cp, telefono, sector, tiene_flotilla, moneda, plan, plan_seats')
+        .select('id, name, rfc, nombre_comercial, direccion, colonia, ciudad, estado, cp, pais, telefono, sector, tiene_flotilla, moneda, plan, plan_seats')
         .eq('id', member.company_id)
         .maybeSingle();
       if (!co) return;
@@ -88,15 +99,17 @@ export default function AdministracionScreen() {
       setFName(co.name ?? '');
       setFRfc(co.rfc ?? '');
       setFNombreComercial(co.nombre_comercial ?? '');
+      setFCp(co.cp ?? '');
+      setFColonia(co.colonia ?? '');
       setFDireccion(co.direccion ?? '');
       setFCiudad(co.ciudad ?? '');
-      setFCp(co.cp ?? '');
+      setFEstado(co.estado ?? '');
+      setFPais(co.pais ?? 'México');
       setFTelefono(co.telefono ?? '');
       setFSector(co.sector ?? null);
       setFFlotilla(co.tiene_flotilla ?? false);
       setFMoneda((co.moneda ?? 'MXN') as 'MXN' | 'USD');
 
-      // Contar miembros activos
       const { count } = await supabase
         .from('company_members')
         .select('id', { count: 'exact' })
@@ -110,6 +123,34 @@ export default function AdministracionScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Buscar CP en copomex cuando tiene 5 dígitos
+  async function handleCpChange(value: string) {
+    const digits = value.replace(/\D/g, '').slice(0, 5);
+    setFCp(digits);
+    setColonias([]);
+
+    if (digits.length === 5) {
+      setCpLoading(true);
+      try {
+        const res = await fetch(
+          `https://api.copomex.com/query/info_cp/${digits}?type=simplified&token=pruebas`,
+          { signal: AbortSignal.timeout(6000) },
+        );
+        const json = await res.json();
+        if (!json.error && json.codigo_postal) {
+          const cp = json.codigo_postal;
+          if (!fCiudad) setFCiudad(cp.D_mnpio ?? cp.d_ciudad ?? '');
+          if (!fEstado) setFEstado(cp.d_estado ?? '');
+          const list: string[] = (json.colonias ?? [])
+            .map((c: any) => c.d_asenta ?? c)
+            .filter(Boolean);
+          setColonias(list);
+        }
+      } catch { /* sin red o CP inválido — campos libres */ }
+      finally { setCpLoading(false); }
+    }
+  }
+
   async function handleSave() {
     if (!company) return;
     if (!fName.trim()) { Alert.alert('Requerido', 'El nombre de la empresa es obligatorio.'); return; }
@@ -121,9 +162,12 @@ export default function AdministracionScreen() {
           name:             fName.trim(),
           rfc:              fRfc.trim().toUpperCase() || null,
           nombre_comercial: fNombreComercial.trim() || null,
+          cp:               fCp.trim() || null,
+          colonia:          fColonia.trim() || null,
           direccion:        fDireccion.trim() || null,
           ciudad:           fCiudad.trim() || null,
-          cp:               fCp.trim() || null,
+          estado:           fEstado.trim() || null,
+          pais:             fPais.trim() || 'México',
           telefono:         fTelefono.trim() || null,
           sector:           fSector,
           tiene_flotilla:   fFlotilla,
@@ -145,15 +189,11 @@ export default function AdministracionScreen() {
     return company.id.replace(/-/g, '').substring(0, 8).toUpperCase();
   }
 
-  async function shareInvite(role: 'admin' | 'supervisor' | 'comprador') {
+  async function shareInvite(role: 'supervisor' | 'comprador') {
     if (!company) return;
     const code = inviteCode();
 
-    const ROLE_INFO: Record<string, { label: string; accesos: string }> = {
-      admin: {
-        label:   'Administrador',
-        accesos: 'Invita usuarios, asigna roles, accede a Alta Empresa y ve toda la operación de la empresa.',
-      },
+    const ROLE_INFO = {
       supervisor: {
         label:   'Supervisor',
         accesos: 'Genera pólizas, autoriza gastos, reportes de operación y análisis de todos los compradores.',
@@ -214,15 +254,59 @@ export default function AdministracionScreen() {
       <Field label="Nombre de la empresa *" value={fName} onChange={setFName} placeholder="Mi Empresa S.A. de C.V." />
       <Field label="RFC" value={fRfc} onChange={setFRfc} placeholder="ABC123456XY0" autoCapitalize="characters" />
       <Field label="Nombre comercial" value={fNombreComercial} onChange={setFNombreComercial} placeholder="Mi Empresa" />
-      <Field label="Dirección" value={fDireccion} onChange={setFDireccion} placeholder="Calle 123, Col. Centro" />
+
+      {/* CP → autocompletar ciudad/estado/colonias */}
+      <View style={{ marginBottom: 12 }}>
+        <Text style={styles.fieldLabel}>Código Postal</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            value={fCp}
+            onChangeText={handleCpChange}
+            placeholder="64000"
+            placeholderTextColor="#B0BEC5"
+            keyboardType="number-pad"
+            maxLength={5}
+          />
+          {cpLoading && <ActivityIndicator size="small" color={BRAND.blue} />}
+        </View>
+        {colonias.length > 0 && (
+          <Text style={styles.cpHint}>✓ {colonias.length} colonias encontradas para este CP</Text>
+        )}
+      </View>
+
+      {/* Colonia — si hay opciones del CP, mostrar selector; si no, campo libre */}
+      <View style={{ marginBottom: 12 }}>
+        <Text style={styles.fieldLabel}>Colonia</Text>
+        {colonias.length > 0 ? (
+          <TouchableOpacity style={styles.input} onPress={() => setShowColonia(true)}>
+            <Text style={{ fontSize: 15, color: fColonia ? BRAND.navy : '#B0BEC5' }}>
+              {fColonia || 'Selecciona una colonia…'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TextInput
+            style={styles.input}
+            value={fColonia}
+            onChangeText={setFColonia}
+            placeholder="Col. Centro"
+            placeholderTextColor="#B0BEC5"
+          />
+        )}
+      </View>
+
+      <Field label="Calle y número" value={fDireccion} onChange={setFDireccion} placeholder="Av. Principal 123" />
+
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 2 }}>
-          <Field label="Ciudad" value={fCiudad} onChange={setFCiudad} placeholder="Monterrey, NL" />
+        <View style={{ flex: 1 }}>
+          <Field label="Ciudad / Municipio" value={fCiudad} onChange={setFCiudad} placeholder="Monterrey" />
         </View>
         <View style={{ flex: 1 }}>
-          <Field label="CP" value={fCp} onChange={setFCp} placeholder="64000" keyboardType="number-pad" />
+          <Field label="Estado" value={fEstado} onChange={setFEstado} placeholder="Nuevo León" />
         </View>
       </View>
+
+      <Field label="País" value={fPais} onChange={setFPais} placeholder="México" />
       <Field label="Teléfono" value={fTelefono} onChange={setFTelefono} placeholder="+52 81 1234 5678" keyboardType="phone-pad" />
 
       <TouchableOpacity
@@ -255,19 +339,6 @@ export default function AdministracionScreen() {
           <Text style={styles.codeValue}>{inviteCode()}</Text>
         </View>
 
-        {/* Rol: Administrador */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.navy }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>🏢 Administrador</Text>
-            <Text style={styles.roleCardDesc}>
-              Invita usuarios, asigna roles y accede a Alta Empresa. Tiene visibilidad total de la empresa.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.navy }]} onPress={() => shareInvite('admin')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Rol: Supervisor */}
         <View style={[styles.roleCard, { borderLeftColor: BRAND.blue }]}>
           <View style={{ flex: 1 }}>
@@ -295,7 +366,7 @@ export default function AdministracionScreen() {
         </View>
       </View>
 
-      {/* ── Definir Perfil ── */}
+      {/* ── Perfil de la Empresa ── */}
       <SectionHeader title="Perfil de la Empresa" />
 
       <Text style={styles.fieldLabel}>Sector</Text>
@@ -348,6 +419,36 @@ export default function AdministracionScreen() {
           ? <ActivityIndicator color="#fff" />
           : <Text style={styles.saveBtnText}>Guardar perfil</Text>}
       </TouchableOpacity>
+
+      {/* ── Modal selector de colonia ── */}
+      <Modal visible={showColonia} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowColonia(false)}>
+        <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowColonia(false)}>
+              <Text style={{ color: '#90A4AE', fontSize: 15 }}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.navy }}>Selecciona colonia</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          <FlatList
+            data={colonias}
+            keyExtractor={(item) => item}
+            contentContainerStyle={{ padding: 12 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.coloniaRow, fColonia === item && { backgroundColor: BRAND.blue + '15' }]}
+                onPress={() => { setFColonia(item); setShowColonia(false); }}
+              >
+                <Text style={[styles.coloniaText, fColonia === item && { color: BRAND.blue, fontWeight: '700' }]}>
+                  {item}
+                </Text>
+                {fColonia === item && <Text style={{ color: BRAND.blue }}>✓</Text>}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
 
     </ScrollView>
   );
@@ -402,6 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 12, padding: 13,
     borderWidth: 1, borderColor: '#E0E0E0', fontSize: 15, color: BRAND.navy,
   },
+  cpHint: { fontSize: 11, color: BRAND.green, fontWeight: '600', marginTop: 4 },
 
   saveBtn: {
     backgroundColor: BRAND.blue, borderRadius: 14, paddingVertical: 16,
@@ -426,7 +528,7 @@ const styles = StyleSheet.create({
   inviteHint:  { fontSize: 13, color: '#90A4AE', lineHeight: 18, marginBottom: 12 },
   codeBox: {
     backgroundColor: BRAND.gray, borderRadius: 12, padding: 14,
-    alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0',
+    alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 4,
   },
   codeLabel: { fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase' },
   codeValue: { fontSize: 28, fontWeight: '800', color: BRAND.navy, letterSpacing: 4, marginTop: 4 },
@@ -462,4 +564,16 @@ const styles = StyleSheet.create({
   },
   monedaChipActive: { backgroundColor: BRAND.navy, borderColor: BRAND.navy },
   monedaChipText:   { fontSize: 14, fontWeight: '700', color: BRAND.navy },
+
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
+  },
+  coloniaRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#fff', borderRadius: 10, padding: 14, marginBottom: 6,
+    borderWidth: 1, borderColor: '#F0F0F0',
+  },
+  coloniaText: { fontSize: 15, color: BRAND.navy },
 });
