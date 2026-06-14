@@ -130,11 +130,16 @@ export interface Policy {
 
 export interface Advance {
   id: string;
+  company_id: string;
   policy_id: string;
   amount: number;
   method: AdvanceMethod;
   reference: string | null;
+  concept: string | null;
+  attachment_url: string | null;
   date: string;
+  created_by: string;
+  created_at: string;
 }
 
 export interface Expense {

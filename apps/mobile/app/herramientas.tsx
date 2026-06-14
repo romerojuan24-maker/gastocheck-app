@@ -6,7 +6,8 @@ import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
 const REPORT_ROLES    = ['owner', 'admin', 'supervisor'];
-const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];  // Eventos, Relaciones
+const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];
+const DEPOSIT_ROLES   = ['owner', 'admin', 'supervisor'];
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;
@@ -48,6 +49,7 @@ export default function HerramientasScreen() {
 
   const canSeeReports   = userRole && REPORT_ROLES.includes(userRole);
   const canSeeExtended  = userRole && EXTENDED_ROLES.includes(userRole);
+  const canSeeDeposits  = userRole && DEPOSIT_ROLES.includes(userRole);
 
   return (
     <ScrollView
@@ -100,6 +102,25 @@ export default function HerramientasScreen() {
             onPress={() => router.push('/batches' as any)}
           />
         </>
+      )}
+
+      {/* ── Depósitos (admin/supervisor registra; comprador ve los suyos) ── */}
+      {canSeeDeposits ? (
+        <ToolBtn
+          icon="💰"
+          title="Registrar depósito"
+          hint="Envía dinero a un comprador y queda registrado en su saldo"
+          accent={BRAND.green}
+          onPress={() => router.push('/depositos' as any)}
+        />
+      ) : (
+        <ToolBtn
+          icon="💰"
+          title="Mis depósitos"
+          hint="Anticipos y depósitos recibidos de tu empresa"
+          accent={BRAND.green}
+          onPress={() => router.push('/mis-depositos' as any)}
+        />
       )}
 
       {/* ── Configuración (todos los roles) ── */}

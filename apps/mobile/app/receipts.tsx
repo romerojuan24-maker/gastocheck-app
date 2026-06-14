@@ -1,5 +1,6 @@
 // Pantalla "Mis Comprobantes" — el operador puede buscar y revisar sus tickets
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, TextInput, Alert,
@@ -123,6 +124,13 @@ export default function ReceiptsScreen() {
   useEffect(() => {
     loadReceipts(true);
   }, [statusFilter, search]);
+
+  // Refrescar al volver de receipt-detail (ej. tras cancelar un comprobante)
+  useFocusEffect(
+    useCallback(() => {
+      loadReceipts(true);
+    }, [statusFilter, search]),
+  );
 
   // ── Renderizado de cada comprobante ───────────────────────────────────────
 

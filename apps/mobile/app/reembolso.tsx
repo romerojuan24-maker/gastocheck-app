@@ -97,19 +97,25 @@ export default function ReembolsoScreen() {
       if (!member?.company_id) throw new Error('Sin empresa activa. Contacta a tu administrador.');
 
       // 1. Crear póliza de reembolso (opening_balance = 0; el importe es lo que se pide devolver)
+      // Obtener folio correlativo para el reembolso
+      const { data: folioData } = await supabase
+        .rpc('next_gc_folio', { p_company_id: member.company_id, p_type: 'reembolso' });
+
       const { data: policy, error: polErr } = await supabase
         .from('policies')
         .insert({
           company_id:      member.company_id,
           holder_id:       user.id,
           requested_by:    user.id,
+          created_by:      user.id,
           name:            nombre.trim(),
           opening_balance: 0,
           status:          'open',
           policy_type:     'reembolso',
           period_start:    new Date().toISOString().slice(0, 10),
+          gc_folio:        folioData ?? null,
         })
-        .select('id')
+        .select('id, gc_folio')
         .single();
 
       if (polErr || !policy) throw new Error('Error creando reembolso: ' + (polErr?.message ?? ''));
@@ -143,7 +149,7 @@ export default function ReembolsoScreen() {
       Alert.alert(
         '✅ Reembolso solicitado',
         [
-          nombre.trim(),
+          policy.gc_folio ? `Folio: ${policy.gc_folio}` : nombre.trim(),
           `Total solicitado: ${money(totalGlobal)}`,
           '',
           `✅ Póliza fiscal (CFDI):  ${withCfdi} comprobante${withCfdi !== 1 ? 's' : ''} · ${money(totalFiscal)}`,

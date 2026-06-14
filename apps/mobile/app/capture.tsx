@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
-  ScrollView, Image, TextInput, Alert, Modal,
+  ScrollView, FlatList, Image, TextInput, Alert, Modal,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -45,10 +45,19 @@ export default function CaptureScreen() {
   const router = useRouter();
   const { extractFromImage, loading: ocrLoading } = useOcr();
 
-  // Setup offline sync monitor
+  // Setup offline sync monitor + cargar categorías al inicio
   useEffect(() => {
     const unsubscribe = startOfflineMonitor();
     setupNotifications();
+    // Pre-cargar categorías tan pronto se carga la pantalla
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: m } = await supabase
+        .from('company_members').select('company_id')
+        .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      if (m?.company_id) loadCategories(m.company_id);
+    })();
     return unsubscribe;
   }, []);
 
@@ -82,7 +91,13 @@ export default function CaptureScreen() {
   const [showDupModal, setShowDupModal] = useState(false);
   const [forceReason,  setForceReason] = useState('');
 
-  // Auto-categoría sugerida por proveedor
+  // Categoría seleccionada
+  const [categoryId,   setCategoryId]   = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState<string>('');
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [categories,   setCategories]   = useState<{ id: string; name: string; parent_name?: string }[]>([]);
+
+  // Auto-categoría sugerida por proveedor (legacy — ya no se usa para el UI, solo para preselección)
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
   // ── Detecta qué impuestos extra aplican según la categoría sugerida ─────────
@@ -121,6 +136,33 @@ export default function CaptureScreen() {
     ]);
     setVehicles((vList ?? []) as FleetVehicle[]);
     setOperators((oList ?? []) as FleetOperator[]);
+  }
+
+  // ── Cargar catálogo de categorías ────────────────────────────────────────
+
+  async function loadCategories(companyId: string) {
+    const { data } = await supabase
+      .from('expense_categories')
+      .select('id, name, parent_id')
+      .or(`company_id.eq.${companyId},is_template.eq.true`)
+      .eq('active', true)
+      .order('display_order')
+      .order('name');
+
+    if (!data?.length) return;
+
+    // Construir lista plana con prefijo del padre
+    const parentMap: Record<string, string> = {};
+    data.forEach((c: any) => {
+      if (!c.parent_id) parentMap[c.id] = c.name;
+    });
+    setCategories(
+      data.map((c: any) => ({
+        id:          c.id,
+        name:        c.name,
+        parent_name: c.parent_id ? parentMap[c.parent_id] : undefined,
+      })),
+    );
   }
 
   // ── Tomar foto ─────────────────────────────────────────────────────────────
@@ -368,6 +410,37 @@ export default function CaptureScreen() {
     }
   }
 
+  // ── Verificación de duplicado exacto en cliente (pre-submit) ─────────────
+  // Bloqueo permanente: mismo fiscal_uuid O mismo (proveedor+monto+fecha) ya en BD
+
+  async function clientDuplicateBlock(companyId: string, userId: string): Promise<string | null> {
+    // 1. Coincidencia por UUID fiscal (siempre hard-block)
+    if (extracted?.fiscalUuid) {
+      const { count } = await supabase
+        .from('receipts')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('fiscal_uuid', extracted.fiscalUuid)
+        .neq('status', 'cancelled');
+      if ((count ?? 0) > 0) return 'Ya existe un comprobante con este UUID fiscal (CFDI). No se puede registrar dos veces.';
+    }
+    // 2. Coincidencia exacta por (proveedor + monto + fecha) — sin importar año/mes
+    const amt = parseFloat(total);
+    if (proveedor.trim() && amt > 0 && fecha) {
+      const { count } = await supabase
+        .from('receipts')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .or(`employee_id.eq.${userId},uploaded_by.eq.${userId}`)
+        .ilike('provider_name', proveedor.trim())
+        .eq('total_amount', amt)
+        .eq('receipt_date', fecha)
+        .neq('status', 'cancelled');
+      if ((count ?? 0) > 0) return `Ya tienes un comprobante de ${proveedor.trim()} por $${amt.toFixed(2)} del ${fecha}. Este ticket ya fue registrado.`;
+    }
+    return null;
+  }
+
   // ── Guardar comprobante (sin póliza — va directo a Mis Comprobantes) ───────
 
   async function handleConfirm(forceSave = false, forceRsn = '') {
@@ -448,6 +521,7 @@ export default function CaptureScreen() {
                             : extracted?.confidence === 'medium' ? 65 : 40,
             extracted_json:   extracted ?? null,
             line_items:       extracted?.lineItems ?? [],
+            category_id:      categoryId ?? null,
             notes:            description.trim() || null,
             vehicle_id:       vehicleId  ?? null,
             operator_id:      operatorId ?? null,
@@ -519,13 +593,23 @@ export default function CaptureScreen() {
 
   async function handlePressConfirm() {
     setSaving(true);
-    // Obtener company_id para el check de duplicados
     const { data: { user } } = await supabase.auth.getUser();
     const { data: membership } = user
       ? await supabase.from('company_members').select('company_id')
           .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
       : { data: null };
 
+    // 1. Verificación hard-block en cliente (mismo UUID o mismo proveedor+monto+fecha)
+    if (membership?.company_id && user) {
+      const blockMsg = await clientDuplicateBlock(membership.company_id, user.id);
+      if (blockMsg) {
+        setSaving(false);
+        Alert.alert('🚫 Comprobante duplicado', blockMsg, [{ text: 'Entendido' }]);
+        return;
+      }
+    }
+
+    // 2. Check de duplicados probabilístico en servidor
     const dup = membership?.company_id
       ? await checkDuplicate(membership.company_id)
       : null;
@@ -751,24 +835,31 @@ export default function CaptureScreen() {
             </View>
           </View>
 
+          {/* Categoría de gasto */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>¿De qué es este gasto?</Text>
+            <Text style={styles.fieldLabel}>Categoría del gasto</Text>
+            <TouchableOpacity
+              style={[styles.fieldInput, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }]}
+              onPress={() => setShowCatModal(true)}
+            >
+              <Text style={{ fontSize: 14, color: categoryName ? BRAND.navy : '#B0BEC5', flex: 1 }}>
+                {categoryName || 'Selecciona una categoría…'}
+              </Text>
+              <Text style={{ fontSize: 16, color: '#B0BEC5' }}>⌄</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Descripción libre (breve) */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Descripción (opcional)</Text>
             <TextInput
-              style={[styles.fieldInput, { minHeight: 60, textAlignVertical: 'top', paddingTop: 10 }]}
+              style={styles.fieldInput}
               value={description}
               onChangeText={setDescription}
-              multiline
-              placeholder="Ej: Comida para reunión con cliente, gasolina para reparto..."
+              placeholder="Notas adicionales sobre este gasto…"
               placeholderTextColor="#B0BEC5"
             />
           </View>
-
-          {suggestedCategory && (
-            <View style={styles.categoryBox}>
-              <Text style={styles.categoryLabel}>💡 Categoría sugerida</Text>
-              <Text style={styles.categoryValue}>{suggestedCategory}</Text>
-            </View>
-          )}
 
           {extracted?.fiscalUuid && (
             <View style={styles.cfdiBox}>
@@ -874,12 +965,74 @@ export default function CaptureScreen() {
 
           <TouchableOpacity
             style={[styles.secondaryBtn]}
-            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setDescription(''); setDescuento(''); setIeps(''); setIsh(''); setRetencionIva(''); setRetencionIsr(''); setShowExtraImpuestos(false); }}
+            onPress={() => { setStep('camera'); setPhoto(null); setExtracted(null); setDupResult(null); setIsXml(false); setSuggestedCategory(null); setCategoryId(null); setCategoryName(''); setDescription(''); setDescuento(''); setIeps(''); setIsh(''); setRetencionIva(''); setRetencionIsr(''); setShowExtraImpuestos(false); }}
             disabled={busy}
           >
             <Text style={styles.secondaryBtnText}>Retomar foto</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ── Modal de categorías ── */}
+        <Modal
+          visible={showCatModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowCatModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalBox, { paddingHorizontal: 0, paddingBottom: 0 }]}>
+              <Text style={[styles.modalTitle, { paddingHorizontal: 20, marginBottom: 8 }]}>
+                Categoría del gasto
+              </Text>
+              {/* Opción vacía */}
+              <TouchableOpacity
+                style={{ paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}
+                onPress={() => { setCategoryId(null); setCategoryName(''); setShowCatModal(false); }}
+              >
+                <Text style={{ fontSize: 14, color: '#90A4AE' }}>Sin categoría</Text>
+              </TouchableOpacity>
+              <FlatList
+                data={categories}
+                keyExtractor={(c) => c.id}
+                style={{ maxHeight: 380 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 20, paddingVertical: 12,
+                      borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+                      backgroundColor: categoryId === item.id ? BRAND.green + '12' : '#fff',
+                    }}
+                    onPress={() => {
+                      setCategoryId(item.id);
+                      setCategoryName(item.parent_name ? `${item.parent_name} › ${item.name}` : item.name);
+                      setShowCatModal(false);
+                    }}
+                  >
+                    {item.parent_name && (
+                      <Text style={{ fontSize: 11, color: '#90A4AE', marginBottom: 1 }}>{item.parent_name}</Text>
+                    )}
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: BRAND.navy }}>{item.name}</Text>
+                    {categoryId === item.id && (
+                      <Text style={{ position: 'absolute', right: 16, top: 14, color: BRAND.green, fontSize: 16 }}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: '#90A4AE', fontSize: 13 }}>Cargando categorías…</Text>
+                  </View>
+                }
+              />
+              <TouchableOpacity
+                style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F0F0F0' }}
+                onPress={() => setShowCatModal(false)}
+              >
+                <Text style={{ color: BRAND.blue, fontWeight: '700', fontSize: 15 }}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </ScrollView>
       </KeyboardAvoidingView>
     );
