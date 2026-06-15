@@ -136,6 +136,7 @@ export default function Home() {
               Tus gastos claros.{' '}
               <Text style={{ color: BRAND.green }}>Tus saldos bajo control.</Text>
             </Text>
+            <Text style={styles.versionText}>{APP_VERSION}</Text>
           </View>
         </View>
       </View>
@@ -300,6 +301,7 @@ const styles = StyleSheet.create({
   splashTitleGasto: { fontSize: 30, fontWeight: '800', color: BRAND.navy },
   splashTitleCheck: { fontSize: 30, fontWeight: '800', color: BRAND.green },
   splashTagline:    { fontSize: 12, color: BRAND.navy + 'AA', marginTop: 3 },
+  versionText:      { fontSize: 10, color: BRAND.navy + '55', marginTop: 4 },
   settingsBtn:      { position: 'absolute', top: 54, right: 16, padding: 8 },
 
   balanceCard:       { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 12 },
