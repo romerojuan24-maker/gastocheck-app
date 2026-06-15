@@ -24,6 +24,11 @@ function parseDate(s: string): { y: number; m: number; d: number } {
 }
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const WEEKDAYS = ['LU', 'MA', 'MIE', 'JUE', 'VIE', 'SA', 'DO'];
+
+function firstDayOfMonth(year: number, month: number): number {
+  return new Date(year, month - 1, 1).getDay() || 7; // 1=lunes, 7=domingo (ISO)
+}
 
 interface Props {
   label: string;
@@ -97,13 +102,30 @@ export default function DatePickerField({ label, value, onChange, style }: Props
             </View>
 
             <Text style={styles.sectionLabel}>Día</Text>
-            <View style={styles.chipWrap}>
+
+            {/* Headers de días de la semana */}
+            <View style={styles.weekdayHeaderRow}>
+              {WEEKDAYS.map((wd) => (
+                <View key={wd} style={styles.weekdayHeaderCell}>
+                  <Text style={styles.weekdayHeaderText}>{wd}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Grilla de días */}
+            <View style={styles.calendarGrid}>
+              {/* Espacios en blanco para días antes del primero del mes */}
+              {Array.from({ length: firstDayOfMonth(selY, selM) - 1 }).map((_, i) => (
+                <View key={`empty-${i}`} style={styles.emptyDayCell} />
+              ))}
+
+              {/* Días del mes */}
               {days.map((day) => (
                 <TouchableOpacity
                   key={day}
-                  style={[styles.chip, selD === day && styles.chipActive]}
+                  style={[styles.dayChip, selD === day && styles.dayChipActive]}
                   onPress={() => setSelD(day)}>
-                  <Text style={[styles.chipText, selD === day && styles.chipTextActive]}>
+                  <Text style={[styles.dayChipText, selD === day && styles.dayChipTextActive]}>
                     {String(day).padStart(2, '0')}
                   </Text>
                 </TouchableOpacity>
@@ -158,6 +180,23 @@ const styles = StyleSheet.create({
   chipActive:       { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
   chipText:         { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
   chipTextActive:   { color: '#fff' },
+
+  // Calendario grilla
+  weekdayHeaderRow: { flexDirection: 'row', marginBottom: 8, marginTop: 2 },
+  weekdayHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 6 },
+  weekdayHeaderText: { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase' },
+
+  calendarGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  emptyDayCell:     { width: '14.285%', paddingBottom: 0 },
+  dayChip:          {
+    width: '14.285%', aspectRatio: 1,
+    justifyContent: 'center', alignItems: 'center',
+    borderRadius: 8, backgroundColor: '#F5F5F5',
+    borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  dayChipActive:    { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+  dayChipText:      { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
+  dayChipTextActive:{ color: '#fff' },
   sheetActions:     { flexDirection: 'row', gap: 12, marginTop: 20 },
   cancelBtn:        { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 12, padding: 14, alignItems: 'center' },
   cancelBtnText:    { fontSize: 15, fontWeight: '700', color: '#90A4AE' },
