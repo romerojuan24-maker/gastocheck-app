@@ -338,21 +338,29 @@ export default function ReceiptsScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Barra de búsqueda */}
-      <View style={styles.searchBar}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar por proveedor..."
-          placeholderTextColor="#B0BEC5"
-          value={search}
-          onChangeText={setSearch}
-          returnKeyType="search"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-            <Text style={styles.clearText}>✕</Text>
-          </TouchableOpacity>
-        )}
+      {/* Barra de búsqueda + botón búsqueda avanzada */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por proveedor..."
+            placeholderTextColor="#B0BEC5"
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+              <Text style={styles.clearText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.advancedSearchBtn}
+          onPress={() => router.push('/receipt-search')}
+        >
+          <Text style={styles.advancedSearchText}>🔍</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs de estado */}
@@ -464,11 +472,18 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.orange, alignItems: 'center',
   },
   offlineBadgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  searchContainer:  {
+    flexDirection: 'row', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4, gap: 8, alignItems: 'center',
+  },
   searchBar:    {
-    flexDirection: 'row', margin: 12, backgroundColor: '#fff',
+    flex: 1, flexDirection: 'row', backgroundColor: '#fff',
     borderRadius: 12, paddingHorizontal: 12, alignItems: 'center',
     borderWidth: 1, borderColor: '#E0E0E0',
   },
+  advancedSearchBtn: {
+    backgroundColor: BRAND.blue, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center', alignItems: 'center',
+  },
+  advancedSearchText: { fontSize: 18 },
   searchInput:  { flex: 1, paddingVertical: 10, fontSize: 14, color: BRAND.navy },
   clearBtn:     { padding: 6 },
   clearText:    { color: '#90A4AE', fontSize: 16 },
