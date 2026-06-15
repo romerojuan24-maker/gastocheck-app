@@ -79,13 +79,24 @@ export default function ReceiptsScreen() {
 
   // ── Cargar comprobantes ────────────────────────────────────────────────────
 
-  async function loadTabCounts(userId: string) {
-    const filter = `employee_id.eq.${userId},uploaded_by.eq.${userId}`;
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  async function loadTabCounts(userId: string, role: string) {
+    // Comprador: solo sus recibos. Supervisor/Admin: todos de la empresa
+    const filter = role === 'spender' ? `employee_id.eq.${userId},uploaded_by.eq.${userId}` : '';
     const [v, r, x, h] = await Promise.all([
-      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'captured'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'submitted'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'rejected'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).in('status', ['approved', 'included_in_batch', 'exported']),
+      supabase.from('receipts').select('id', { count: 'exact', head: true })
+        .then(q => filter ? q.or(filter) : q)
+        .eq('status', 'captured'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true })
+        .then(q => filter ? q.or(filter) : q)
+        .eq('status', 'submitted'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true })
+        .then(q => filter ? q.or(filter) : q)
+        .eq('status', 'rejected'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true })
+        .then(q => filter ? q.or(filter) : q)
+        .in('status', ['approved', 'included_in_batch', 'exported']),
     ]);
     setTabCounts({ vigentes: v.count ?? 0, revision: r.count ?? 0, rechazados: x.count ?? 0, historico: h.count ?? 0 });
   }
@@ -100,15 +111,34 @@ export default function ReceiptsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      if (reset) loadTabCounts(user.id);
+      // Obtener rol del usuario
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('role, company_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const role = member?.role ?? 'spender';
+      setUserRole(role);
+
+      if (reset) loadTabCounts(user.id, role);
 
       let query = supabase
         .from('receipts')
         .select(
           'id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
           'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at',
-        )
-        .or(`employee_id.eq.${user.id},uploaded_by.eq.${user.id}`)
+        );
+
+      // Filtro por rol: comprador solo ve sus recibos, supervisor ve todos de empresa
+      if (role === 'spender') {
+        query = query.or(`employee_id.eq.${user.id},uploaded_by.eq.${user.id}`);
+      } else if (member?.company_id) {
+        query = query.eq('company_id', member.company_id);
+      }
+
+      query = query
         .not('status', 'in', '(cancelled,deleted,duplicate)')
         .order('created_at', { ascending: false })
         .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1);

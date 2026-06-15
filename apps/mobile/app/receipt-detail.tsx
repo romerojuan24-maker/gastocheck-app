@@ -358,14 +358,22 @@ export default function ReceiptDetailScreen() {
         </View>
       )}
 
-      {/* ── Acción de relación ── */}
+      {/* ── Acción según rol ── */}
       {canBatch && (
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: '#E8F5E9', borderRadius: 12, marginHorizontal: 0 }]}
-          onPress={() => router.push('/batches')}
+          onPress={() => {
+            if (isSupervisor) {
+              // Supervisor/Admin: agregar a relación contable (póliza)
+              router.push('/batches');
+            } else {
+              // Comprador: solicitar reembolso con este recibo
+              router.push({ pathname: '/reembolso', params: { ids: receipt.id } } as any);
+            }
+          }}
         >
           <Text style={[styles.actionBtnText, { color: BRAND.green }]}>
-            📁 Agregar a relación contable
+            {isSupervisor ? '📁 Agregar a relación contable' : '💸 Solicitar Reembolso'}
           </Text>
         </TouchableOpacity>
       )}
