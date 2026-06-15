@@ -2,6 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from './supabase';
+import { sendLocalNotification } from './notifications';
 
 const QUEUE_KEY = 'gastocheck_sync_queue';
 
@@ -124,6 +125,22 @@ export function startOfflineMonitor(onSync?: (result: { synced: number; failed: 
         const result = await syncQueue();
         if (result.synced > 0 || result.failed > 0) {
           console.log(`[Offline Sync] Synced: ${result.synced}, Failed: ${result.failed}`);
+
+          // Notificar al usuario
+          if (result.synced > 0) {
+            await sendLocalNotification(
+              '✓ Sincronizado',
+              `${result.synced} comprobante${result.synced !== 1 ? 's' : ''} guardado${result.synced !== 1 ? 's' : ''}`,
+              { deepLink: '/receipts' },
+            );
+          }
+          if (result.failed > 0) {
+            await sendLocalNotification(
+              '⚠ Sincronización incompleta',
+              `${result.failed} comprobante${result.failed !== 1 ? 's' : ''} aún pendiente${result.failed !== 1 ? 's' : ''}. Reintentaremos pronto.`,
+            );
+          }
+
           onSync?.(result);
         }
       } catch (err) {
@@ -144,7 +161,13 @@ export function startOfflineMonitor(onSync?: (result: { synced: number; failed: 
         if (now - lastSyncTime >= SYNC_DEBOUNCE_MS) {
           lastSyncTime = now;
           const result = await syncQueue();
-          onSync?.(result);
+          if (result.synced > 0) {
+            await sendLocalNotification(
+              '✓ Sincronizado',
+              `${result.synced} comprobante${result.synced !== 1 ? 's' : ''} guardado${result.synced !== 1 ? 's' : ''}`,
+            );
+            onSync?.(result);
+          }
         }
       }
     } catch (err) {
