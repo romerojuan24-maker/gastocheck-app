@@ -62,10 +62,19 @@ export default function FleetOperatorsScreen() {
         .from('vehicles').select('*').eq('company_id', member.company_id).order('economic_number');
       setVehicles((vList ?? []) as FleetVehicle[]);
 
-      let q = supabase.from('operators').select('*')
-        .eq('company_id', member.company_id).order('name');
-      if (filter !== 'all') q = q.eq('status', filter);
-      const { data: opList } = await q;
+      // Listar operadores asignados a esta empresa (desde operator_companies)
+      const { data: opData } = await supabase
+        .from('operator_companies')
+        .select(`
+          operator:operators(*)
+        `)
+        .eq('company_id', member.company_id);
+
+      let opList = (opData ?? []).map((item: any) => item.operator).filter(Boolean) as typeof opList;
+      if (filter !== 'all') {
+        opList = opList.filter((op: any) => op.status === filter);
+      }
+      opList = opList.sort((a: any, b: any) => (a.name ?? '').localeCompare(b.name ?? ''));
 
       // Costo del mes por operador
       const now   = new Date();
@@ -121,24 +130,42 @@ export default function FleetOperatorsScreen() {
     if (!companyId || !fName.trim()) return;
     setSaving(true);
 
-    const payload = {
-      company_id:          companyId,
-      name:                fName.trim(),
-      phone:               fPhone.trim() || null,
-      license_number:      fLicense.trim() || null,
-      status:              fStatus,
-      assigned_vehicle_id: fVehicle || null,
-      notes:               fNotes.trim() || null,
-    };
+    try {
+      const payload = {
+        company_id:          companyId,
+        name:                fName.trim(),
+        phone:               fPhone.trim() || null,
+        license_number:      fLicense.trim() || null,
+        status:              fStatus,
+        assigned_vehicle_id: fVehicle || null,
+        notes:               fNotes.trim() || null,
+      };
 
-    const { error } = editOp
-      ? await supabase.from('operators').update(payload).eq('id', editOp.id)
-      : await supabase.from('operators').insert(payload);
+      let operatorId = editOp?.id;
 
-    setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    setShowModal(false);
-    load();
+      if (editOp) {
+        // Actualizar operador existente
+        const { error } = await supabase.from('operators').update(payload).eq('id', editOp.id);
+        if (error) throw error;
+      } else {
+        // Crear operador nuevo
+        const { data, error } = await supabase.from('operators').insert(payload).select('id').single();
+        if (error) throw error;
+        operatorId = data?.id;
+
+        // Agregar a operator_companies para esta empresa
+        if (operatorId && companyId) {
+          await supabase.from('operator_companies').insert({ operator_id: operatorId, company_id: companyId });
+        }
+      }
+
+      setShowModal(false);
+      load();
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function confirmDelete(op: FleetOperator) {

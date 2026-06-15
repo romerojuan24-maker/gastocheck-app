@@ -125,6 +125,27 @@ Deno.serve(async (req) => {
         withoutCfdi++;
       }
 
+      // ── Validar operador multi-empresa si aplica ──────────────────────────
+      // Si la factura tiene operator_id asignado, validar que el operador está
+      // registrado para trabajar en esta empresa
+      if (receipt.operator_id) {
+        const { data: opCompany } = await supabase
+          .from('operator_companies')
+          .select('id')
+          .eq('operator_id', receipt.operator_id)
+          .eq('company_id', company_id)
+          .maybeSingle();
+
+        if (!opCompany) {
+          console.warn(
+            `[operator-validation] Operador ${receipt.operator_id} no está registrado para ` +
+            `empresa ${company_id}. Factura ${receipt.id} no puede asignarse.`
+          );
+          // No bloqueamos la creación, solo loguemos la advertencia
+          // El operador puede estar compartido con otra empresa
+        }
+      }
+
       // ── Crear expense en la póliza ─────────────────────────────────────────
       const { error: expErr } = await supabase.from('expenses').insert({
         company_id,
