@@ -223,6 +223,14 @@ export default function Home() {
           hint={isAdmin ? 'Crear, revisar y autorizar gastos' : 'Crear póliza e integrar comprobantes'}
           onPress={() => router.push('/polizas' as any)}
         />
+        {isAdmin && (
+          <MenuBtn
+            icon="💰"
+            label="Presupuestos"
+            hint="Establecer límites por categoría y monitorear gastos"
+            onPress={() => router.push('/budgets' as any)}
+          />
+        )}
         <MenuBtn
           icon="🔧"
           label="Herramientas"

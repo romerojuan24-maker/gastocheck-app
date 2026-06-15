@@ -97,6 +97,7 @@ export default function Layout() {
       <Stack.Screen name="receipts"      options={{ title: 'Mis comprobantes' }} />
       <Stack.Screen name="receipt-search" options={{ title: 'Búsqueda avanzada' }} />
       <Stack.Screen name="batches"       options={{ title: 'Relaciones contables' }} />
+      <Stack.Screen name="budgets"       options={{ title: 'Presupuestos' }} />
       <Stack.Screen name="batch-detail"  options={{ title: 'Detalle de relación' }} />
       <Stack.Screen name="receipt-detail"  options={{ title: 'Detalle del comprobante' }} />
       <Stack.Screen name="item-search"      options={{ title: '¿Dónde compro?' }} />
