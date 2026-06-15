@@ -20,8 +20,8 @@ export const EXPORT_FORMAT_META: Record<ExportFormat, {
   contpaqi: {
     label:       'CONTPAQi',
     description: 'Póliza de diario lista para importar en CONTPAQi Contabilidad',
-    ext:         'csv',
-    mime:        'text/csv',
+    ext:         'txt',
+    mime:        'text/plain',
     icon:        '🏛',
   },
   aspel_coi: {
@@ -53,8 +53,8 @@ export const EXCEL_HEADERS = {
   detalle: [
     'Fecha',       'Proveedor',     'RFC Emisor',    'UUID CFDI',
     'Folio',       'Subtotal',      'IVA',           'Total',
-    'Categoría',   'Centro Costo',  'Empleado',      'Método Pago',
-    'Tipo Comprobante', 'Estado',   'Duplicado',     'Notas',
+    'Categoría',   'Empleado',      'Método Pago',   'Tipo',
+    'Estado',      'Duplicado',     'Cuenta Contable',
   ],
   porCategoria: ['Categoría', 'Comprobantes', 'Subtotal', 'IVA', 'Total', '% del Total'],
   porProveedor: ['Proveedor', 'RFC', 'Comprobantes', 'Total Acumulado', 'Último Ticket'],

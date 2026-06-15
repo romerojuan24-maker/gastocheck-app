@@ -276,9 +276,15 @@ export default function BatchDetailScreen() {
       const arr = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
 
+      const pct = json.pct_account ?? 0;
+      const acctMsg = pct === 100
+        ? '\n\n✓ Todos los comprobantes tienen cuenta contable.'
+        : pct > 0
+          ? `\n\n⚠️ ${pct}% con cuenta contable asignada — revisa los demás en el Panel de Supervisor.`
+          : '\n\n⚠️ Ningún comprobante tiene cuenta contable. Asígnalas en el Panel de Supervisor antes de importar.';
       Alert.alert(
         '✓ Exportación lista',
-        `${json.row_count} comprobantes en ${json.filename}.\n\nEn web puedes descargar directamente.`,
+        `${json.row_count} comprobantes en ${json.filename}.${acctMsg}`,
       );
       setShowExport(false);
     } catch (err: any) {

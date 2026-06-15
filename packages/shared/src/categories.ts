@@ -12,6 +12,7 @@ export const SECTOR_LABELS: Record<CompanySector, string> = {
   servicios_tecnicos:'Servicios Técnicos',
   manufactura:       'Manufactura',
   comercio:          'Comercio',
+  flotillas:         'Flotilla / Transporte',
   otro:              'Otro / General',
 };
 
@@ -24,6 +25,7 @@ export const SECTOR_ICONS: Record<CompanySector, string> = {
   servicios_tecnicos:'🔧',
   manufactura:       '🏭',
   comercio:          '🏪',
+  flotillas:         '🚌',
   otro:              '🏢',
 };
 

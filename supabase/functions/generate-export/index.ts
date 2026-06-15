@@ -138,11 +138,11 @@ function buildResumenSheet(receipts: any[], periodLabel: string): any[][] {
   ];
 }
 
-function buildDetalleRows(receipts: any[]): any[][] {
+function buildDetalleRows(receipts: any[], accountCodes: Record<string, string> = {}): any[][] {
   const headers = [
     'Fecha', 'Proveedor', 'RFC Emisor', 'UUID CFDI',
     'Folio', 'Subtotal', 'IVA', 'Total',
-    'Categoría', 'Empleado', 'Método Pago', 'Tipo', 'Estado', 'Duplicado',
+    'Categoría', 'Empleado', 'Método Pago', 'Tipo', 'Estado', 'Duplicado', 'Cuenta Contable',
   ];
   const rows = receipts.map((r) => [
     fmtDate(r.receipt_date),
@@ -159,6 +159,7 @@ function buildDetalleRows(receipts: any[]): any[][] {
     r.source_type    ?? '',
     r.status         ?? '',
     r.duplicate_status ?? '',
+    accountCodes[r.id] ?? '',
   ]);
   return [headers, ...rows];
 }
@@ -243,7 +244,7 @@ function buildAuditoriaRows(receipts: any[]): any[][] {
 
 // ── Excel builder ─────────────────────────────────────────────────────────────
 
-function buildExcel(receipts: any[], items: any[], periodLabel: string): Uint8Array {
+function buildExcel(receipts: any[], items: any[], periodLabel: string, accountCodes: Record<string, string> = {}): Uint8Array {
   const wb = XLSX.utils.book_new();
 
   const addSheet = (name: string, rows: any[][]) => {
@@ -257,7 +258,7 @@ function buildExcel(receipts: any[], items: any[], periodLabel: string): Uint8Ar
   };
 
   addSheet('Resumen',        buildResumenSheet(receipts, periodLabel));
-  addSheet('Detalle',        buildDetalleRows(receipts));
+  addSheet('Detalle',        buildDetalleRows(receipts, accountCodes));
   addSheet('Por Categoría',  buildPorCategoriaRows(receipts));
   addSheet('Por Proveedor',  buildPorProveedorRows(receipts));
   if (items.length > 0) {
@@ -424,7 +425,7 @@ serve(async (req) => {
     let encoding: 'base64' | 'utf8' = 'utf8';
 
     if (format === 'universal_excel') {
-      const buf = buildExcel(receipts, items, periodLabel);
+      const buf = buildExcel(receipts, items, periodLabel, accountCodes);
       // Convertir a base64 sin memory leak (usar chunking en lugar de String.fromCharCode(...buf))
       const bytes = new Uint8Array(buf);
       let binaryString = '';
