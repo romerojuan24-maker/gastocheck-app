@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { BRAND, RECEIPT_STATUS_META, DUPLICATE_STATUS_META } from '@gastocheck/shared';
 import type { ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { useOfflineStatus } from '../hooks/useOfflineStatus';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ const money = (n: number) =>
 
 export default function ReceiptsScreen() {
   const router = useRouter();
+  const offlineStatus = useOfflineStatus();
 
   const [receipts,     setReceipts]     = useState<ReceiptRow[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -301,6 +303,21 @@ export default function ReceiptsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+      {/* Badge de offline: comprobantes pendientes de sincronizar */}
+      {(offlineStatus.pendingCount > 0 || !offlineStatus.isOnline) && (
+        <View style={[
+          styles.offlineBadge,
+          !offlineStatus.isOnline && { backgroundColor: BRAND.red },
+          offlineStatus.pendingCount > 0 && { backgroundColor: BRAND.orange },
+        ]}>
+          <Text style={styles.offlineBadgeText}>
+            {!offlineStatus.isOnline
+              ? '📡 Sin conexión'
+              : `⏳ ${offlineStatus.pendingCount} comprobante${offlineStatus.pendingCount !== 1 ? 's' : ''} pendiente${offlineStatus.pendingCount !== 1 ? 's' : ''}`}
+          </Text>
+        </View>
+      )}
+
       {/* Barra de acción: solo visible en tab Vigentes */}
       {statusFilter === 'vigentes' && (
         <TouchableOpacity
@@ -442,6 +459,11 @@ export default function ReceiptsScreen() {
 // ── Estilos ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  offlineBadge:     {
+    paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: BRAND.orange, alignItems: 'center',
+  },
+  offlineBadgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   searchBar:    {
     flexDirection: 'row', margin: 12, backgroundColor: '#fff',
     borderRadius: 12, paddingHorizontal: 12, alignItems: 'center',

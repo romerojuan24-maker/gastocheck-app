@@ -1,5 +1,6 @@
-// Offline sync — AsyncStorage + sync_queue manager
+// Offline sync — AsyncStorage + network detection + queue manager
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { supabase } from './supabase';
 
 const QUEUE_KEY = 'gastocheck_sync_queue';
@@ -57,18 +58,15 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
     const queue = await getQueue();
     if (queue.length === 0) return { synced: 0, failed: 0 };
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return { synced: 0, failed: queue.length };
+
     let synced = 0;
-    let failed = 0;
+    const failed_items: string[] = [];
+    const synced_ids: string[] = [];
 
     for (const item of queue) {
       try {
-        // Llamar sync-offline-queue function
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          failed++;
-          continue;
-        }
-
         const res = await fetch(
           `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sync-offline-queue`,
           {
@@ -77,54 +75,85 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ user_id: session.user.id }),
+            body: JSON.stringify({
+              queueItem: item,
+              user_id: session.user.id,
+            }),
           },
         );
 
         if (res.ok) {
           synced++;
+          synced_ids.push(item.id);
         } else {
-          failed++;
+          failed_items.push(item.id);
         }
       } catch (err) {
-        failed++;
-        console.error('Sync item error:', err);
+        failed_items.push(item.id);
+        console.error(`[Offline Sync] Failed to sync ${item.id}:`, err);
       }
     }
 
-    // 🔴 FIX BUG #2: Race condition — rastrear IDs sinced, no índices
-    // slice(synced) asume orden, pero fallos parciales rompen esto
-    const syncedIds = new Set<string>();
-    for (let i = 0; i < queue.length && i < synced; i++) {
-      syncedIds.add(queue[i].id);
-    }
-    const remaining = queue.filter((q) => !syncedIds.has(q.id));
+    // Actualizar cola: remover items sincronizados exitosamente
+    const remaining = queue.filter((q) => !synced_ids.includes(q.id));
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
 
-    return { synced, failed };
+    return { synced, failed: failed_items.length };
   } catch (err) {
     console.error('syncQueue error:', err);
-    return { synced: 0, failed: 0 };
+    return { synced: 0, failed: queue.length };
   }
 }
 
+let lastSyncTime = 0;
+const SYNC_DEBOUNCE_MS = 3000; // No sincronizar más de una vez cada 3s
+
 /**
- * Monitora conexión y sincroniza automáticamente
+ * Monitora conexión y sincroniza automáticamente al reconectarse
  */
 export function startOfflineMonitor(onSync?: (result: { synced: number; failed: number }) => void) {
-  // Detectar reconexión cada 30s
+  // Suscribirse a cambios de red con NetInfo
+  const unsubscribeNetInfo = NetInfo.addEventListener(async (state) => {
+    if (state.isConnected && state.isInternetReachable) {
+      const now = Date.now();
+      // Debounce: no sincronizar si acaba de hacerse hace < 3s
+      if (now - lastSyncTime < SYNC_DEBOUNCE_MS) return;
+      lastSyncTime = now;
+
+      try {
+        const result = await syncQueue();
+        if (result.synced > 0 || result.failed > 0) {
+          console.log(`[Offline Sync] Synced: ${result.synced}, Failed: ${result.failed}`);
+          onSync?.(result);
+        }
+      } catch (err) {
+        console.error('[Offline Sync] Monitor error:', err);
+      }
+    }
+  });
+
+  // Fallback: chequeo cada 60s por si NetInfo falla
   const interval = setInterval(async () => {
     try {
-      const { data } = await supabase.from('companies').select('id').limit(1);
-      if (data !== null) {
-        // Conexión OK, sincronizar
-        const result = await syncQueue();
-        onSync?.(result);
-      }
-    } catch {
-      // Sin conexión, continuar encolando
-    }
-  }, 30000);
+      const queue = await getQueue();
+      if (queue.length === 0) return;
 
-  return () => clearInterval(interval);
+      const state = await NetInfo.fetch();
+      if (state.isConnected && state.isInternetReachable) {
+        const now = Date.now();
+        if (now - lastSyncTime >= SYNC_DEBOUNCE_MS) {
+          lastSyncTime = now;
+          const result = await syncQueue();
+          onSync?.(result);
+        }
+      }
+    } catch (err) {
+      console.error('[Offline Sync] Fallback check error:', err);
+    }
+  }, 60000);
+
+  return () => {
+    unsubscribeNetInfo();
+    clearInterval(interval);
+  };
 }

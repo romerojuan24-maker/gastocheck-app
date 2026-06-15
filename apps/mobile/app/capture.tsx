@@ -533,7 +533,43 @@ export default function CaptureScreen() {
         [{ text: 'OK', onPress: () => router.back() }],
       );
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'No se pudo guardar el comprobante');
+      // Si falla por red, encolar offline
+      const isNetworkError = err.message?.includes('Network') ||
+                             err.message?.includes('fetch') ||
+                             err instanceof TypeError;
+
+      if (isNetworkError) {
+        // Encolar para sincronizar después
+        await enqueueOffline('receipt', 'create', {
+          company_id: companyId,
+          provider_name: proveedor || null,
+          provider_rfc: rfc || null,
+          receipt_date: fecha || new Date().toISOString().slice(0, 10),
+          total_amount: parseFloat(total) || null,
+          subtotal: parseFloat(subtotal) || null,
+          iva: parseFloat(iva) || null,
+          descuento: parseFloat(descuento) || null,
+          ieps: parseFloat(ieps) || null,
+          ish: parseFloat(ish) || null,
+          retencion_iva: parseFloat(retencionIva) || null,
+          retencion_isr: parseFloat(retencionIsr) || null,
+          payment_method: paymentMethod || extracted?.paymentMethod || null,
+          category_id: categoryId || null,
+          description: description.trim() || null,
+          photo_url: storagePath || null,
+          duplicate_status: 'checked',
+          vehicle_id: vehicleId || null,
+          operator_id: operatorId || null,
+        });
+
+        Alert.alert(
+          '📱 Guardado offline',
+          'No hay conexión. El comprobante se sincronizará cuando tengas red.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else {
+        Alert.alert('Error', err.message ?? 'No se pudo guardar el comprobante');
+      }
     } finally {
       setSaving(false);
     }

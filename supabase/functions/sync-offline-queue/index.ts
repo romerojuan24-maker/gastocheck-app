@@ -1,7 +1,6 @@
-// sync-offline-queue — Procesa cola de sincronización offline
-// Llamada cuando user reconecta o cada N minutos
-// Input: { user_id }
-// Output: { synced_count, failed_count, errors }
+// sync-offline-queue — Sincroniza un QueueItem enviado desde el cliente
+// Input: { queueItem, user_id }
+// Output: { ok: true, queueId, result } | { error }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -13,8 +12,12 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
 
-interface SyncInput {
-  user_id: string;
+interface QueueItem {
+  id: string;
+  entityType: 'receipt' | 'advance_request' | 'expense';
+  operation: 'create' | 'update' | 'delete';
+  payload: Record<string, any>;
+  createdAt: number;
 }
 
 Deno.serve(async (req) => {
@@ -22,64 +25,91 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
-    const input: SyncInput = await req.json();
-    const { user_id } = input;
-
-    // Obtener pending items
-    const { data: pending } = await supabase
-      .from('sync_queue')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
-
-    if (!pending || pending.length === 0) {
-      return Response.json({ ok: true, synced_count: 0, failed_count: 0 }, { headers: CORS });
+    const auth = req.headers.get('authorization');
+    const token = auth?.replace('Bearer ', '');
+    if (!token) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
     }
 
-    let synced = 0;
-    let failed = 0;
-    const errors: Array<{ id: string; error: string }> = [];
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+    const body = await req.json();
+    const { queueItem, user_id } = body as { queueItem: QueueItem; user_id: string };
 
-    for (const item of pending) {
-      try {
-        // Marcar como syncing
-        await supabase
-          .from('sync_queue')
-          .update({ status: 'syncing' })
-          .eq('id', item.id);
+    if (!queueItem) {
+      return Response.json({ error: 'Missing queueItem' }, { status: 400, headers: CORS });
+    }
 
-        // Ejecutar operación según entity_type
-        // Por ahora: mock. En producción, ejecutar la operación real
-        if (item.entity_type === 'receipt') {
-          // Llamar submit-receipt con payload
-          // const res = await fetch(...)
-        }
+    let result: any = null;
 
-        // Marcar como synced
-        await supabase
-          .from('sync_queue')
-          .update({ status: 'synced', synced_at: new Date().toISOString() })
-          .eq('id', item.id);
+    // Procesar según entityType + operation
+    if (queueItem.entityType === 'receipt' && queueItem.operation === 'create') {
+      const p = queueItem.payload;
+      const { data, error } = await supabase
+        .from('receipts')
+        .insert({
+          user_id,
+          company_id: p.company_id,
+          provider_name: p.provider_name,
+          provider_rfc: p.provider_rfc,
+          receipt_date: p.receipt_date,
+          receipt_folio: p.receipt_folio,
+          total_amount: p.total_amount,
+          subtotal: p.subtotal ?? 0,
+          iva: p.iva ?? 0,
+          descuento: p.descuento ?? 0,
+          ieps: p.ieps ?? 0,
+          ish: p.ish ?? 0,
+          retencion_iva: p.retencion_iva ?? 0,
+          retencion_isr: p.retencion_isr ?? 0,
+          payment_method: p.payment_method,
+          category_id: p.category_id,
+          description: p.description,
+          photo_url: p.photo_url,
+          xml_url: p.xml_url,
+          duplicate_status: p.duplicate_status ?? 'checked',
+          force_reason: p.force_reason,
+          vehicle_id: p.vehicle_id,
+          operator_id: p.operator_id,
+          created_at: new Date(queueItem.createdAt).toISOString(),
+        })
+        .select('id')
+        .single();
 
-        synced++;
-      } catch (err: any) {
-        failed++;
-        errors.push({ id: item.id, error: err.message });
-        await supabase
-          .from('sync_queue')
-          .update({ status: 'failed', error_message: err.message })
-          .eq('id', item.id);
-      }
+      if (error) throw error;
+      result = { receipt_id: data.id };
+    } else if (queueItem.entityType === 'advance_request' && queueItem.operation === 'create') {
+      const p = queueItem.payload;
+      const { data, error } = await supabase
+        .from('advance_requests')
+        .insert({
+          user_id,
+          company_id: p.company_id,
+          amount: p.amount,
+          status: 'pending',
+          description: p.description,
+          created_at: new Date(queueItem.createdAt).toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      result = { request_id: data.id };
+    } else {
+      return Response.json(
+        { error: `Unsupported operation: ${queueItem.entityType}/${queueItem.operation}` },
+        { status: 400, headers: CORS },
+      );
     }
 
     return Response.json(
-      { ok: true, synced_count: synced, failed_count: failed, errors },
-      { headers: CORS },
+      { ok: true, queueId: queueItem.id, result },
+      { status: 200, headers: CORS },
     );
   } catch (err: any) {
-    console.error('sync-offline-queue error:', err);
-    return Response.json({ error: err.message }, { status: 500, headers: CORS });
+    console.error('[sync-offline-queue] Error:', err);
+    return Response.json(
+      { error: err.message ?? 'Sync failed' },
+      { status: 500, headers: CORS },
+    );
   }
 });
