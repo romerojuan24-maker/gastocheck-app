@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
       : '0.000000';
 
     // ── Llamada SOAP al SAT ──────────────────────────────────────────────────
+    // Nota: SAT es sensible al formato RFC (RFC extranjero para DHL, etc.)
     const expresion = `?re=${re}&rr=${rr}&tt=${tt}&id=${uuid}`;
 
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
@@ -62,6 +63,8 @@ Deno.serve(async (req) => {
     </tns:Consulta>
   </soap:Body>
 </soap:Envelope>`;
+
+    console.log(`[SAT] Consultando: re=${re.slice(0, 8)}... rr=${rr.slice(0, 8)}... tt=${tt} uuid=${uuid}`);
 
     let satResult: SatResult = { estado: 'Error' };
 
@@ -79,13 +82,15 @@ Deno.serve(async (req) => {
       const xml = await satRes.text();
       satResult.raw_response = xml;
 
-      // Parsear respuesta SOAP con regex (sin xml parser externo)
+      // Parsear respuesta SOAP con regex robusto (maneja namespaces)
       const estado     = extractTag(xml, 'Estado');
       const cancelable = extractTag(xml, 'EsCancelable');
       const codigo     = extractTag(xml, 'CodigoEstatus');
       const efos       = extractTag(xml, 'ValidacionEFOS');
 
-      if (estado === 'Vigente' || estado === 'Cancelado') {
+      console.log(`[SAT] UUID=${uuid} resp Estado=${estado} Codigo=${codigo} EFOS=${efos}`);
+
+      if ((estado === 'Vigente' || estado === 'Cancelado') && estado) {
         satResult = {
           estado:          estado as SatResult['estado'],
           cancelable:      cancelable ?? undefined,
@@ -94,10 +99,11 @@ Deno.serve(async (req) => {
           raw_response:    xml,
         };
       } else if (codigo?.includes('No Encontrado') || xml.includes('No Encontrado')) {
-        satResult = { estado: 'No Encontrado', codigo_estatus: codigo ?? undefined, raw_response: xml };
+        satResult = { estado: 'No Encontrado', codigo_estatus: codigo ?? 'RFC/Total/UUID inválido', raw_response: xml };
       } else {
-        // Respuesta con código de error o sin Estado reconocible
-        satResult = { estado: 'No Encontrado', codigo_estatus: codigo ?? 'Sin respuesta', raw_response: xml };
+        // Respuesta SOAP sin Estado reconocible — probablemente error de formato
+        console.warn(`[SAT] Respuesta inusual para ${uuid}: no se pudo extraer Estado. XML snippet: ${xml.slice(0, 500)}`);
+        satResult = { estado: 'No Encontrado', codigo_estatus: codigo ?? 'Error parsing SAT response', raw_response: xml };
       }
     } catch (satErr) {
       console.error('SAT SOAP error:', satErr);
@@ -118,9 +124,13 @@ Deno.serve(async (req) => {
         satResult.estado === 'No Encontrado'? 'not_found'  :
         'error';
 
+      const reason = satResult.codigo_estatus ?? satResult.estado ?? 'No especificado';
+
+      console.log(`[SAT] Updating receipt ${input.receipt_id} → status=${validationStatus} reason=${reason}`);
+
       await supabase.from('receipts').update({
         sat_validation_status: validationStatus,
-        sat_validation_reason: satResult.codigo_estatus ?? satResult.estado,
+        sat_validation_reason: reason,
         sat_validation_at:     new Date().toISOString(),
       }).eq('id', input.receipt_id);
     }
@@ -144,7 +154,19 @@ Deno.serve(async (req) => {
 });
 
 function extractTag(xml: string, tag: string): string | null {
-  const re = new RegExp(`<[^>]*:?${tag}[^>]*>([^<]*)<`, 'i');
-  const m  = xml.match(re);
-  return m ? m[1].trim() : null;
+  // Busca el tag con namespace opcional: <ns:Tag>, <ns:Tag attr="x">, <Tag>
+  // Captura contenido: >([^<]*)<  pero también maneja espacios/saltos de línea
+  const patterns = [
+    new RegExp(`<[a-zA-Z0-9]*:${tag}[^>]*>\\s*([^<]*)\\s*</`, 'i'),  // con namespace
+    new RegExp(`<${tag}[^>]*>\\s*([^<]*)\\s*</`, 'i'),                 // sin namespace
+  ];
+
+  for (const re of patterns) {
+    const m = xml.match(re);
+    if (m && m[1]) {
+      const val = m[1].trim();
+      if (val) return val;  // Solo retorna si hay contenido real
+    }
+  }
+  return null;
 }
