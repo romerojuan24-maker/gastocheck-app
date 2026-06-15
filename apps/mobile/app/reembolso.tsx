@@ -39,7 +39,7 @@ export default function ReembolsoScreen() {
   const [nombre,     setNombre]     = useState('');
   const [notes,      setNotes]      = useState('');
   const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [selectedCompanyForNoDeducibles, setSelectedCompanyForNoDeducibles] = useState<string | null>(null);
+  const [noDeducibleCompanyMap, setNoDeducibleCompanyMap] = useState<Record<string, string>>({}); // receiptId → companyId
   const [userCompanies, setUserCompanies] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -116,10 +116,13 @@ export default function ReembolsoScreen() {
       return;
     }
 
-    // Si hay no-deducibles y múltiples empresas, exigir selección
-    if (noDeducible.length > 0 && userCompanies.length > 1 && !selectedCompanyForNoDeducibles) {
-      setShowCompanyModal(true);
-      return;
+    // Si hay no-deducibles, validar que todos tengan empresa asignada
+    if (noDeducible.length > 0) {
+      const unassigned = noDeducible.filter(r => !noDeducibleCompanyMap[r.id]);
+      if (unassigned.length > 0) {
+        setShowCompanyModal(true);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -310,42 +313,58 @@ export default function ReembolsoScreen() {
         <Text style={styles.cancelBtnText}>Cancelar</Text>
       </TouchableOpacity>
 
-      {/* Modal: seleccionar empresa para no-deducibles */}
+      {/* Modal: asignar empresa a cada no-deducible */}
       <Modal visible={showCompanyModal} transparent animationType="slide"
         onRequestClose={() => setShowCompanyModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              Asignar empresa para no-deducibles
+              Asignar empresa a cada no-deducible
             </Text>
             <Text style={styles.modalSubtitle}>
-              Tienes {noDeducible.length} comprobante{noDeducible.length !== 1 ? 's' : ''} sin CFDI.
-              ¿A qué empresa los asignas?
+              Tienes {noDeducible.length} comprobante{noDeducible.length !== 1 ? 's' : ''} sin CFDI. Asigna cada uno a su empresa:
             </Text>
 
-            <FlatList
-              data={userCompanies}
-              keyExtractor={c => c.id}
-              scrollEnabled={false}
-              renderItem={({ item: company }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.companyOption,
-                    selectedCompanyForNoDeducibles === company.id && styles.companyOptionSelected,
-                  ]}
-                  onPress={() => setSelectedCompanyForNoDeducibles(company.id)}>
-                  <Text style={[
-                    styles.companyOptionText,
-                    selectedCompanyForNoDeducibles === company.id && styles.companyOptionTextSelected,
-                  ]}>
-                    {company.name}
-                  </Text>
-                  {selectedCompanyForNoDeducibles === company.id && (
-                    <Text style={{ fontSize: 18 }}>✓</Text>
+            <ScrollView style={{ maxHeight: 300, marginBottom: 16 }}>
+              {noDeducible.map((receipt) => (
+                <View key={receipt.id} style={styles.noDeducibleItem}>
+                  <View style={{ flex: 1, marginBottom: 8 }}>
+                    <Text style={styles.noDeducibleProvider} numberOfLines={1}>
+                      {receipt.provider_name ?? '(sin proveedor)'}
+                    </Text>
+                    <Text style={styles.noDeducibleDate}>
+                      {receipt.receipt_date} · {money(receipt.total_amount ?? 0)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.companySelector}>
+                    {userCompanies.map((company) => (
+                      <TouchableOpacity
+                        key={company.id}
+                        style={[
+                          styles.companyTag,
+                          noDeducibleCompanyMap[receipt.id] === company.id && styles.companyTagSelected,
+                        ]}
+                        onPress={() => setNoDeducibleCompanyMap(prev => ({
+                          ...prev,
+                          [receipt.id]: company.id,
+                        }))}>
+                        <Text style={[
+                          styles.companyTagText,
+                          noDeducibleCompanyMap[receipt.id] === company.id && styles.companyTagTextSelected,
+                        ]}>
+                          {company.name.length > 12 ? company.name.slice(0, 12) + '...' : company.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {!noDeducibleCompanyMap[receipt.id] && (
+                    <Text style={styles.noDeducibleWarning}>⚠️ Selecciona empresa</Text>
                   )}
-                </TouchableOpacity>
-              )}
-            />
+                </View>
+              ))}
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -356,9 +375,9 @@ export default function ReembolsoScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalConfirmBtn,
-                  !selectedCompanyForNoDeducibles && { opacity: 0.5 }
+                  noDeducible.some(r => !noDeducibleCompanyMap[r.id]) && { opacity: 0.5 }
                 ]}
-                disabled={!selectedCompanyForNoDeducibles}
+                disabled={noDeducible.some(r => !noDeducibleCompanyMap[r.id])}
                 onPress={() => {
                   setShowCompanyModal(false);
                   handleSubmit();
@@ -454,18 +473,26 @@ const styles = StyleSheet.create({
 
   // Modal
   modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalCard:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  modalCard:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
   modalTitle:     { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   modalSubtitle:  { fontSize: 13, color: '#90A4AE', marginBottom: 16, lineHeight: 18 },
 
-  companyOption:  {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#F5F5F5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0',
+  noDeducibleItem: {
+    backgroundColor: '#FFFBEA', borderRadius: 12, padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: '#FFE082',
   },
-  companyOptionSelected: { backgroundColor: BRAND.blue + '18', borderColor: BRAND.blue },
-  companyOptionText:     { fontSize: 14, color: BRAND.navy, fontWeight: '600' },
-  companyOptionTextSelected: { color: BRAND.blue, fontWeight: '700' },
+  noDeducibleProvider: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  noDeducibleDate:     { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  noDeducibleWarning:  { fontSize: 10, color: '#FF9800', fontWeight: '600', marginTop: 4 },
+
+  companySelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  companyTag:      {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  companyTagSelected: { backgroundColor: BRAND.blue + '18', borderColor: BRAND.blue },
+  companyTagText:     { fontSize: 11, color: '#666', fontWeight: '600' },
+  companyTagTextSelected: { color: BRAND.blue, fontWeight: '700' },
 
   modalActions:      { flexDirection: 'row', gap: 12, marginTop: 16 },
   modalCancelBtn:    { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
