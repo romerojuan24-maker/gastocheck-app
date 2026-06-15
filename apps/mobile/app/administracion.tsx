@@ -213,24 +213,26 @@ export default function AdministracionScreen() {
     const ROLE_INFO = {
       supervisor: {
         label:   'Supervisor',
-        accesos: 'Genera pólizas, autoriza gastos, reportes de operación y análisis de todos los compradores.',
+        accesos: 'Genera pólizas, verifica comprobantes en SAT, autoriza reembolsos, genera reportes y análisis de todos los compradores.',
       },
       comprador: {
         label:   'Comprador',
-        accesos: 'Captura tickets, genera sus pólizas, consulta sus comprobantes y reembolsos, y ve los proveedores de la empresa.',
+        accesos: 'Captura tickets con cámara, genera reembolsos, consulta comprobantes propios y ve los proveedores de la empresa.',
       },
     };
 
     const { label, accesos } = ROLE_INFO[role];
     const msg =
       `Hola! Te invito a unirte a *${company.name}* en GastoCheck como *${label}*.\n\n` +
-      `📋 *Tus accesos como ${label}:*\n${accesos}\n\n` +
-      `*Para unirte:*\n` +
-      `1️⃣ Descarga la app GastoCheck en tu teléfono\n` +
-      `2️⃣ Regístrate con tu nombre y correo\n` +
+      `📋 *${label} — Tus accesos:*\n${accesos}\n\n` +
+      `*Para unirte en 3 pasos:*\n` +
+      `1️⃣ Descarga GastoCheck:\n` +
+      `   📱 iOS: https://apps.apple.com/app/gastocheck\n` +
+      `   🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck\n\n` +
+      `2️⃣ Regístrate con tu nombre y correo\n\n` +
       `3️⃣ Ingresa el código de empresa: *${code}*\n` +
-      `4️⃣ Selecciona el rol: *${label}*\n\n` +
-      `¡Listo! Quedarás vinculado a nuestra empresa. 🙌`;
+      `   (Tu rol como ${label} ya estará asignado)\n\n` +
+      `¡Listo! Estarás dentro de *${company.name}* en GastoCheck. 🎉`;
     try {
       await Share.share({ message: msg });
     } catch { /* cancelado */ }
