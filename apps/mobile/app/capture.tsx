@@ -168,17 +168,9 @@ export default function CaptureScreen() {
   // ── Tomar foto ─────────────────────────────────────────────────────────────
 
   async function takePhoto() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara para tomar fotos');
-      return;
-    }
-
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.85, base64: true, exif: false });
-    if (res.canceled || !res.assets[0]) return;
-
-    const asset = res.assets[0];
-    setPhoto({ uri: asset.uri, base64: asset.base64 });
+    // Ir a pantalla de cámara con flash/torch control
+    router.push('/camera-screen' as any);
+  }
 
     if (asset.base64) {
       const { data: result, error: ocrErr } = await extractFromImage(asset.base64, 'image/jpeg');

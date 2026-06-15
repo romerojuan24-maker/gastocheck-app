@@ -28,6 +28,8 @@ export default function ReceiptDetailScreen() {
   const [myRole,    setMyRole]    = useState<string>('employee');
   const [actioning, setActioning] = useState(false);
   const [photoUrl,  setPhotoUrl]  = useState<string | null>(null);
+  const [vehicleName, setVehicleName] = useState<string | null>(null);
+  const [operatorName, setOperatorName] = useState<string | null>(null);
 
   // ── Cargar comprobante ─────────────────────────────────────────────────────
 
@@ -47,6 +49,24 @@ export default function ReceiptDetailScreen() {
       const r = rec as Receipt;
       setReceipt(r);
       setMyRole(member?.role ?? 'employee');
+
+      // Cargar nombre de vehículo y operador si existen
+      if ((r as any).vehicle_id) {
+        const { data: v } = await supabase
+          .from('vehicles')
+          .select('economic_number, brand, model')
+          .eq('id', (r as any).vehicle_id)
+          .single();
+        if (v) setVehicleName(`${v.brand} ${v.model} (${v.economic_number})`);
+      }
+      if ((r as any).operator_id) {
+        const { data: o } = await supabase
+          .from('operators')
+          .select('name')
+          .eq('id', (r as any).operator_id)
+          .single();
+        if (o) setOperatorName(o.name);
+      }
 
       // Generar URL firmada para la foto (bucket privado, 2h de validez)
       if (r?.file_storage_path && r.source_type !== 'xml') {
@@ -204,6 +224,15 @@ export default function ReceiptDetailScreen() {
           </View>
         )}
       </View>
+
+      {/* ── Vehículo y Operador (Flota) ── */}
+      {(vehicleName || operatorName) && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Información de Flota</Text>
+          {vehicleName && <InfoRow label="Vehículo" value={vehicleName} />}
+          {operatorName && <InfoRow label="Operador" value={operatorName} />}
+        </View>
+      )}
 
       {/* ── Datos fiscales ── */}
       {(receipt.fiscal_uuid || receipt.provider_rfc || receipt.subtotal_amount != null) && (

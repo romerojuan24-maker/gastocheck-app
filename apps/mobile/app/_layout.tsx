@@ -93,6 +93,7 @@ export default function Layout() {
       <Stack.Screen name="login"         options={{ headerShown: false }} />
       <Stack.Screen name="index"         options={{ title: 'Mi saldo',             headerRight: () => null }} />
       <Stack.Screen name="capture"       options={{ title: 'Capturar ticket',      presentation: 'modal' }} />
+      <Stack.Screen name="camera-screen" options={{ title: 'Cámara',               presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="receipts"      options={{ title: 'Mis comprobantes' }} />
       <Stack.Screen name="batches"       options={{ title: 'Relaciones contables' }} />
       <Stack.Screen name="batch-detail"  options={{ title: 'Detalle de relación' }} />
