@@ -5,7 +5,7 @@ import {
 } from "react-native"
 import { useRouter } from "expo-router"
 import { BRAND } from "@gastocheck/shared"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "../../lib/supabase"
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n)
@@ -394,3 +394,4 @@ const styles = StyleSheet.create({
   },
   closeBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 })
+
