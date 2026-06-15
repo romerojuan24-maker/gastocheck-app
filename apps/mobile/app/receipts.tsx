@@ -52,49 +52,45 @@ export default function ReceiptsScreen() {
   const [page,         setPage]         = useState(0);
   const PAGE_SIZE = 20;
 
-  // Modo selección para reembolso
-  const [selectMode,  setSelectMode]  = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [tabCounts,   setTabCounts]   = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
+  // Crear reembolso draft vacío
+  const [creatingReembolso, setCreatingReembolso] = useState(false);
+  const [tabCounts, setTabCounts] = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
 
-  function toggleSelect(id: string, status: ReceiptStatus) {
-    if (status !== 'captured') {
-      Alert.alert('No disponible', 'Solo puedes seleccionar comprobantes en estado "Capturado" (sin asignar).');
-      return;
-    }
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  async function handleCreateReembolso() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  function handleStartReembolso() {
-    if (selectedIds.size === 0) return;
+    // Obtener empresa del usuario actual
+    const { data: member } = await supabase
+      .from('company_members')
+      .select('company_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
 
-    // Validar que todos los recibos seleccionados sean de la misma empresa
-    const selectedReceipts = receipts.filter(r => selectedIds.has(r.id));
-    const companies = new Set(selectedReceipts.map(r => r.company_id));
-
-    if (companies.size > 1) {
-      Alert.alert(
-        'Empresas mezcladas',
-        'No puedes crear un reembolso con comprobantes de diferentes empresas. Por favor selecciona comprobantes de una sola empresa.',
-        [{ text: 'OK', style: 'default' }]
-      );
+    if (!member) {
+      Alert.alert('Error', 'No tienes asignada una empresa.');
       return;
     }
 
-    const ids = Array.from(selectedIds).join(',');
-    const company_id = Array.from(companies)[0]; // Primera (y única) empresa
+    setCreatingReembolso(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reembolsos-workflow', {
+        body: { action: 'create_draft', company_id: member.company_id },
+      });
 
-    router.push({
-      pathname: '/reembolso',
-      params: { ids, company_id }
-    } as any);
-    setSelectMode(false);
-    setSelectedIds(new Set());
+      if (error || !data.reembolso_id) throw new Error(data?.error ?? 'No se pudo crear');
+
+      // Ir al reembolso draft
+      router.push({
+        pathname: '/reembolso',
+        params: { reembolso_id: data.reembolso_id }
+      } as any);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo crear el reembolso.');
+    } finally {
+      setCreatingReembolso(false);
+    }
   }
 
   // ── Cargar comprobantes ────────────────────────────────────────────────────
@@ -214,21 +210,16 @@ export default function ReceiptsScreen() {
   // ── Renderizado de cada comprobante ───────────────────────────────────────
 
   function renderReceipt({ item }: { item: ReceiptRow }) {
-    const statusMeta  = RECEIPT_STATUS_META[item.status];
-    const dupMeta     = DUPLICATE_STATUS_META[item.duplicate_status];
-    const isWarning   = item.duplicate_status !== 'no_duplicate';
-    const inPoliza    = item.status === 'submitted';
-    const isSelectable = item.status === 'captured';
-    const isSelected   = selectedIds.has(item.id);
+    const statusMeta = RECEIPT_STATUS_META[item.status];
+    const dupMeta = DUPLICATE_STATUS_META[item.duplicate_status];
+    const isWarning = item.duplicate_status !== 'no_duplicate';
+    const inPoliza = item.status === 'submitted';
 
     // Estado SAT
-    const satOk     = item.sat_validation_status === 'validated';
-    const satFail   = item.sat_validation_status === 'cancelled' || item.sat_validation_status === 'not_found';
-    const satPend   = item.fiscal_uuid && !item.sat_validation_status;
-    const hasCfdi   = !!item.fiscal_uuid;
-
-    // Alerta de dato faltante (para item 4)
-    const needsData = isSelectable && (!item.provider_name || !item.total_amount);
+    const satOk = item.sat_validation_status === 'validated';
+    const satFail = item.sat_validation_status === 'cancelled' || item.sat_validation_status === 'not_found';
+    const satPend = item.fiscal_uuid && !item.sat_validation_status;
+    const hasCfdi = !!item.fiscal_uuid;
 
     return (
       <TouchableOpacity
@@ -236,30 +227,11 @@ export default function ReceiptsScreen() {
           styles.card,
           isWarning && styles.cardWarning,
           inPoliza && styles.cardInPoliza,
-          selectMode && isSelected && styles.cardSelected,
-          selectMode && !isSelectable && { opacity: 0.45 },
         ]}
         onPress={() => {
-          if (selectMode) {
-            toggleSelect(item.id, item.status);
-          } else {
-            router.push(`/receipt-detail?id=${item.id}` as any);
-          }
+          router.push(`/receipt-detail?id=${item.id}` as any);
         }}
       >
-        {/* Checkbox en modo selección */}
-        {selectMode && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-              {isSelected && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>}
-            </View>
-            {needsData && (
-              <Text style={{ fontSize: 11, color: '#E65100', flex: 1 }}>
-                ⚠ Falta proveedor o monto — revisa antes de incluir
-              </Text>
-            )}
-          </View>
-        )}
         {/* Encabezado: proveedor + monto */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1, marginRight: 8 }}>
@@ -331,22 +303,21 @@ export default function ReceiptsScreen() {
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
       {/* Barra de acción: solo visible en tab Vigentes */}
       {statusFilter === 'vigentes' && (
-        selectMode ? (
-          <View style={styles.selectBar}>
-            <Text style={styles.selectBarText}>
-              {selectedIds.size > 0
-                ? `${selectedIds.size} comprobante${selectedIds.size !== 1 ? 's' : ''} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
-                : 'Toca los comprobantes a incluir'}
-            </Text>
-            <TouchableOpacity onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.reembolsoBar} onPress={() => setSelectMode(true)}>
-            <Text style={styles.reembolsoBarText}>📋 Integrar Reembolso</Text>
-            <Text style={styles.reembolsoBarHint}>Selecciona comprobantes →</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.reembolsoBar, creatingReembolso && { opacity: 0.6 }]}
+          onPress={handleCreateReembolso}
+          disabled={creatingReembolso}
+        >
+          {creatingReembolso ? (
+            <>
+              <Text style={styles.reembolsoBarText}>⏳ Creando reembolso…</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.reembolsoBarText}>📋 Crear Reembolso</Text>
+              <Text style={styles.reembolsoBarHint}>Nuevo reembolso vacío →</Text>
+            </>
+          )}
         )
       )}
 
@@ -381,7 +352,6 @@ export default function ReceiptsScreen() {
               ]}
               onPress={() => {
                 setStatusFilter(t.key);
-                if (selectMode) { setSelectMode(false); setSelectedIds(new Set()); }
               }}
             >
               <Text style={[styles.filterText, active && { color: '#fff' }]}>
@@ -449,7 +419,7 @@ export default function ReceiptsScreen() {
           data={receipts}
           keyExtractor={(r) => r.id}
           renderItem={renderReceipt}
-          contentContainerStyle={[styles.list, selectMode && selectedIds.size > 0 && { paddingBottom: 90 }]}
+          contentContainerStyle={styles.list}
           onEndReached={() => {
             if (loading) return;
             const nextPage = page + 1;
@@ -465,14 +435,6 @@ export default function ReceiptsScreen() {
         />
       )}
 
-      {/* Botón flotante cuando hay seleccionados */}
-      {selectMode && selectedIds.size > 0 && (
-        <TouchableOpacity style={styles.floatingReembolsoBtn} onPress={handleStartReembolso}>
-          <Text style={styles.floatingReembolsoBtnText}>
-            Solicitar Reembolso ({selectedIds.size}) →
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 }

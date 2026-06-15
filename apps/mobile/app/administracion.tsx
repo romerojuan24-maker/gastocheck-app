@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SECTOR_OPTIONS = [
   { key: 'agro',              label: '🌾 Agrícola' },
@@ -53,6 +54,7 @@ export default function AdministracionScreen() {
   const [saving,    setSaving]    = useState(false);
   const [company,   setCompany]   = useState<CompanyData | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Campos editables
   const [fName,            setFName]            = useState('');
@@ -80,20 +82,35 @@ export default function AdministracionScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id, role')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
-      if (!member) return;
+      // Obtener empresa seleccionada desde AsyncStorage
+      const selectedId = await AsyncStorage.getItem('selectedCompanyId');
+      if (!selectedId) {
+        // Si no hay empresa seleccionada, ir a pantalla de empresas
+        router.replace('/empresas');
+        return;
+      }
 
       const { data: co } = await supabase
         .from('companies')
         .select('id, name, rfc, nombre_comercial, direccion, colonia, ciudad, estado, cp, pais, telefono, sector, tiene_flotilla, moneda, plan, plan_seats')
-        .eq('id', member.company_id)
+        .eq('id', selectedId)
         .maybeSingle();
-      if (!co) return;
+      if (!co) {
+        Alert.alert('Error', 'La empresa seleccionada no existe.');
+        router.replace('/empresas');
+        return;
+      }
+
+      // Obtener rol del usuario en esta empresa
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('role')
+        .eq('company_id', selectedId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      setUserRole(member?.role ?? null);
 
       setCompany(co as CompanyData);
       setFName(co.name ?? '');
@@ -113,13 +130,13 @@ export default function AdministracionScreen() {
       const { count } = await supabase
         .from('company_members')
         .select('id', { count: 'exact' })
-        .eq('company_id', member.company_id)
+        .eq('company_id', selectedId)
         .eq('status', 'active');
       setMemberCount(count ?? 0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -230,6 +247,17 @@ export default function AdministracionScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
 
+      {/* ── Empresa seleccionada + botón cambiar ── */}
+      <View style={styles.companyHeader}>
+        <View>
+          <Text style={styles.companyHeaderLabel}>Administrando</Text>
+          <Text style={styles.companyHeaderValue}>{company?.name}</Text>
+        </View>
+        <TouchableOpacity style={styles.changeBtn} onPress={() => router.push('/empresas')}>
+          <Text style={styles.changeBtnText}>Cambiar</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* ── Plan e integrantes ── */}
       <View style={styles.planCard}>
         <View style={{ flex: 1 }}>
@@ -239,11 +267,14 @@ export default function AdministracionScreen() {
         <View style={styles.planDivider} />
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={styles.planLabel}>Usuarios activos</Text>
-          <Text style={[styles.planValue, memberCount >= (company?.plan_seats ?? 2) && { color: BRAND.red }]}>
-            {memberCount} / {company?.plan_seats ?? 2}
+          <Text style={[styles.planValue, memberCount >= (company?.plan_seats ?? 2) && userRole !== 'owner' && { color: BRAND.red }]}>
+            {memberCount} / {userRole === 'owner' ? '∞' : (company?.plan_seats ?? 2)}
           </Text>
-          {memberCount >= (company?.plan_seats ?? 2) && (
+          {memberCount >= (company?.plan_seats ?? 2) && userRole !== 'owner' && (
             <Text style={styles.planWarning}>Límite alcanzado — cambia de plan</Text>
+          )}
+          {userRole === 'owner' && (
+            <Text style={[styles.planWarning, { color: BRAND.green }]}>Sin límite (eres propietario)</Text>
           )}
         </View>
       </View>
@@ -486,6 +517,24 @@ function Field({
 }
 
 const styles = StyleSheet.create({
+  companyHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 16,
+  },
+  companyHeaderLabel: {
+    fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase',
+  },
+  companyHeaderValue: {
+    fontSize: 16, fontWeight: '800', color: BRAND.navy, marginTop: 4,
+  },
+  changeBtn: {
+    backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  changeBtnText: {
+    fontSize: 13, fontWeight: '700', color: BRAND.blue,
+  },
+
   planCard: {
     backgroundColor: BRAND.navy, borderRadius: 16, padding: 18,
     flexDirection: 'row', alignItems: 'center', marginBottom: 16,
