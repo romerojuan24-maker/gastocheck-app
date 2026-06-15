@@ -1,6 +1,7 @@
 'use client';
 // Pantalla de Pólizas — crea póliza, selecciona comprobantes, valida SAT, autoriza gastos
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, ScrollView, TextInput, Share,
@@ -112,6 +113,10 @@ export default function PolizasScreen() {
   }, [user, member]);
 
   useEffect(() => { loadPolicies(); }, [loadPolicies]);
+
+  useFocusEffect(
+    useCallback(() => { loadPolicies(); }, [loadPolicies]),
+  );
 
   // ── Crear póliza ────────────────────────────────────────────────────────────
 

@@ -54,6 +54,7 @@ export default function ReceiptsScreen() {
   // Modo selección para reembolso
   const [selectMode,  setSelectMode]  = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [tabCounts,   setTabCounts]   = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
 
   function toggleSelect(id: string, status: ReceiptStatus) {
     if (status !== 'captured') {
@@ -78,13 +79,28 @@ export default function ReceiptsScreen() {
 
   // ── Cargar comprobantes ────────────────────────────────────────────────────
 
-  const loadReceipts = useCallback(async (reset = false) => {
+  async function loadTabCounts(userId: string) {
+    const filter = `employee_id.eq.${userId},uploaded_by.eq.${userId}`;
+    const [v, r, x, h] = await Promise.all([
+      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'captured'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'submitted'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).eq('status', 'rejected'),
+      supabase.from('receipts').select('id', { count: 'exact', head: true }).or(filter).in('status', ['approved', 'included_in_batch', 'exported']),
+    ]);
+    setTabCounts({ vigentes: v.count ?? 0, revision: r.count ?? 0, rechazados: x.count ?? 0, historico: h.count ?? 0 });
+  }
+
+  // pageOverride evita el problema de closure stale: onEndReached pasa el next page explícitamente
+  const loadReceipts = useCallback(async (reset = false, pageOverride?: number) => {
+    const targetPage = pageOverride !== undefined ? pageOverride : (reset ? 0 : page);
     if (reset) setPage(0);
     setLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      if (reset) loadTabCounts(user.id);
 
       let query = supabase
         .from('receipts')
@@ -95,7 +111,7 @@ export default function ReceiptsScreen() {
         .or(`employee_id.eq.${user.id},uploaded_by.eq.${user.id}`)
         .not('status', 'in', '(cancelled,deleted,duplicate)')
         .order('created_at', { ascending: false })
-        .range(reset ? 0 : page * PAGE_SIZE, (reset ? 0 : page) * PAGE_SIZE + PAGE_SIZE - 1);
+        .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1);
 
       switch (statusFilter) {
         case 'vigentes':
@@ -119,10 +135,15 @@ export default function ReceiptsScreen() {
       const { data, error } = await query;
       if (error) { console.error(error); return; }
 
-      if (reset) {
-        setReceipts((data as unknown as ReceiptRow[]) ?? []);
+      const rows = (data as unknown as ReceiptRow[]) ?? [];
+      if (reset || targetPage === 0) {
+        setReceipts(rows);
       } else {
-        setReceipts((prev) => [...prev, ...((data as unknown as ReceiptRow[]) ?? [])]);
+        // Dedup por id para evitar aparición doble si onEndReached dispara repetido
+        setReceipts((prev) => {
+          const seen = new Set(prev.map((r) => r.id));
+          return [...prev, ...rows.filter((r) => !seen.has(r.id))];
+        });
       }
     } finally {
       setLoading(false);
@@ -300,6 +321,7 @@ export default function ReceiptsScreen() {
       <View style={styles.filtersRow}>
         {TABS.map((t) => {
           const active = statusFilter === t.key;
+          const count  = tabCounts[t.key];
           return (
             <TouchableOpacity
               key={t.key}
@@ -313,7 +335,7 @@ export default function ReceiptsScreen() {
               }}
             >
               <Text style={[styles.filterText, active && { color: '#fff' }]}>
-                {t.label}
+                {t.label}{count > 0 ? ` (${count})` : ''}
               </Text>
             </TouchableOpacity>
           );
@@ -337,12 +359,34 @@ export default function ReceiptsScreen() {
               : 'Sin comprobantes en histórico'}
           </Text>
           {statusFilter === 'vigentes' && (
-            <TouchableOpacity
-              style={styles.captureBtn}
-              onPress={() => router.push('/capture')}
-            >
-              <Text style={styles.captureBtnText}>📷 Capturar ticket</Text>
-            </TouchableOpacity>
+            <>
+              {tabCounts.revision > 0 && (
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: BRAND.orange + '15', borderColor: BRAND.orange + '40', borderWidth: 1 }]}
+                  onPress={() => setStatusFilter('revision')}
+                >
+                  <Text style={[styles.captureBtnText, { color: BRAND.orange }]}>
+                    📋 Ver {tabCounts.revision} en revisión →
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {tabCounts.historico > 0 && (
+                <TouchableOpacity
+                  style={[styles.captureBtn, { backgroundColor: '#607D8B15', borderColor: '#607D8B40', borderWidth: 1, marginTop: 8 }]}
+                  onPress={() => setStatusFilter('historico')}
+                >
+                  <Text style={[styles.captureBtnText, { color: '#607D8B' }]}>
+                    🗂 Ver {tabCounts.historico} en histórico →
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.captureBtn, { marginTop: 12 }]}
+                onPress={() => router.push('/capture')}
+              >
+                <Text style={styles.captureBtnText}>📷 Capturar ticket</Text>
+              </TouchableOpacity>
+            </>
           )}
           {statusFilter === 'historico' && (
             <Text style={{ fontSize: 12, color: '#B0BEC5', marginTop: 8, textAlign: 'center', paddingHorizontal: 16 }}>
@@ -357,8 +401,10 @@ export default function ReceiptsScreen() {
           renderItem={renderReceipt}
           contentContainerStyle={[styles.list, selectMode && selectedIds.size > 0 && { paddingBottom: 90 }]}
           onEndReached={() => {
-            setPage((p) => p + 1);
-            loadReceipts(false);
+            if (loading) return;
+            const nextPage = page + 1;
+            setPage(nextPage);
+            loadReceipts(false, nextPage);
           }}
           onEndReachedThreshold={0.3}
           refreshing={loading}

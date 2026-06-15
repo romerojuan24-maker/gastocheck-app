@@ -174,7 +174,7 @@ export default function CaptureScreen() {
       return;
     }
 
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.85, base64: true, exif: false });
     if (res.canceled || !res.assets[0]) return;
 
     const asset = res.assets[0];
@@ -233,8 +233,9 @@ export default function CaptureScreen() {
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
+      quality: 0.85,
       base64: true,
+      exif: false,
     });
     if (res.canceled || !res.assets[0]) return;
     const asset = res.assets[0];
@@ -1054,6 +1055,9 @@ export default function CaptureScreen() {
         <Text style={styles.placeholderText}>📷</Text>
         <Text style={styles.placeholderLabel}>Foto no tomada</Text>
         <Text style={styles.placeholderHint}>La IA detectará proveedor, monto y productos</Text>
+        <Text style={{ fontSize: 11, color: '#B0BEC5', marginTop: 8 }}>
+          💡 Usa buena iluminación o activa la linterna antes de tomar la foto
+        </Text>
       </View>
 
       <TouchableOpacity style={[styles.cameraBtn, busy && { opacity: 0.6 }]}
