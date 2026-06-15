@@ -1,9 +1,8 @@
-// Pantalla de solicitud de reembolso — el comprador selecciona comprobantes,
-// se validan en SAT y se genera clasificación fiscal / no deducible.
+// Pantalla de reembolso DRAFT — comprador agrega recibos progresivamente y luego envía
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, Alert, Modal, FlatList,
+  TextInput, ActivityIndicator, Alert, FlatList, Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -13,490 +12,396 @@ const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 interface ReceiptItem {
-  id:                    string;
-  gc_folio:              string | null;
-  provider_name:         string | null;
-  total_amount:          number | null;
-  receipt_date:          string | null;
-  fiscal_uuid:           string | null;
-  sat_validation_status: string | null;
-  subtotal_amount:       number | null;
-  tax_amount:            number | null;
-  discount_amount:       number | null;
-  status:                string;
-  company_id:            string;
+  id: string;
+  provider_name: string | null;
+  total_amount: number | null;
+  receipt_date: string | null;
+  fiscal_uuid: string | null;
+  status: string;
+}
+
+interface Reembolso {
+  id: string;
+  status: string;
+  company_id: string;
+  employee_id: string;
 }
 
 export default function ReembolsoScreen() {
-  const router              = useRouter();
-  const { ids, company_id } = useLocalSearchParams<{ ids: string; company_id?: string }>();
-  const receiptIds          = (ids ?? '').split(',').filter(s => s !== '' && s !== 'undefined');
-  const mainCompanyId       = company_id;
+  const router = useRouter();
+  const { reembolso_id } = useLocalSearchParams<{ reembolso_id: string }>();
 
-  const [receipts,   setReceipts]   = useState<ReceiptItem[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [reembolso, setReembolso] = useState<Reembolso | null>(null);
+  const [assignedReceipts, setAssignedReceipts] = useState<ReceiptItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [nombre,     setNombre]     = useState('');
-  const [notes,      setNotes]      = useState('');
-  const [showCompanyModal, setShowCompanyModal] = useState(false);
-  const [noDeducibleCompanyMap, setNoDeducibleCompanyMap] = useState<Record<string, string>>({}); // receiptId → companyId
-  const [userCompanies, setUserCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [showAddReceipts, setShowAddReceipts] = useState(false);
+  const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
+  const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    loadReceipts();
-    loadUserCompanies();
+    loadReembolso();
   }, []);
 
-  async function loadUserCompanies() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('company_members')
-        .select('company_id, companies(id, name)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      const companies = (data ?? []).map((cm: any) => ({
-        id: cm.company_id,
-        name: cm.companies?.name ?? cm.company_id,
-      }));
-      setUserCompanies(companies);
-
-      // Si hay no-deducibles, mostrar modal solo si hay múltiples empresas
-      if (receipts.some(r => !r.fiscal_uuid) && companies.length > 1) {
-        setShowCompanyModal(true);
-      }
-    } catch (err) {
-      console.error('Error loading user companies:', err);
-    }
-  }
-
-  async function loadReceipts() {
-    if (receiptIds.length === 0) { setLoading(false); return; }
+  async function loadReembolso() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('receipts')
-        .select(
-          'id, company_id, gc_folio, provider_name, total_amount, receipt_date, ' +
-          'fiscal_uuid, sat_validation_status, subtotal_amount, tax_amount, ' +
-          'discount_amount, status',
-        )
-        .in('id', receiptIds);
-
-      if (!error && data) {
-        setReceipts(data as unknown as ReceiptItem[]);
-        // Nombre automático por mes
-        const today = new Date();
-        const mes   = today.toLocaleString('es-MX', { month: 'long' });
-        const anio  = today.getFullYear();
-        setNombre(`Reembolso ${mes} ${anio}`);
+      if (!reembolso_id) {
+        Alert.alert('Error', 'Reembolso no especificado.');
+        router.back();
+        return;
       }
+
+      // Cargar reembolso
+      const { data: reb } = await supabase
+        .from('reembolsos')
+        .select('id, status, company_id, employee_id')
+        .eq('id', reembolso_id)
+        .single();
+
+      if (!reb) {
+        Alert.alert('Error', 'Reembolso no encontrado.');
+        router.back();
+        return;
+      }
+
+      setReembolso(reb as Reembolso);
+
+      // Cargar recibos asignados al reembolso
+      const { data: assigned } = await supabase
+        .from('receipt_reembolsos')
+        .select(
+          'receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, status)',
+          { count: 'exact' }
+        )
+        .eq('reembolso_id', reembolso_id);
+
+      const assignedList = (assigned ?? []).map((item: any) => item.receipts);
+      setAssignedReceipts(assignedList.filter(Boolean));
+
+      // Cargar recibos disponibles (sin asignar) de la misma empresa
+      const { data: available } = await supabase
+        .from('receipts')
+        .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status')
+        .eq('company_id', reb.company_id)
+        .eq('status', 'captured')
+        .not('id', 'in', `(${assignedList.map((r: any) => `'${r?.id}'`).join(',') || 'null'})`)
+        .limit(100);
+
+      setAvailableReceipts(available ?? []);
     } finally {
       setLoading(false);
     }
   }
 
-  // Clasificación preliminar basada en existencia de CFDI
-  const fiscal      = receipts.filter(r => r.fiscal_uuid);
-  const noDeducible = receipts.filter(r => !r.fiscal_uuid);
-  const totalFiscal      = fiscal.reduce((s, r)      => s + (r.total_amount ?? 0), 0);
-  const totalNoDeducible = noDeducible.reduce((s, r) => s + (r.total_amount ?? 0), 0);
-  const totalGlobal      = receipts.reduce((s, r)    => s + (r.total_amount ?? 0), 0);
-
-  async function handleSubmit() {
-    if (!nombre.trim()) {
-      Alert.alert('Nombre requerido', 'Agrega un nombre para identificar este reembolso.');
+  async function handleAddReceipts() {
+    if (selectedToAdd.size === 0) {
+      Alert.alert('Selecciona recibos', 'Elige al menos un comprobante para agregar.');
       return;
-    }
-    if (receipts.length === 0) {
-      Alert.alert('Sin comprobantes', 'No hay comprobantes para reembolsar.');
-      return;
-    }
-
-    // Si hay no-deducibles, validar que todos tengan empresa asignada
-    if (noDeducible.length > 0) {
-      const unassigned = noDeducible.filter(r => !noDeducibleCompanyMap[r.id]);
-      if (unassigned.length > 0) {
-        setShowCompanyModal(true);
-        return;
-      }
     }
 
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No autenticado');
+      if (!user || !reembolso) throw new Error('No autenticado');
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      // Insertar en receipt_reembolsos
+      const toInsert = Array.from(selectedToAdd).map(receiptId => ({
+        reembolso_id: reembolso.id,
+        receipt_id: receiptId,
+      }));
 
-      if (!member?.company_id) throw new Error('Sin empresa activa. Contacta a tu administrador.');
+      const { error } = await supabase
+        .from('receipt_reembolsos')
+        .insert(toInsert);
 
-      // 1. Crear póliza de reembolso (opening_balance = 0; el importe es lo que se pide devolver)
-      // Obtener folio correlativo para el reembolso
-      const { data: folioData } = await supabase
-        .rpc('next_gc_folio', { p_company_id: member.company_id, p_type: 'reembolso' });
+      if (error) throw error;
 
-      const { data: policy, error: polErr } = await supabase
-        .from('policies')
-        .insert({
-          company_id:      member.company_id,
-          holder_id:       user.id,
-          requested_by:    user.id,
-          created_by:      user.id,
-          name:            nombre.trim(),
-          opening_balance: 0,
-          status:          'open',
-          policy_type:     'reembolso',
-          period_start:    new Date().toISOString().slice(0, 10),
-          gc_folio:        folioData ?? null,
-        })
-        .select('id, gc_folio')
-        .single();
-
-      if (polErr || !policy) throw new Error('Error creando reembolso: ' + (polErr?.message ?? ''));
-
-      // 2. Asignar comprobantes → la función valida CFDI en SAT y clasifica con/sin CFDI
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/assign-receipts-to-policy`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            policy_id:   policy.id,
-            company_id:  member.company_id,
-            receipt_ids: receiptIds,
-          }),
-        },
-      );
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? 'Error asignando comprobantes');
-
-      const withCfdi    = result.with_cfdi    ?? fiscal.length;
-      const withoutCfdi = result.without_cfdi ?? noDeducible.length;
-
-      Alert.alert(
-        '✅ Reembolso solicitado',
-        [
-          policy.gc_folio ? `Folio: ${policy.gc_folio}` : nombre.trim(),
-          `Total solicitado: ${money(totalGlobal)}`,
-          '',
-          `✅ Póliza fiscal (CFDI):  ${withCfdi} comprobante${withCfdi !== 1 ? 's' : ''} · ${money(totalFiscal)}`,
-          `📄 No deducibles:  ${withoutCfdi} comprobante${withoutCfdi !== 1 ? 's' : ''} · ${money(totalNoDeducible)}`,
-          '',
-          'Pendiente de autorización por tu administrador.',
-        ].join('\n'),
-        [{ text: 'Listo', onPress: () => router.replace('/receipts' as any) }],
-      );
-    } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'No se pudo crear el reembolso.');
+      Alert.alert('✓ Recibos agregados', `${selectedToAdd.size} comprobante(s) agregado(s) al reembolso.`);
+      setSelectedToAdd(new Set());
+      setShowAddReceipts(false);
+      loadReembolso();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo agregar los recibos.');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleSubmitReembolso() {
+    if (!reembolso) return;
+
+    if (assignedReceipts.length === 0) {
+      Alert.alert('Sin recibos', 'Agrega al menos un comprobante antes de enviar el reembolso.');
+      return;
+    }
+
+    Alert.alert(
+      'Enviar reembolso',
+      `¿Enviar ${assignedReceipts.length} comprobante(s) por ${money(assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0))} a supervisor para aprobación?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              // Llamar a Edge Function para cambiar estado a pending_auth
+              const { data, error } = await supabase.functions.invoke('reembolsos-workflow', {
+                body: { action: 'submit', reembolso_id: reembolso.id },
+              });
+
+              if (error || !data.success) throw new Error(data?.error ?? 'Error enviando reembolso');
+
+              Alert.alert(
+                '✅ Reembolso enviado',
+                `Tu reembolso ha sido enviado a tu supervisor para aprobación.`,
+                [{ text: 'Listo', onPress: () => router.replace('/receipts' as any) }]
+              );
+            } catch (e: any) {
+              Alert.alert('Error', e.message ?? 'No se pudo enviar el reembolso.');
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
         <ActivityIndicator size="large" color={BRAND.green} />
-        <Text style={{ color: '#90A4AE', marginTop: 10 }}>Cargando comprobantes...</Text>
       </View>
     );
   }
 
+  if (!reembolso) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
+        <Text style={{ color: '#90A4AE' }}>Reembolso no encontrado</Text>
+      </View>
+    );
+  }
+
+  const totalAmount = assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0);
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BRAND.gray }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.title}>Solicitar Reembolso</Text>
-      <Text style={styles.subtitle}>
-        {receipts.length} comprobante{receipts.length !== 1 ? 's' : ''} · Total: {money(totalGlobal)}
-      </Text>
-
-      {/* Nombre y notas */}
-      <View style={styles.card}>
-        <Text style={styles.fieldLabel}>Nombre del reembolso</Text>
-        <TextInput
-          style={styles.input}
-          value={nombre}
-          onChangeText={setNombre}
-          placeholder="Ej: Gastos viaje enero 2026"
-          placeholderTextColor="#B0BEC5"
-        />
-        <Text style={styles.fieldLabel}>Descripción general (opcional)</Text>
-        <TextInput
-          style={[styles.input, { minHeight: 56, textAlignVertical: 'top', paddingTop: 10 }]}
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Motivo o descripción del gasto..."
-          placeholderTextColor="#B0BEC5"
-          multiline
-        />
-      </View>
-
-      {/* Lista fiscal — con CFDI */}
-      {fiscal.length > 0 && (
-        <View style={[styles.section, { borderLeftColor: '#4CAF50' }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>✅</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Póliza fiscal</Text>
-              <Text style={styles.sectionSub}>Con CFDI — deducibles de impuestos</Text>
-            </View>
-            <Text style={[styles.sectionTotal, { color: '#2E7D32' }]}>{money(totalFiscal)}</Text>
-          </View>
-          {fiscal.map(r => (
-            <ReceiptRow key={r.id} receipt={r} isFiscal />
-          ))}
-        </View>
-      )}
-
-      {/* Lista no deducible — sin CFDI */}
-      {noDeducible.length > 0 && (
-        <View style={[styles.section, { borderLeftColor: '#FF9800' }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>📄</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: '#E65100' }]}>No deducibles</Text>
-              <Text style={styles.sectionSub}>Sin CFDI — se registran como gasto no fiscal</Text>
-            </View>
-            <Text style={[styles.sectionTotal, { color: '#E65100' }]}>{money(totalNoDeducible)}</Text>
-          </View>
-          {noDeducible.map(r => (
-            <ReceiptRow key={r.id} receipt={r} isFiscal={false} />
-          ))}
-        </View>
-      )}
-
-      {/* Aviso validación SAT */}
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          💡 Al confirmar, los comprobantes con CFDI serán verificados en el SAT.
-          El reembolso quedará en estado "Pendiente de autorización" hasta que tu administrador lo apruebe.
+    <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={styles.title}>Nuevo Reembolso</Text>
+        <Text style={styles.subtitle}>
+          {assignedReceipts.length} comprobante{assignedReceipts.length !== 1 ? 's' : ''} · Total: {money(totalAmount)}
         </Text>
-      </View>
 
-      <TouchableOpacity
-        style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
-        onPress={handleSubmit}
-        disabled={submitting}
-      >
-        {submitting ? (
-          <>
-            <ActivityIndicator color="#fff" />
-            <Text style={[styles.submitBtnText, { marginLeft: 8 }]}>Validando en SAT...</Text>
-          </>
-        ) : (
-          <Text style={styles.submitBtnText}>
-            Confirmar Reembolso · {money(totalGlobal)}
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
-        <Text style={styles.cancelBtnText}>Cancelar</Text>
-      </TouchableOpacity>
-
-      {/* Modal: asignar empresa a cada no-deducible */}
-      <Modal visible={showCompanyModal} transparent animationType="slide"
-        onRequestClose={() => setShowCompanyModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Asignar empresa a cada no-deducible
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              Tienes {noDeducible.length} comprobante{noDeducible.length !== 1 ? 's' : ''} sin CFDI. Asigna cada uno a su empresa:
-            </Text>
-
-            <ScrollView style={{ maxHeight: 300, marginBottom: 16 }}>
-              {noDeducible.map((receipt) => (
-                <View key={receipt.id} style={styles.noDeducibleItem}>
-                  <View style={{ flex: 1, marginBottom: 8 }}>
-                    <Text style={styles.noDeducibleProvider} numberOfLines={1}>
-                      {receipt.provider_name ?? '(sin proveedor)'}
-                    </Text>
-                    <Text style={styles.noDeducibleDate}>
-                      {receipt.receipt_date} · {money(receipt.total_amount ?? 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.companySelector}>
-                    {userCompanies.map((company) => (
-                      <TouchableOpacity
-                        key={company.id}
-                        style={[
-                          styles.companyTag,
-                          noDeducibleCompanyMap[receipt.id] === company.id && styles.companyTagSelected,
-                        ]}
-                        onPress={() => setNoDeducibleCompanyMap(prev => ({
-                          ...prev,
-                          [receipt.id]: company.id,
-                        }))}>
-                        <Text style={[
-                          styles.companyTagText,
-                          noDeducibleCompanyMap[receipt.id] === company.id && styles.companyTagTextSelected,
-                        ]}>
-                          {company.name.length > 12 ? company.name.slice(0, 12) + '...' : company.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {!noDeducibleCompanyMap[receipt.id] && (
-                    <Text style={styles.noDeducibleWarning}>⚠️ Selecciona empresa</Text>
-                  )}
+        {/* Recibos asignados */}
+        {assignedReceipts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Comprobantes incluidos</Text>
+            {assignedReceipts.map(r => (
+              <View key={r.id} style={styles.receiptRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.receiptProvider} numberOfLines={1}>
+                    {r.provider_name ?? '(sin proveedor)'}
+                  </Text>
+                  <Text style={styles.receiptDate}>
+                    {r.receipt_date ?? '—'} · {r.fiscal_uuid ? '📄 Con CFDI' : '📋 Sin CFDI'}
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
+                <Text style={styles.receiptAmount}>{money(r.total_amount ?? 0)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyText}>Sin comprobantes aún</Text>
+            <Text style={styles.emptyHint}>Agrega comprobantes para comenzar</Text>
+          </View>
+        )}
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowCompanyModal(false)}>
-                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalConfirmBtn,
-                  noDeducible.some(r => !noDeducibleCompanyMap[r.id]) && { opacity: 0.5 }
-                ]}
-                disabled={noDeducible.some(r => !noDeducibleCompanyMap[r.id])}
-                onPress={() => {
-                  setShowCompanyModal(false);
-                  handleSubmit();
-                }}>
-                <Text style={styles.modalConfirmBtnText}>Confirmar</Text>
-              </TouchableOpacity>
+        {/* Botones de acción */}
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => setShowAddReceipts(true)}
+        >
+          <Text style={styles.addBtnText}>+ Agregar Comprobantes</Text>
+        </TouchableOpacity>
+
+        {assignedReceipts.length > 0 && (
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+            onPress={handleSubmitReembolso}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitBtnText}>
+                Enviar Reembolso · {money(totalAmount)}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+          <Text style={styles.cancelBtnText}>Cancelar</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Modal: agregar recibos */}
+      <Modal visible={showAddReceipts} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddReceipts(false)}>
+        <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAddReceipts(false)}>
+              <Text style={{ color: '#90A4AE', fontSize: 15 }}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.navy }}>Agregar Comprobantes</Text>
+            <View style={{ width: 60 }} />
+          </View>
+
+          {availableReceipts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>✅</Text>
+              <Text style={styles.emptyText}>Sin comprobantes disponibles</Text>
+              <Text style={styles.emptyHint}>Todos tus comprobantes están incluidos</Text>
             </View>
+          ) : (
+            <FlatList
+              data={availableReceipts}
+              keyExtractor={r => r.id}
+              contentContainerStyle={{ padding: 12 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.receiptSelectRow,
+                    selectedToAdd.has(item.id) && styles.receiptSelectRowActive,
+                  ]}
+                  onPress={() => {
+                    const next = new Set(selectedToAdd);
+                    if (next.has(item.id)) next.delete(item.id);
+                    else next.add(item.id);
+                    setSelectedToAdd(next);
+                  }}
+                >
+                  <View style={[styles.checkbox, selectedToAdd.has(item.id) && styles.checkboxActive]}>
+                    {selectedToAdd.has(item.id) && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.receiptProvider} numberOfLines={1}>
+                      {item.provider_name ?? '(sin proveedor)'}
+                    </Text>
+                    <Text style={styles.receiptDate}>
+                      {item.receipt_date ?? '—'}
+                    </Text>
+                  </View>
+                  <Text style={styles.receiptAmount}>{money(item.total_amount ?? 0)}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setShowAddReceipts(false)}
+            >
+              <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalConfirmBtn, selectedToAdd.size === 0 && { opacity: 0.5 }]}
+              disabled={selectedToAdd.size === 0 || submitting}
+              onPress={handleAddReceipts}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.modalConfirmBtnText}>
+                  Agregar ({selectedToAdd.size})
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </ScrollView>
-  );
-}
-
-// ── Fila de comprobante ───────────────────────────────────────────────────────
-
-function ReceiptRow({ receipt, isFiscal }: { receipt: ReceiptItem; isFiscal: boolean }) {
-  const satOk   = receipt.sat_validation_status === 'validated';
-  const satFail = receipt.sat_validation_status === 'cancelled' ||
-                  receipt.sat_validation_status === 'not_found';
-
-  return (
-    <View style={styles.receiptRow}>
-      <View style={[styles.receiptBar, { backgroundColor: isFiscal ? '#4CAF50' : '#FF9800' }]} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.receiptProvider} numberOfLines={1}>
-          {receipt.provider_name ?? '(sin proveedor)'}
-        </Text>
-        <Text style={styles.receiptDate}>
-          {receipt.receipt_date ?? '—'}
-          {receipt.gc_folio ? `  ·  ${receipt.gc_folio}` : ''}
-        </Text>
-        {isFiscal && (
-          <Text style={{
-            fontSize: 11, fontWeight: '600', marginTop: 2,
-            color: satOk ? '#2E7D32' : satFail ? '#C62828' : '#E65100',
-          }}>
-            {satOk ? '✅ CFDI ya verificado'
-              : satFail ? '⚠ CFDI se reverificará al confirmar'
-              : '🔍 Se verificará en SAT al confirmar'}
-          </Text>
-        )}
-      </View>
-      <Text style={styles.receiptAmount}>{money(receipt.total_amount ?? 0)}</Text>
     </View>
   );
 }
 
-// ── Estilos ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  title:    { fontSize: 24, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  title: { fontSize: 24, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#90A4AE', marginBottom: 16 },
 
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#F0F0F0',
-  },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#90A4AE', marginBottom: 6, marginTop: 10 },
-  input: {
-    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10,
-    padding: 12, fontSize: 14, color: BRAND.navy, backgroundColor: '#FAFAFA',
-  },
-
   section: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 12,
-    borderLeftWidth: 4, borderWidth: 1, borderColor: '#F0F0F0',
+    backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: '#E0E0E0',
   },
-  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  sectionIcon:   { fontSize: 22 },
-  sectionTitle:  { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  sectionSub:    { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  sectionTotal:  { fontSize: 16, fontWeight: '800', color: BRAND.navy, minWidth: 80, textAlign: 'right' },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: BRAND.navy, marginBottom: 10 },
+  receiptRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+  },
+  receiptProvider: { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  receiptDate: { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  receiptAmount: { fontSize: 14, fontWeight: '700', color: BRAND.navy, minWidth: 70, textAlign: 'right' },
 
-  receiptRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
-  receiptBar:     { width: 3, borderRadius: 2, alignSelf: 'stretch', minHeight: 36 },
-  receiptProvider:{ fontSize: 13, fontWeight: '700', color: BRAND.navy },
-  receiptDate:    { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  receiptAmount:  { fontSize: 14, fontWeight: '700', color: BRAND.navy, minWidth: 80, textAlign: 'right' },
+  emptyState: {
+    alignItems: 'center', paddingVertical: 60,
+  },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyText: { fontSize: 16, fontWeight: '700', color: BRAND.navy, marginBottom: 4 },
+  emptyHint: { fontSize: 13, color: '#90A4AE' },
 
-  infoBox: { backgroundColor: '#E3F2FD', borderRadius: 12, padding: 12, marginBottom: 16 },
-  infoText: { fontSize: 12, color: '#0D47A1', lineHeight: 18 },
+  addBtn: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 16,
+    alignItems: 'center', marginBottom: 12,
+    borderWidth: 2, borderColor: BRAND.blue, borderStyle: 'dashed',
+  },
+  addBtnText: { fontSize: 15, fontWeight: '700', color: BRAND.blue },
 
   submitBtn: {
-    backgroundColor: BRAND.green, borderRadius: 16, paddingVertical: 18,
-    alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
-    gap: 8, marginBottom: 8,
+    backgroundColor: BRAND.green, borderRadius: 14, padding: 16,
+    alignItems: 'center', marginBottom: 8,
   },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  submitBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  cancelBtn:     { alignItems: 'center', padding: 16 },
-  cancelBtnText: { color: '#90A4AE', fontSize: 14 },
+  cancelBtn: { alignItems: 'center', padding: 16 },
+  cancelBtnText: { fontSize: 14, color: '#90A4AE', fontWeight: '700' },
 
   // Modal
-  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalCard:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
-  modalTitle:     { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
-  modalSubtitle:  { fontSize: 13, color: '#90A4AE', marginBottom: 16, lineHeight: 18 },
-
-  noDeducibleItem: {
-    backgroundColor: '#FFFBEA', borderRadius: 12, padding: 12, marginBottom: 12,
-    borderWidth: 1, borderColor: '#FFE082',
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0',
   },
-  noDeducibleProvider: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
-  noDeducibleDate:     { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  noDeducibleWarning:  { fontSize: 10, color: '#FF9800', fontWeight: '600', marginTop: 4 },
-
-  companySelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  companyTag:      {
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E0E0E0',
+  receiptSelectRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#E0E0E0',
   },
-  companyTagSelected: { backgroundColor: BRAND.blue + '18', borderColor: BRAND.blue },
-  companyTagText:     { fontSize: 11, color: '#666', fontWeight: '600' },
-  companyTagTextSelected: { color: BRAND.blue, fontWeight: '700' },
+  receiptSelectRowActive: {
+    backgroundColor: BRAND.blue + '10', borderColor: BRAND.blue,
+  },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 6, borderWidth: 2,
+    borderColor: '#B0BEC5', alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxActive: { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
 
-  modalActions:      { flexDirection: 'row', gap: 12, marginTop: 16 },
-  modalCancelBtn:    { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  modalCancelBtnText:{ color: '#90A4AE', fontWeight: '700', fontSize: 15 },
-  modalConfirmBtn:   { flex: 1, backgroundColor: BRAND.blue, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  modalConfirmBtnText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalFooter: {
+    flexDirection: 'row', gap: 12, padding: 16,
+    borderTopWidth: 1, borderTopColor: '#E0E0E0',
+  },
+  modalCancelBtn: {
+    flex: 1, backgroundColor: '#F5F5F5', borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalCancelBtnText: { fontSize: 14, fontWeight: '700', color: '#90A4AE' },
+  modalConfirmBtn: {
+    flex: 1.5, backgroundColor: BRAND.blue, borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalConfirmBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
