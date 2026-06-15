@@ -21,6 +21,7 @@ interface CheckInput {
   receipt_date?: string | null;  // YYYY-MM-DD
   total_amount?: number | null;
   exclude_receipt_id?: string | null;  // para actualizaciones
+  uploaded_by?: string | null;
 }
 
 interface DuplicateMatch {
@@ -32,6 +33,7 @@ interface DuplicateMatch {
   receipt_date:  string | null;
   total_amount:  number | null;
   status:        string | null;
+  gc_folio?:     string | null;
 }
 
 Deno.serve(async (req) => {
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
   try {
     const input: CheckInput = await req.json();
     const { company_id, fiscal_uuid, file_sha256, provider_name, provider_rfc,
-            receipt_date, total_amount, exclude_receipt_id } = input;
+            receipt_date, total_amount, exclude_receipt_id, uploaded_by } = input;
 
     if (!company_id) {
       return Response.json({ error: 'company_id requerido' }, { status: 400 });
@@ -49,6 +51,53 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
     const matches: DuplicateMatch[] = [];
+
+    // ── 0. Reintento idempotente: mismo usuario + proveedor + fecha + monto en 10 min ──
+    if (uploaded_by && provider_name && receipt_date && total_amount != null) {
+      const normalizedInput = normalizeProvider(provider_name);
+      const tolerance = 0.10;
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+      const { data: idemMatches } = await supabase
+        .from('receipts')
+        .select('id, gc_folio, provider_name, receipt_date, total_amount, status')
+        .eq('uploaded_by', uploaded_by)
+        .eq('normalized_provider_name', normalizedInput)
+        .eq('receipt_date', receipt_date)
+        .gte('total_amount', total_amount - tolerance)
+        .lte('total_amount', total_amount + tolerance)
+        .neq('status', 'cancelled')
+        .gte('created_at', tenMinutesAgo)
+        .limit(1);
+
+      if (idemMatches && idemMatches.length > 0) {
+        const r = idemMatches[0];
+        matches.push({
+          receipt_id:    r.id,
+          match_type:    'idempotent_retry',
+          score:         100,
+          reason:        `Reintento idempotente: mismo usuario, proveedor "${provider_name}", fecha ${receipt_date}, monto $${total_amount}`,
+          provider_name: r.provider_name,
+          receipt_date:  r.receipt_date,
+          total_amount:  r.total_amount,
+          status:        r.status,
+          gc_folio:      r.gc_folio ?? null,
+        });
+
+        return Response.json(
+          {
+            ok:               true,
+            duplicate_status: 'idempotent_retry',
+            score:            100,
+            should_block:     false,
+            should_return:    true,
+            message:          `Reintento detectado: comprobante ya creado (${r.id})`,
+            matches,
+          },
+          { headers: { ...CORS, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
 
     // ── 1. Duplicado exacto por UUID CFDI (BLOQUEA siempre) ────────────────
     if (fiscal_uuid) {

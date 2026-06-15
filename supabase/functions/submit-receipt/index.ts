@@ -58,6 +58,10 @@ interface SubmitInput {
   cost_center_id?: string | null;
   notes?:          string | null;
 
+  // Flota
+  vehicle_id?:     string | null;
+  operator_id?:    string | null;
+
   // Si force_save=true y hay duplicado probable (no bloqueado), guarda de todas formas
   force_save?:     boolean;
   force_reason?:   string;
@@ -92,6 +96,7 @@ Deno.serve(async (req) => {
       fiscal_uuid, internal_folio, payment_method,
       ocr_text, ocr_confidence, extracted_json, line_items,
       category_id, cost_center_id, notes,
+      vehicle_id = null, operator_id = null,
       force_save = false, force_reason,
     } = input;
 
@@ -148,6 +153,7 @@ Deno.serve(async (req) => {
             provider_rfc:  provider_rfc ?? null,
             receipt_date:  receipt_date ?? null,
             total_amount:  total_amount ?? null,
+            uploaded_by:   user.id,
           }),
         },
       );
@@ -165,6 +171,24 @@ Deno.serve(async (req) => {
       shouldBlock = dupData.should_block ?? false;
       dupMatches = dupData.matches ?? [];
       duplicateScore = dupData.score ?? 0;
+
+      // Reintento idempotente: devolver el comprobante ya existente sin insertar
+      if (dupData.should_return === true && dupMatches[0]?.receipt_id) {
+        return Response.json(
+          {
+            ok:               true,
+            receipt_id:       dupMatches[0].receipt_id,
+            gc_folio:         dupMatches[0].gc_folio ?? null,
+            expense_id:       null,
+            supplier_id:      null,
+            duplicate_status: 'idempotent_retry',
+            should_block:     false,
+            force_saved:      false,
+            matches:          dupMatches,
+          },
+          { headers: { ...CORS, 'Content-Type': 'application/json' } },
+        );
+      }
     } catch (err) {
       console.error('check-duplicate error:', err);
       return Response.json(
@@ -253,6 +277,8 @@ Deno.serve(async (req) => {
       category_id:               category_id ?? null,
       cost_center_id:            cost_center_id ?? null,
       notes:                     notes ?? null,
+      vehicle_id:                vehicle_id ?? null,
+      operator_id:               operator_id ?? null,
       duplicate_status:          force_save && shouldBlock ? 'manually_approved_duplicate' : duplicateStatus,
       duplicate_score:           duplicateScore,
       duplicate_of_receipt_id:   dupMatches[0]?.receipt_id ?? null,
