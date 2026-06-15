@@ -29,6 +29,9 @@ interface EmpleadoRow { user_id: string; nombre: string | null; total: number; c
 interface FiscalKpi { con_total: number; con_count: number; sin_total: number; sin_count: number; validado: number; cancelado: number }
 interface AnticipoRow { policy_id: string; nombre: string; holder: string | null; dias: number; entregado: number }
 interface MesRow { mes: string; total: number; count: number }
+interface CatProvRow { category: string; proveedores: { name: string; count: number; avg: number }[] }
+interface IvaKpi { iva_total: number; iva_acreditable: number; cfdi_count: number; sin_tax: number }
+interface AnomaliaRow { id: string; tipo: string; provider: string | null; amount: number; date: string; note: string }
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,9 @@ export default function ReportesScreen() {
   const [fiscal,        setFiscal]        = useState<FiscalKpi | null>(null);
   const [anticipos,     setAnticipos]     = useState<AnticipoRow[]>([]);
   const [tendencia,     setTendencia]     = useState<MesRow[]>([]);
+  const [catProveedores, setCatProveedores] = useState<CatProvRow[]>([]);
+  const [iva,            setIva]            = useState<IvaKpi | null>(null);
+  const [anomalias,      setAnomalias]      = useState<AnomaliaRow[]>([]);
 
   // Filtros gastos del mes
   const [fechaInicio, setFechaInicio] = useState(firstOfMonth);
@@ -372,6 +378,114 @@ export default function ReportesScreen() {
       setLoading(l => ({ ...l, tendencia: false }));
     }
   }, [companyId]);
+
+  const loadCatProveedores = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, catProveedores: true }));
+    try {
+      const { data } = await supabase
+        .from('receipts')
+        .select('provider_name, total_amount, expense_categories(name)')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate)')
+        .not('provider_name', 'is', null);
+
+      const catMap: Record<string, Record<string, { count: number; total: number }>> = {};
+      (data ?? []).forEach((r: any) => {
+        const cat  = (r.expense_categories as any)?.name ?? 'Sin categoría';
+        const prov = r.provider_name as string;
+        if (!catMap[cat]) catMap[cat] = {};
+        if (!catMap[cat][prov]) catMap[cat][prov] = { count: 0, total: 0 };
+        catMap[cat][prov].count += 1;
+        catMap[cat][prov].total += r.total_amount ?? 0;
+      });
+
+      setCatProveedores(
+        Object.entries(catMap)
+          .map(([category, provMap]) => ({
+            category,
+            proveedores: Object.entries(provMap)
+              .map(([name, v]) => ({ name, count: v.count, avg: v.count > 0 ? v.total / v.count : 0 }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 3),
+          }))
+          .filter(c => c.proveedores.length > 0)
+          .sort((a, b) =>
+            b.proveedores.reduce((s, p) => s + p.count, 0) - a.proveedores.reduce((s, p) => s + p.count, 0),
+          ),
+      );
+    } finally {
+      setLoading(l => ({ ...l, catProveedores: false }));
+    }
+  }, [companyId]);
+
+  const loadIva = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, iva: true }));
+    try {
+      const { data } = await supabase
+        .from('receipts')
+        .select('total_amount, tax_amount, sat_validation_status')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate,cancelled)')
+        .not('fiscal_uuid', 'is', null)
+        .gte('receipt_date', fechaInicio)
+        .lte('receipt_date', fechaFin);
+
+      let iva_total = 0, iva_acreditable = 0, cfdi_count = 0, sin_tax = 0;
+      (data ?? []).forEach((r: any) => {
+        cfdi_count++;
+        const tax = r.tax_amount ?? 0;
+        if (tax > 0) {
+          iva_total += tax;
+          if (r.sat_validation_status === 'validated') iva_acreditable += tax;
+        } else {
+          sin_tax++;
+        }
+      });
+      setIva({ iva_total, iva_acreditable, cfdi_count, sin_tax });
+    } finally {
+      setLoading(l => ({ ...l, iva: false }));
+    }
+  }, [companyId, fechaInicio, fechaFin]);
+
+  const loadAnomalias = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(l => ({ ...l, anomalias: true }));
+    try {
+      const { data } = await supabase
+        .from('receipts')
+        .select('id, provider_name, total_amount, receipt_date')
+        .eq('company_id', companyId)
+        .not('status', 'in', '(deleted,duplicate,cancelled)')
+        .gte('receipt_date', fechaInicio)
+        .lte('receipt_date', fechaFin);
+
+      const amounts = (data ?? []).map((r: any) => r.total_amount ?? 0).filter((a: number) => a > 0);
+      const avg = amounts.length > 3 ? amounts.reduce((s: number, a: number) => s + a, 0) / amounts.length : 0;
+
+      const rows: AnomaliaRow[] = [];
+      (data ?? []).forEach((r: any) => {
+        const amt  = r.total_amount ?? 0;
+        const date = r.receipt_date ?? '';
+        const dow  = new Date(date + 'T12:00:00').getDay();
+
+        if (dow === 0 || dow === 6) {
+          rows.push({ id: r.id + '_wk', tipo: 'Fin de semana', provider: r.provider_name, amount: amt, date, note: 'Compra en día no hábil' });
+        }
+        if (amt >= 500 && amt % 500 === 0) {
+          rows.push({ id: r.id + '_rnd', tipo: 'Monto redondo', provider: r.provider_name, amount: amt, date, note: `${money(amt)} — verificar recibo` });
+        }
+        if (avg > 0 && amt > avg * 5) {
+          rows.push({ id: r.id + '_hi', tipo: 'Monto inusual', provider: r.provider_name, amount: amt, date, note: `${Math.round(amt / avg)}x el promedio del período` });
+        }
+      });
+
+      setAnomalias(rows.sort((a, b) => b.amount - a.amount).slice(0, 25));
+    } finally {
+      setLoading(l => ({ ...l, anomalias: false }));
+    }
+  }, [companyId, fechaInicio, fechaFin]);
 
   // Abrir sección
   function toggle(key: string, loader: () => void) {
@@ -755,6 +869,124 @@ export default function ReportesScreen() {
                 );
               });
             })()
+        }
+      </Section>
+
+      {/* ── 10. Top 3 proveedores por categoría ── */}
+      <Section
+        title="🏆 Proveedores por categoría"
+        subtitle="Top 3 proveedores estrella en cada tipo de gasto"
+        color="#7B1FA2"
+        open={open === 'catProveedores'}
+        loading={loading.catProveedores}
+        onToggle={() => toggle('catProveedores', loadCatProveedores)}
+      >
+        {catProveedores.length === 0
+          ? <Empty text="Sin datos de proveedores categorizados." />
+          : catProveedores.map(c => (
+              <View key={c.category} style={{ marginBottom: 16 }}>
+                <Text style={[styles.rowTitle, { color: '#7B1FA2', marginBottom: 6 }]}>
+                  {c.category}
+                </Text>
+                {c.proveedores.map((p, i) => (
+                  <View key={p.name} style={[styles.row, i === c.proveedores.length - 1 && { borderBottomWidth: 0 }]}>
+                    <Text style={styles.rankNum}>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>{p.name}</Text>
+                      <Text style={styles.rowMeta}>{p.count} compra{p.count !== 1 ? 's' : ''}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.rowAmt}>{money(p.avg)}</Text>
+                      <Text style={styles.rowMeta}>ticket prom.</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))
+        }
+      </Section>
+
+      {/* ── 11. IVA acreditable ── */}
+      <Section
+        title="🧮 IVA acreditable"
+        subtitle="Estimado de IVA recuperable con CFDI validado"
+        color={BRAND.green}
+        open={open === 'iva'}
+        loading={loading.iva}
+        onToggle={() => toggle('iva', loadIva)}
+      >
+        {!iva
+          ? <Empty text="Sin CFDIs en el período." />
+          : (
+              <>
+                <Text style={[styles.rowMeta, { marginBottom: 10 }]}>
+                  Período: {fechaInicio} → {fechaFin} · {iva.cfdi_count} CFDIs analizados
+                </Text>
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>IVA total de CFDIs</Text>
+                    <Text style={styles.rowMeta}>{iva.cfdi_count} comprobantes con CFDI</Text>
+                  </View>
+                  <Text style={styles.rowAmt}>{money(iva.iva_total)}</Text>
+                </View>
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>IVA acreditable (SAT validado)</Text>
+                    <Text style={styles.rowMeta}>CFDIs con estatus "validado"</Text>
+                  </View>
+                  <Text style={[styles.rowAmt, { color: BRAND.green }]}>{money(iva.iva_acreditable)}</Text>
+                </View>
+                {iva.iva_total > iva.iva_acreditable && (
+                  <View style={[styles.row, { borderBottomWidth: iva.sin_tax > 0 ? 1 : 0 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>IVA pendiente de validar</Text>
+                      <Text style={styles.rowMeta}>Envía a validar SAT para acreditar</Text>
+                    </View>
+                    <Text style={[styles.rowAmt, { color: BRAND.orange }]}>{money(iva.iva_total - iva.iva_acreditable)}</Text>
+                  </View>
+                )}
+                {iva.sin_tax > 0 && (
+                  <Text style={[styles.emptyText, { paddingVertical: 8 }]}>
+                    ℹ️ {iva.sin_tax} CFDI{iva.sin_tax !== 1 ? 's' : ''} sin desglose de IVA — solicita el XML al proveedor.
+                  </Text>
+                )}
+              </>
+            )
+        }
+      </Section>
+
+      {/* ── 12. Alertas de revisión ── */}
+      <Section
+        title="⚠️ Alertas de revisión"
+        subtitle="Gastos en fin de semana, montos redondos o inusuales"
+        color={BRAND.red}
+        open={open === 'anomalias'}
+        loading={loading.anomalias}
+        onToggle={() => toggle('anomalias', loadAnomalias)}
+      >
+        {anomalias.length === 0
+          ? <Empty text="Sin alertas en el período. ¡Todo parece normal!" />
+          : (
+              <>
+                <Text style={[styles.rowMeta, { marginBottom: 8 }]}>
+                  {anomalias.length} alerta{anomalias.length !== 1 ? 's' : ''} detectada{anomalias.length !== 1 ? 's' : ''}
+                </Text>
+                {anomalias.map(a => (
+                  <View key={a.id} style={styles.row}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <View style={[styles.badge, { backgroundColor: BRAND.red + '15' }]}>
+                          <Text style={[styles.badgeText, { color: BRAND.red }]}>{a.tipo}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.rowTitle}>{a.provider ?? '(sin proveedor)'}</Text>
+                      <Text style={styles.rowMeta}>{a.date} · {a.note}</Text>
+                    </View>
+                    <Text style={[styles.rowAmt, { color: BRAND.red }]}>{money(a.amount)}</Text>
+                  </View>
+                ))}
+              </>
+            )
         }
       </Section>
 

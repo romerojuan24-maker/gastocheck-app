@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 const REPORT_ROLES    = ['owner', 'admin', 'supervisor'];
 const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];
 const DEPOSIT_ROLES   = ['owner', 'admin', 'supervisor'];
+const BUDGET_ROLES    = ['owner', 'admin', 'supervisor'];
 const ROUTE_ADMIN_ROLES = ['owner', 'admin', 'supervisor'];
 const ROUTE_FIELD_ROLES = ['spender', 'operator'];
 
@@ -49,11 +50,12 @@ export default function HerramientasScreen() {
     })();
   }, []);
 
-  const canSeeReports   = userRole && REPORT_ROLES.includes(userRole);
-  const canSeeExtended  = userRole && EXTENDED_ROLES.includes(userRole);
-  const canSeeDeposits    = userRole && DEPOSIT_ROLES.includes(userRole);
-  const canSeeRouteAdmin  = userRole && ROUTE_ADMIN_ROLES.includes(userRole);
-  const canSeeRouteField  = userRole && ROUTE_FIELD_ROLES.includes(userRole);
+  const canSeeReports    = userRole && REPORT_ROLES.includes(userRole);
+  const canSeeExtended   = userRole && EXTENDED_ROLES.includes(userRole);
+  const canSeeDeposits   = userRole && DEPOSIT_ROLES.includes(userRole);
+  const canSeeRouteAdmin = userRole && ROUTE_ADMIN_ROLES.includes(userRole);
+  const canSeeRouteField = userRole && ROUTE_FIELD_ROLES.includes(userRole);
+  const canSeeBudget     = userRole && BUDGET_ROLES.includes(userRole);
 
   return (
     <ScrollView
@@ -124,6 +126,17 @@ export default function HerramientasScreen() {
           hint="Anticipos y depósitos recibidos de tu empresa"
           accent={BRAND.green}
           onPress={() => router.push('/mis-depositos' as any)}
+        />
+      )}
+
+      {/* ── Presupuestos (admin/supervisor) ── */}
+      {canSeeBudget && (
+        <ToolBtn
+          icon="🎯"
+          title="Presupuestos mensuales"
+          hint="Define límites de gasto por empleado y monitorea el avance"
+          accent={BRAND.blue}
+          onPress={() => router.push('/presupuesto' as any)}
         />
       )}
 

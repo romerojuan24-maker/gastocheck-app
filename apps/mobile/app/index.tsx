@@ -25,6 +25,7 @@ export default function Home() {
   const [expenses,     setExpenses]     = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingTotal, setPendingTotal] = useState(0);
+  const [overdueAdv,   setOverdueAdv]  = useState(0);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -40,11 +41,23 @@ export default function Home() {
 
       const { data: member } = await supabase
         .from('company_members')
-        .select('role')
+        .select('role, company_id')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .maybeSingle();
       if (member?.role) setUserRole(member.role);
+
+      if (member?.company_id && ADMIN_ROLES.includes(member.role)) {
+        const tenDaysAgo = new Date();
+        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+        const { count: oc } = await supabase
+          .from('policies')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', member.company_id)
+          .eq('status', 'open')
+          .lt('created_at', tenDaysAgo.toISOString());
+        setOverdueAdv(oc ?? 0);
+      }
 
       const { data: policies } = await supabase
         .from('policies')
@@ -129,6 +142,24 @@ export default function Home() {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <TrialBanner onUpgrade={() => router.push('/settings')} />
+
+        {/* ── Alerta admin: anticipos vencidos ── */}
+        {isAdmin && overdueAdv > 0 && (
+          <TouchableOpacity
+            style={styles.overdueCard}
+            onPress={() => router.push('/herramientas' as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.overdueIcon}>⚠️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.overdueTitle}>
+                {overdueAdv} anticipo{overdueAdv !== 1 ? 's' : ''} sin comprobar ({'>'}10 días)
+              </Text>
+              <Text style={styles.overdueHint}>Ver en Reportes → Anticipos sin comprobar</Text>
+            </View>
+            <Text style={{ color: BRAND.red, fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Saldo de anticipo ── */}
         {balance ? (
@@ -289,6 +320,15 @@ const styles = StyleSheet.create({
   },
   pendingCardTitle: { fontSize: 14, fontWeight: '700', color: BRAND.orange },
   pendingCardHint:  { fontSize: 12, color: '#90A4AE', marginTop: 3 },
+
+  overdueCard: {
+    backgroundColor: BRAND.red + '12', borderRadius: 14, padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: BRAND.red + '40',
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  overdueIcon:  { fontSize: 22 },
+  overdueTitle: { fontSize: 14, fontWeight: '700', color: BRAND.red },
+  overdueHint:  { fontSize: 12, color: '#90A4AE', marginTop: 2 },
 
   menuBtn: {
     borderRadius: 16, padding: 16, marginTop: 10,
