@@ -124,13 +124,14 @@ export default function BatchesScreen() {
       return;
     }
     setSaving(true);
+    const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('receipt_batches')
       .insert({
         company_id,
         name:         formName.trim(),
         status:       'open',
-        period_start: formPeriodStart || null,
+        period_start: formPeriodStart || today,
         period_end:   formPeriodEnd   || null,
         notes:        formNotes       || null,
       })
