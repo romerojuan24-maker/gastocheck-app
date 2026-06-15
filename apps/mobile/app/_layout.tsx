@@ -110,8 +110,9 @@ export default function Layout() {
       <Stack.Screen name="events"          options={{ title: 'Eventos' }} />
       <Stack.Screen name="event-detail"    options={{ title: 'Detalle del Evento' }} />
       <Stack.Screen name="administracion"  options={{ title: 'Administración' }} />
-      <Stack.Screen name="herramientas"    options={{ title: 'Herramientas' }} />
-      <Stack.Screen name="reportes"        options={{ title: 'Reportes' }} />
+      <Stack.Screen name="herramientas"      options={{ title: 'Herramientas' }} />
+      <Stack.Screen name="reportes"          options={{ title: 'Reportes' }} />
+      <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
     </Stack>
   );
 }

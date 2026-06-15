@@ -5,12 +5,13 @@ import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
-const REPORT_ROLES    = ['owner', 'admin', 'supervisor'];
-const EXTENDED_ROLES  = ['owner', 'admin', 'supervisor'];
-const DEPOSIT_ROLES   = ['owner', 'admin', 'supervisor'];
-const BUDGET_ROLES    = ['owner', 'admin', 'supervisor'];
+const REPORT_ROLES      = ['owner', 'admin', 'supervisor'];
+const EXTENDED_ROLES    = ['owner', 'admin', 'supervisor'];
+const DEPOSIT_ROLES     = ['owner', 'admin', 'supervisor'];
+const BUDGET_ROLES      = ['owner', 'admin', 'supervisor'];
 const ROUTE_ADMIN_ROLES = ['owner', 'admin', 'supervisor'];
 const ROUTE_FIELD_ROLES = ['spender', 'operator'];
+const ACCOUNTING_ROLES  = ['owner', 'admin', 'supervisor'];
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;
@@ -50,12 +51,13 @@ export default function HerramientasScreen() {
     })();
   }, []);
 
-  const canSeeReports    = userRole && REPORT_ROLES.includes(userRole);
-  const canSeeExtended   = userRole && EXTENDED_ROLES.includes(userRole);
-  const canSeeDeposits   = userRole && DEPOSIT_ROLES.includes(userRole);
-  const canSeeRouteAdmin = userRole && ROUTE_ADMIN_ROLES.includes(userRole);
-  const canSeeRouteField = userRole && ROUTE_FIELD_ROLES.includes(userRole);
-  const canSeeBudget     = userRole && BUDGET_ROLES.includes(userRole);
+  const canSeeReports     = userRole && REPORT_ROLES.includes(userRole);
+  const canSeeExtended    = userRole && EXTENDED_ROLES.includes(userRole);
+  const canSeeDeposits    = userRole && DEPOSIT_ROLES.includes(userRole);
+  const canSeeRouteAdmin  = userRole && ROUTE_ADMIN_ROLES.includes(userRole);
+  const canSeeRouteField  = userRole && ROUTE_FIELD_ROLES.includes(userRole);
+  const canSeeBudget      = userRole && BUDGET_ROLES.includes(userRole);
+  const canSeeAccounting  = userRole && ACCOUNTING_ROLES.includes(userRole);
 
   return (
     <ScrollView
@@ -158,6 +160,27 @@ export default function HerramientasScreen() {
           accent="#00838F"
           onPress={() => router.push('/mi-ruta' as any)}
         />
+      )}
+
+      {/* ── Contabilidad (supervisor / admin / dueño) ── */}
+      {canSeeAccounting && (
+        <>
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Contabilidad</Text>
+          <ToolBtn
+            icon="📒"
+            title="Catálogo de cuentas"
+            hint="Importa tu catálogo TXT/CSV y asigna cuentas a cada gasto"
+            accent={BRAND.navy}
+            onPress={() => router.push('/catalogo-cuentas' as any)}
+          />
+          <ToolBtn
+            icon="📤"
+            title="Exportar a sistema contable"
+            hint="Genera pólizas para CONTPAQi, Aspel COI, Microsip o Excel"
+            accent={BRAND.navy}
+            onPress={() => router.push('/batches' as any)}
+          />
+        </>
       )}
 
       {/* ── Configuración (todos los roles) ── */}

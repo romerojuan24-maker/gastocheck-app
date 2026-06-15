@@ -98,6 +98,26 @@ async function queryPurchaseItems(
   return (data ?? []) as any[];
 }
 
+// Mapa receipt_id → accounting_account_code (via expenses)
+async function queryAccountCodes(
+  supabase: ReturnType<typeof createClient>,
+  receiptIds: string[],
+): Promise<Record<string, string>> {
+  if (receiptIds.length === 0) return {};
+  const { data } = await supabase
+    .from('expenses')
+    .select('receipt_id, accounting_account_code')
+    .in('receipt_id', receiptIds)
+    .not('accounting_account_code', 'is', null);
+  const map: Record<string, string> = {};
+  for (const row of (data ?? []) as any[]) {
+    if (row.receipt_id && row.accounting_account_code) {
+      map[row.receipt_id] = row.accounting_account_code;
+    }
+  }
+  return map;
+}
+
 // ── Builders ───────────────────────────────────────────────────────────────────
 
 function buildResumenSheet(receipts: any[], periodLabel: string): any[][] {
@@ -255,47 +275,57 @@ function buildCsvGeneric(receipts: any[]): string {
   return rows.map(csvRow).join('\r\n');
 }
 
-function buildContpaqiCsv(receipts: any[]): string {
-  const header = csvRow([
-    'Tipo', 'Folio', 'Fecha', 'Concepto', 'RFC', 'Cuenta', 'Debe', 'Haber', 'Referencia',
-  ]);
-  const lines: string[] = [header];
+// Cuenta contable del gasto (real del catálogo) o fallback genérico
+function getGastoAccount(r: any, accountCodes: Record<string, string>): string {
+  return accountCodes[r.id] ?? r._account_code ?? '600-001';
+}
+
+function buildContpaqiCsv(receipts: any[], accountCodes: Record<string, string>): string {
+  // Formato CONTPAQi: póliza de diario para importar
+  // Encabezado de póliza: E|Tipo|Fecha|Numero|Concepto
+  // Movimiento:           D|Cuenta|ConceptoMov|Debe|Haber|FechaMov|Referencia
+  const lines: string[] = [];
   let folio = 1;
   for (const r of receipts) {
-    const f    = String(folio++).padStart(6, '0');
+    const f     = String(folio++).padStart(6, '0');
     const fecha = fmtDate(r.receipt_date);
-    const rfc   = r.provider_rfc ?? '';
-    const uuid  = r.fiscal_uuid  ?? '';
+    const rfc   = r.provider_rfc  ?? '';
+    const uuid  = r.fiscal_uuid   ?? '';
     const prov  = r.provider_name ?? '';
     const sub   = fmt(r.subtotal_amount ?? r.total_amount ?? 0);
     const iva   = fmt(r.tax_amount ?? 0);
     const tot   = fmt(r.total_amount ?? 0);
-    // Cargo a gastos
-    lines.push(csvRow(['D', f, fecha, `Compra ${prov}`, rfc, '6000', sub, '0.00', uuid]));
-    // IVA acreditable (si existe)
+    const cuentaGasto = getGastoAccount(r, accountCodes);
+    // Encabezado de póliza
+    lines.push(`E|E|${fecha}|${f}|COMPRA ${prov}`);
+    // Cargo a cuenta de gastos
+    lines.push(`D|${cuentaGasto}|Compra ${prov}|${sub}|0.00|${fecha}|${uuid}`);
+    // IVA acreditable
     if (parseFloat(iva) > 0) {
-      lines.push(csvRow(['D', f, fecha, 'IVA Acreditable', rfc, '1180', iva, '0.00', uuid]));
+      lines.push(`D|118-001|IVA Acreditable|${iva}|0.00|${fecha}|${uuid}`);
     }
-    // Abono a bancos/proveedores
-    lines.push(csvRow(['D', f, fecha, `Pago ${prov}`, rfc, '2000', '0.00', tot, uuid]));
+    // Abono a bancos / cuentas por pagar
+    lines.push(`D|200-001|Pago ${prov}|0.00|${tot}|${fecha}|${uuid}`);
   }
   return lines.join('\r\n');
 }
 
-function buildAspelCsv(receipts: any[]): string {
+function buildAspelCsv(receipts: any[], accountCodes: Record<string, string>): string {
+  // Formato Aspel COI: importación de pólizas
   const header = csvRow(['NUMERO', 'FECHA', 'CONCEPTO', 'CUENTA', 'CARGO', 'ABONO', 'RFC_TERCERO', 'DOCTO']);
   const lines: string[] = [header];
   let num = 1;
   for (const r of receipts) {
     const n     = String(num++).padStart(6, '0');
     const fecha = fmtDate(r.receipt_date);
-    const rfc   = r.provider_rfc ?? '';
-    const uuid  = r.fiscal_uuid  ?? '';
+    const rfc   = r.provider_rfc  ?? '';
+    const uuid  = r.fiscal_uuid   ?? '';
     const prov  = r.provider_name ?? '';
     const sub   = fmt(r.subtotal_amount ?? r.total_amount ?? 0);
     const iva   = fmt(r.tax_amount ?? 0);
     const tot   = fmt(r.total_amount ?? 0);
-    lines.push(csvRow([n, fecha, `COMPRA ${prov}`, '600-001', sub, '', rfc, uuid]));
+    const cuentaGasto = getGastoAccount(r, accountCodes);
+    lines.push(csvRow([n, fecha, `COMPRA ${prov}`, cuentaGasto, sub, '', rfc, uuid]));
     if (parseFloat(iva) > 0) {
       lines.push(csvRow([n, fecha, 'IVA ACREDITABLE', '118-001', iva, '', rfc, uuid]));
     }
@@ -304,20 +334,21 @@ function buildAspelCsv(receipts: any[]): string {
   return lines.join('\r\n');
 }
 
-function buildMicrosipTxt(receipts: any[]): string {
-  // Microsip: delimitado por | con campos fijos
+function buildMicrosipTxt(receipts: any[], accountCodes: Record<string, string>): string {
+  // Microsip Contabilidad: delimitado por | sin espacios
   const lines = ['TIPO|POLIZA|FECHA|CONCEPTO|CUENTA|CARGO|ABONO|RFC|UUID'];
   let pol = 1;
   for (const r of receipts) {
     const p     = String(pol++).padStart(6, '0');
     const fecha = fmtDate(r.receipt_date).replace(/-/g, '');
-    const rfc   = r.provider_rfc ?? '';
-    const uuid  = r.fiscal_uuid  ?? '';
+    const rfc   = r.provider_rfc  ?? '';
+    const uuid  = r.fiscal_uuid   ?? '';
     const prov  = r.provider_name ?? '';
     const sub   = fmt(r.subtotal_amount ?? r.total_amount ?? 0);
     const iva   = fmt(r.tax_amount ?? 0);
     const tot   = fmt(r.total_amount ?? 0);
-    lines.push(`D|${p}|${fecha}|COMPRA ${prov}|600001|${sub}|0.00|${rfc}|${uuid}`);
+    const cuentaGasto = getGastoAccount(r, accountCodes).replace(/-/g, '');
+    lines.push(`D|${p}|${fecha}|COMPRA ${prov}|${cuentaGasto}|${sub}|0.00|${rfc}|${uuid}`);
     if (parseFloat(iva) > 0) {
       lines.push(`D|${p}|${fecha}|IVA ACREDITABLE|118001|${iva}|0.00|${rfc}|${uuid}`);
     }
@@ -361,9 +392,14 @@ serve(async (req) => {
     // ── Cargar datos ──────────────────────────────────────────────────────────
     const receipts = await queryReceipts(supabase, company_id, batch_id, date_from, date_to);
 
-    const items = (include_items && receipts.length > 0)
-      ? await queryPurchaseItems(supabase, receipts.map((r: any) => r.id))
-      : [];
+    const receiptIds = receipts.map((r: any) => r.id);
+
+    const [items, accountCodes] = await Promise.all([
+      include_items && receipts.length > 0
+        ? queryPurchaseItems(supabase, receiptIds)
+        : Promise.resolve([]),
+      queryAccountCodes(supabase, receiptIds),
+    ]);
 
     if (receipts.length === 0) {
       return Response.json({ ok: false, error: 'Sin comprobantes para el período/relación indicado' },
@@ -376,6 +412,9 @@ serve(async (req) => {
     const periodLabel = batch_id
       ? `Relación ${batch_id.slice(0, 8)}`
       : `${fmtDate(periodStart)} — ${fmtDate(periodEnd)}`;
+
+    // Porcentaje de comprobantes con cuenta contable asignada (para info del usuario)
+    const withAccount = receipts.filter((r: any) => accountCodes[r.id]).length;
 
     // ── Generar archivo ───────────────────────────────────────────────────────
     const ts       = new Date().toISOString().slice(0, 10);
@@ -400,17 +439,17 @@ serve(async (req) => {
       mime      = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
     } else if (format === 'contpaqi') {
-      content  = buildContpaqiCsv(receipts);
-      filename = `contpaqi_poliza_${ts}.csv`;
-      mime     = 'text/csv';
+      content  = buildContpaqiCsv(receipts, accountCodes);
+      filename = `contpaqi_poliza_${ts}.txt`;
+      mime     = 'text/plain';
 
     } else if (format === 'aspel_coi') {
-      content  = buildAspelCsv(receipts);
+      content  = buildAspelCsv(receipts, accountCodes);
       filename = `aspel_coi_${ts}.csv`;
       mime     = 'text/csv';
 
     } else if (format === 'microsip') {
-      content  = buildMicrosipTxt(receipts);
+      content  = buildMicrosipTxt(receipts, accountCodes);
       filename = `microsip_${ts}.txt`;
       mime     = 'text/plain';
 
@@ -422,13 +461,17 @@ serve(async (req) => {
     }
 
     return Response.json({
-      ok:        true,
+      ok:           true,
       filename,
       mime,
       content,
       encoding,
-      row_count: receipts.length,
-      period:    periodLabel,
+      row_count:    receipts.length,
+      period:       periodLabel,
+      with_account: withAccount,
+      pct_account:  receipts.length > 0
+        ? Math.round((withAccount / receipts.length) * 100)
+        : 0,
     }, { headers: CORS });
 
   } catch (err: any) {

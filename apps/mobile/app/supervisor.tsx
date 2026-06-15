@@ -1,5 +1,5 @@
 // Panel de supervisor: ver gastos pendientes, crear anticipos, crear pólizas, revisar solicitudes
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
@@ -9,14 +9,23 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 
 interface PendingExpense {
-  id:            string;
-  provider_name: string | null;
-  total:         number;
-  expense_date:  string;
-  status:        string;
-  spender_id:    string;
-  spender_email?: string;
-  policy_name?:  string;
+  id:                      string;
+  provider_name:           string | null;
+  total:                   number;
+  expense_date:            string;
+  status:                  string;
+  spender_id:              string;
+  spender_email?:          string;
+  policy_name?:            string;
+  accounting_account_id?:  string | null;
+  accounting_account_code?: string | null;
+}
+
+interface AccountingAccount {
+  id:           string;
+  code:         string;
+  name:         string;
+  account_type: string | null;
 }
 
 interface Employee {
@@ -75,6 +84,20 @@ export default function SupervisorScreen() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectSaving, setRejectSaving] = useState(false);
 
+  // Catálogo contable + asignación
+  const [accounts,         setAccounts]         = useState<AccountingAccount[]>([]);
+  const [assigningExpense, setAssigningExpense] = useState<PendingExpense | null>(null);
+  const [accountSearch,    setAccountSearch]    = useState('');
+  const [savingAccount,    setSavingAccount]    = useState(false);
+
+  const filteredAccounts = useMemo(() => {
+    if (!accountSearch.trim()) return accounts.slice(0, 30);
+    const q = accountSearch.trim().toLowerCase();
+    return accounts.filter(a =>
+      a.code.toLowerCase().startsWith(q) || a.name.toLowerCase().includes(q)
+    ).slice(0, 30);
+  }, [accounts, accountSearch]);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = useCallback(async () => {
@@ -96,10 +119,10 @@ export default function SupervisorScreen() {
 
       setCompanyId(member.company_id);
 
-      const [expRes, empRes, polRes, reqRes] = await Promise.all([
+      const [expRes, empRes, polRes, reqRes, acctRes] = await Promise.all([
         supabase
           .from('expenses')
-          .select('id, provider_name, total, expense_date, status, spender_id, policy_id')
+          .select('id, provider_name, total, expense_date, status, spender_id, policy_id, accounting_account_id, accounting_account_code')
           .eq('company_id', member.company_id)
           .in('status', ['captured', 'submitted', 'pending_auth'])
           .order('created_at', { ascending: false })
@@ -122,9 +145,17 @@ export default function SupervisorScreen() {
           .eq('company_id', member.company_id)
           .order('created_at', { ascending: false })
           .limit(50),
+
+        supabase
+          .from('accounting_accounts')
+          .select('id, code, name, account_type')
+          .eq('company_id', member.company_id)
+          .eq('active', true)
+          .order('code', { ascending: true }),
       ]);
 
       setExpenses((expRes.data ?? []) as PendingExpense[]);
+      setAccounts((acctRes.data ?? []) as AccountingAccount[]);
       setEmployees((empRes.data ?? []).map((e: any) => ({
         user_id:   e.user_id,
         role:      e.role,
@@ -257,6 +288,26 @@ export default function SupervisorScreen() {
     }
   }
 
+  async function assignAccount(expense: PendingExpense, account: AccountingAccount) {
+    setSavingAccount(true);
+    const { error } = await supabase
+      .from('expenses')
+      .update({
+        accounting_account_id:   account.id,
+        accounting_account_code: account.code,
+      })
+      .eq('id', expense.id);
+    setSavingAccount(false);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setExpenses(prev => prev.map(e =>
+      e.id === expense.id
+        ? { ...e, accounting_account_id: account.id, accounting_account_code: account.code }
+        : e
+    ));
+    setAssigningExpense(null);
+    setAccountSearch('');
+  }
+
   async function handleRejectRequest() {
     if (!rejectReqId || !rejectReason.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -358,6 +409,16 @@ export default function SupervisorScreen() {
                   </Text>
                 </View>
               </View>
+              {/* Cuenta contable */}
+              <TouchableOpacity
+                style={styles.acctRow}
+                onPress={() => { setAssigningExpense(e); setAccountSearch(''); }}
+              >
+                <Text style={styles.acctLabel}>Cuenta contable: </Text>
+                <Text style={[styles.acctValue, !e.accounting_account_code && styles.acctNone]}>
+                  {e.accounting_account_code ?? 'Sin asignar →'}
+                </Text>
+              </TouchableOpacity>
               <View style={styles.actions}>
                 <TouchableOpacity style={styles.approveBtn} onPress={() => approveExpense(e.id)}>
                   <Text style={styles.approveTxt}>✓ Aprobar</Text>
@@ -572,6 +633,73 @@ export default function SupervisorScreen() {
         </Modal>
       )}
 
+      {/* ── Modal asignar cuenta contable ── */}
+      {assigningExpense && (
+        <Modal visible animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.bottomSheet, { maxHeight: '80%' }]}>
+              <Text style={styles.sheetTitle}>Cuenta contable</Text>
+              <Text style={[styles.sheetReason, { marginBottom: 12 }]} numberOfLines={1}>
+                {assigningExpense.provider_name ?? '(sin proveedor)'}
+                {' — '}{money(assigningExpense.total)}
+              </Text>
+
+              {/* Buscador autocomplete */}
+              <TextInput
+                style={[styles.input, { marginBottom: 8 }]}
+                placeholder="Escribe el código (ej: 605) o nombre…"
+                placeholderTextColor="#B0BEC5"
+                value={accountSearch}
+                onChangeText={setAccountSearch}
+                autoFocus
+                autoCapitalize="none"
+                keyboardType="default"
+              />
+
+              {accounts.length === 0 ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: '#90A4AE', fontSize: 13, textAlign: 'center' }}>
+                    Sin cuentas cargadas.{'\n'}Ve a Herramientas → Catálogo contable para importar tu catálogo.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredAccounts}
+                  keyExtractor={a => a.id}
+                  style={{ maxHeight: 260 }}
+                  keyboardShouldPersistTaps="handled"
+                  ListEmptyComponent={
+                    <Text style={{ color: '#90A4AE', fontSize: 13, textAlign: 'center', padding: 16 }}>
+                      Sin cuentas para "{accountSearch}"
+                    </Text>
+                  }
+                  renderItem={({ item: a }) => (
+                    <TouchableOpacity
+                      style={styles.acctOption}
+                      onPress={() => assignAccount(assigningExpense, a)}
+                      disabled={savingAccount}
+                    >
+                      <Text style={styles.acctOptionCode}>{a.code}</Text>
+                      <Text style={styles.acctOptionName} numberOfLines={1}>{a.name}</Text>
+                      {assigningExpense.accounting_account_id === a.id && (
+                        <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+
+              <TouchableOpacity
+                style={[styles.rejectBtn, { marginTop: 12 }]}
+                onPress={() => { setAssigningExpense(null); setAccountSearch(''); }}
+              >
+                <Text style={styles.rejectTxt}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* Modal crear póliza */}
       <Modal visible={showPolicy} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPolicy(false)}>
         <View style={styles.modalWrap}>
@@ -694,4 +822,12 @@ const styles = StyleSheet.create({
   input:          { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy },
   polChip:        { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#E0E0E0', marginRight: 8 },
   polChipText:    { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
+  // Cuenta contable
+  acctRow:        { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 2, paddingVertical: 5, paddingHorizontal: 8, backgroundColor: '#F8F9FA', borderRadius: 8 },
+  acctLabel:      { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase' },
+  acctValue:      { fontSize: 12, fontWeight: '700', color: BRAND.navy, flex: 1 },
+  acctNone:       { color: BRAND.blue },
+  acctOption:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', gap: 10 },
+  acctOptionCode: { fontSize: 13, fontWeight: '800', color: BRAND.navy, width: 70, fontVariant: ['tabular-nums'] },
+  acctOptionName: { flex: 1, fontSize: 13, color: '#546E7A' },
 });
