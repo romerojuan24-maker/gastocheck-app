@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 
 interface ReceiptRow {
   id:                    string;
+  company_id:            string;
   gc_folio:              string | null;
   provider_name:         string | null;
   total_amount:          number | null;
@@ -71,8 +72,27 @@ export default function ReceiptsScreen() {
 
   function handleStartReembolso() {
     if (selectedIds.size === 0) return;
+
+    // Validar que todos los recibos seleccionados sean de la misma empresa
+    const selectedReceipts = receipts.filter(r => selectedIds.has(r.id));
+    const companies = new Set(selectedReceipts.map(r => r.company_id));
+
+    if (companies.size > 1) {
+      Alert.alert(
+        'Empresas mezcladas',
+        'No puedes crear un reembolso con comprobantes de diferentes empresas. Por favor selecciona comprobantes de una sola empresa.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
     const ids = Array.from(selectedIds).join(',');
-    router.push({ pathname: '/reembolso', params: { ids } } as any);
+    const company_id = Array.from(companies)[0]; // Primera (y única) empresa
+
+    router.push({
+      pathname: '/reembolso',
+      params: { ids, company_id }
+    } as any);
     setSelectMode(false);
     setSelectedIds(new Set());
   }
@@ -127,7 +147,7 @@ export default function ReceiptsScreen() {
       let query = supabase
         .from('receipts')
         .select(
-          'id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
+          'id, company_id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
           'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at',
         );
 

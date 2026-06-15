@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, Alert,
+  TextInput, ActivityIndicator, Alert, Modal, FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -24,20 +24,54 @@ interface ReceiptItem {
   tax_amount:            number | null;
   discount_amount:       number | null;
   status:                string;
+  company_id:            string;
 }
 
 export default function ReembolsoScreen() {
   const router              = useRouter();
-  const { ids }             = useLocalSearchParams<{ ids: string }>();
+  const { ids, company_id } = useLocalSearchParams<{ ids: string; company_id?: string }>();
   const receiptIds          = (ids ?? '').split(',').filter(s => s !== '' && s !== 'undefined');
+  const mainCompanyId       = company_id;
 
   const [receipts,   setReceipts]   = useState<ReceiptItem[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [nombre,     setNombre]     = useState('');
   const [notes,      setNotes]      = useState('');
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [selectedCompanyForNoDeducibles, setSelectedCompanyForNoDeducibles] = useState<string | null>(null);
+  const [userCompanies, setUserCompanies] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => { loadReceipts(); }, []);
+  useEffect(() => {
+    loadReceipts();
+    loadUserCompanies();
+  }, []);
+
+  async function loadUserCompanies() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('company_members')
+        .select('company_id, companies(id, name)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      const companies = (data ?? []).map((cm: any) => ({
+        id: cm.company_id,
+        name: cm.companies?.name ?? cm.company_id,
+      }));
+      setUserCompanies(companies);
+
+      // Si hay no-deducibles, mostrar modal solo si hay múltiples empresas
+      if (receipts.some(r => !r.fiscal_uuid) && companies.length > 1) {
+        setShowCompanyModal(true);
+      }
+    } catch (err) {
+      console.error('Error loading user companies:', err);
+    }
+  }
 
   async function loadReceipts() {
     if (receiptIds.length === 0) { setLoading(false); return; }
@@ -46,7 +80,7 @@ export default function ReembolsoScreen() {
       const { data, error } = await supabase
         .from('receipts')
         .select(
-          'id, gc_folio, provider_name, total_amount, receipt_date, ' +
+          'id, company_id, gc_folio, provider_name, total_amount, receipt_date, ' +
           'fiscal_uuid, sat_validation_status, subtotal_amount, tax_amount, ' +
           'discount_amount, status',
         )
@@ -79,6 +113,12 @@ export default function ReembolsoScreen() {
     }
     if (receipts.length === 0) {
       Alert.alert('Sin comprobantes', 'No hay comprobantes para reembolsar.');
+      return;
+    }
+
+    // Si hay no-deducibles y múltiples empresas, exigir selección
+    if (noDeducible.length > 0 && userCompanies.length > 1 && !selectedCompanyForNoDeducibles) {
+      setShowCompanyModal(true);
       return;
     }
 
@@ -269,6 +309,66 @@ export default function ReembolsoScreen() {
       <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
         <Text style={styles.cancelBtnText}>Cancelar</Text>
       </TouchableOpacity>
+
+      {/* Modal: seleccionar empresa para no-deducibles */}
+      <Modal visible={showCompanyModal} transparent animationType="slide"
+        onRequestClose={() => setShowCompanyModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              Asignar empresa para no-deducibles
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Tienes {noDeducible.length} comprobante{noDeducible.length !== 1 ? 's' : ''} sin CFDI.
+              ¿A qué empresa los asignas?
+            </Text>
+
+            <FlatList
+              data={userCompanies}
+              keyExtractor={c => c.id}
+              scrollEnabled={false}
+              renderItem={({ item: company }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.companyOption,
+                    selectedCompanyForNoDeducibles === company.id && styles.companyOptionSelected,
+                  ]}
+                  onPress={() => setSelectedCompanyForNoDeducibles(company.id)}>
+                  <Text style={[
+                    styles.companyOptionText,
+                    selectedCompanyForNoDeducibles === company.id && styles.companyOptionTextSelected,
+                  ]}>
+                    {company.name}
+                  </Text>
+                  {selectedCompanyForNoDeducibles === company.id && (
+                    <Text style={{ fontSize: 18 }}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowCompanyModal(false)}>
+                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirmBtn,
+                  !selectedCompanyForNoDeducibles && { opacity: 0.5 }
+                ]}
+                disabled={!selectedCompanyForNoDeducibles}
+                onPress={() => {
+                  setShowCompanyModal(false);
+                  handleSubmit();
+                }}>
+                <Text style={styles.modalConfirmBtnText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -351,4 +451,25 @@ const styles = StyleSheet.create({
 
   cancelBtn:     { alignItems: 'center', padding: 16 },
   cancelBtnText: { color: '#90A4AE', fontSize: 14 },
+
+  // Modal
+  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalCard:      { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  modalTitle:     { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  modalSubtitle:  { fontSize: 13, color: '#90A4AE', marginBottom: 16, lineHeight: 18 },
+
+  companyOption:  {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#F5F5F5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  companyOptionSelected: { backgroundColor: BRAND.blue + '18', borderColor: BRAND.blue },
+  companyOptionText:     { fontSize: 14, color: BRAND.navy, fontWeight: '600' },
+  companyOptionTextSelected: { color: BRAND.blue, fontWeight: '700' },
+
+  modalActions:      { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalCancelBtn:    { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  modalCancelBtnText:{ color: '#90A4AE', fontWeight: '700', fontSize: 15 },
+  modalConfirmBtn:   { flex: 1, backgroundColor: BRAND.blue, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  modalConfirmBtnText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
 });
