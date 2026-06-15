@@ -182,8 +182,8 @@ const styles = StyleSheet.create({
   chipTextActive:   { color: '#fff' },
 
   // Calendario grilla
-  weekdayHeaderRow: { flexDirection: 'row', marginBottom: 8, marginTop: 2 },
-  weekdayHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 6 },
+  weekdayHeaderRow: { flexDirection: 'row', gap: 4, marginBottom: 8, marginTop: 2 },
+  weekdayHeaderCell: { width: '14.285%', alignItems: 'center', paddingVertical: 6 },
   weekdayHeaderText: { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase' },
 
   calendarGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
