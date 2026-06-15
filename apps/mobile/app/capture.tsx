@@ -172,49 +172,6 @@ export default function CaptureScreen() {
     router.push('/camera-screen' as any);
   }
 
-    if (asset.base64) {
-      const { data: result, error: ocrErr } = await extractFromImage(asset.base64, 'image/jpeg');
-      if (result) {
-        setExtracted(result);
-        const prov = result.providerName ?? '';
-        setProveedor(prov);
-        setRfc(         result.providerRfc     ?? '');
-        setTotal(       String(result.total    ?? ''));
-        setSubtotal(    String(result.subtotal ?? ''));
-        setIva(         String(result.tax      ?? ''));
-        setDescuento(   String(result.discount ?? ''));
-        setIeps(        String(result.ieps        ?? ''));
-        setIsh(         String(result.ish         ?? ''));
-        setRetencionIva(String(result.retencionIva ?? ''));
-        setRetencionIsr(String(result.retencionIsr ?? ''));
-        const cat = suggestCategoryFromProvider(prov);
-        setSuggestedCategory(cat);
-        const flags = categoryExtraTax(cat);
-        const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
-        setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
-        setFecha(   result.receiptDate   ?? '');
-        setFolio(   result.internalFolio ?? '');
-        if (result.paymentMethod) setPaymentMethod(result.paymentMethod);
-        setStep('confirm');
-      } else {
-        Alert.alert(
-          'OCR falló',
-          ocrErr ?? 'La IA no pudo extraer datos del ticket.',
-          [
-            { text: 'Retomar foto', style: 'cancel' },
-            {
-              text: 'Ingresar manualmente',
-              onPress: () => {
-                if (!fecha) setFecha(new Date().toISOString().slice(0, 10));
-                setStep('confirm');
-              },
-            },
-          ],
-        );
-      }
-    }
-  }
-
   // ── Elegir de galería ──────────────────────────────────────────────────────
 
   async function pickFromGallery() {
