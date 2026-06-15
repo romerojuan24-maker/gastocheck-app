@@ -106,6 +106,7 @@ export default function Layout() {
       <Stack.Screen name="supplier-detail" options={{ title: 'Historial proveedor' }} />
       <Stack.Screen name="settings"      options={{ title: 'Ajustes' }} />
       <Stack.Screen name="supervisor"    options={{ title: 'Panel de supervisor' }} />
+      <Stack.Screen name="supervisor/reembolsos"  options={{ title: 'Reembolsos Pendientes' }} />
       <Stack.Screen name="gastadores"    options={{ title: 'Mis Compradores' }} />
       <Stack.Screen name="events"          options={{ title: 'Eventos' }} />
       <Stack.Screen name="event-detail"    options={{ title: 'Detalle del Evento' }} />
