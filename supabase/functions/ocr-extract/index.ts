@@ -116,6 +116,7 @@ Reglas:
         generationConfig: {
           temperature: 0.1,
           maxOutputTokens: 8192,
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: 'application/json',
           responseSchema: {
             type: 'object',
