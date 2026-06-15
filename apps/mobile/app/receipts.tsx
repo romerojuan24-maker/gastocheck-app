@@ -27,16 +27,13 @@ interface ReceiptRow {
   created_at:            string;
 }
 
-type FilterStatus = ReceiptStatus | 'all';
+type FilterTab = 'vigentes' | 'revision' | 'rechazados' | 'historico';
 
-const STATUS_FILTERS: { key: FilterStatus; label: string }[] = [
-  { key: 'all',              label: 'Todos' },
-  { key: 'captured',         label: 'Capturado' },
-  { key: 'submitted',        label: 'En revisión' },
-  { key: 'approved',         label: 'Aprobado' },
-  { key: 'rejected',         label: 'Rechazado' },
-  { key: 'included_in_batch',label: 'En relación' },
-  { key: 'exported',         label: 'Exportado' },
+const TABS: { key: FilterTab; label: string; color: string }[] = [
+  { key: 'vigentes',   label: 'Vigentes',    color: BRAND.green },
+  { key: 'revision',   label: 'En revisión', color: BRAND.orange },
+  { key: 'rechazados', label: 'Rechazados',  color: BRAND.red },
+  { key: 'historico',  label: 'Histórico',   color: '#607D8B' },
 ];
 
 const money = (n: number) =>
@@ -50,7 +47,7 @@ export default function ReceiptsScreen() {
   const [receipts,     setReceipts]     = useState<ReceiptRow[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<FilterTab>('vigentes');
   const [page,         setPage]         = useState(0);
   const PAGE_SIZE = 20;
 
@@ -96,12 +93,23 @@ export default function ReceiptsScreen() {
           'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at',
         )
         .or(`employee_id.eq.${user.id},uploaded_by.eq.${user.id}`)
-        .neq('status', 'cancelled')
+        .not('status', 'in', '(cancelled,deleted,duplicate)')
         .order('created_at', { ascending: false })
         .range(reset ? 0 : page * PAGE_SIZE, (reset ? 0 : page) * PAGE_SIZE + PAGE_SIZE - 1);
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+      switch (statusFilter) {
+        case 'vigentes':
+          query = query.eq('status', 'captured');
+          break;
+        case 'revision':
+          query = query.eq('status', 'submitted');
+          break;
+        case 'rechazados':
+          query = query.eq('status', 'rejected');
+          break;
+        case 'historico':
+          query = query.in('status', ['approved', 'included_in_batch', 'exported']);
+          break;
       }
 
       if (search.trim().length > 0) {
@@ -250,23 +258,25 @@ export default function ReceiptsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
-      {/* Barra de acción: búsqueda o modo selección */}
-      {selectMode ? (
-        <View style={styles.selectBar}>
-          <Text style={styles.selectBarText}>
-            {selectedIds.size > 0
-              ? `${selectedIds.size} comprobante${selectedIds.size !== 1 ? 's' : ''} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
-              : 'Toca los comprobantes a incluir'}
-          </Text>
-          <TouchableOpacity onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}>
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Cancelar</Text>
+      {/* Barra de acción: solo visible en tab Vigentes */}
+      {statusFilter === 'vigentes' && (
+        selectMode ? (
+          <View style={styles.selectBar}>
+            <Text style={styles.selectBarText}>
+              {selectedIds.size > 0
+                ? `${selectedIds.size} comprobante${selectedIds.size !== 1 ? 's' : ''} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
+                : 'Toca los comprobantes a incluir'}
+            </Text>
+            <TouchableOpacity onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.reembolsoBar} onPress={() => setSelectMode(true)}>
+            <Text style={styles.reembolsoBarText}>📋 Integrar Reembolso</Text>
+            <Text style={styles.reembolsoBarHint}>Selecciona comprobantes →</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.reembolsoBar} onPress={() => setSelectMode(true)}>
-          <Text style={styles.reembolsoBarText}>📋 Integrar Reembolso</Text>
-          <Text style={styles.reembolsoBarHint}>Selecciona comprobantes →</Text>
-        </TouchableOpacity>
+        )
       )}
 
       {/* Barra de búsqueda */}
@@ -286,25 +296,28 @@ export default function ReceiptsScreen() {
         )}
       </View>
 
-      {/* Filtros de estado */}
+      {/* Tabs de estado */}
       <View style={styles.filtersRow}>
-        {STATUS_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[
-              styles.filterChip,
-              statusFilter === f.key && { backgroundColor: BRAND.blue },
-            ]}
-            onPress={() => setStatusFilter(f.key)}
-          >
-            <Text style={[
-              styles.filterText,
-              statusFilter === f.key && { color: '#fff' },
-            ]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {TABS.map((t) => {
+          const active = statusFilter === t.key;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              style={[
+                styles.filterChip,
+                active && { backgroundColor: t.color, borderColor: t.color },
+              ]}
+              onPress={() => {
+                setStatusFilter(t.key);
+                if (selectMode) { setSelectMode(false); setSelectedIds(new Set()); }
+              }}
+            >
+              <Text style={[styles.filterText, active && { color: '#fff' }]}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Lista */}
@@ -316,14 +329,26 @@ export default function ReceiptsScreen() {
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>🧾</Text>
           <Text style={styles.emptyText}>
-            {search ? `Sin comprobantes para "${search}"` : 'No hay comprobantes aún'}
+            {search
+              ? `Sin comprobantes para "${search}"`
+              : statusFilter === 'vigentes'   ? 'Sin comprobantes por reembolsar'
+              : statusFilter === 'revision'   ? 'Sin comprobantes en revisión'
+              : statusFilter === 'rechazados' ? 'Sin comprobantes rechazados'
+              : 'Sin comprobantes en histórico'}
           </Text>
-          <TouchableOpacity
-            style={styles.captureBtn}
-            onPress={() => router.push('/capture')}
-          >
-            <Text style={styles.captureBtnText}>📷 Capturar primer ticket</Text>
-          </TouchableOpacity>
+          {statusFilter === 'vigentes' && (
+            <TouchableOpacity
+              style={styles.captureBtn}
+              onPress={() => router.push('/capture')}
+            >
+              <Text style={styles.captureBtnText}>📷 Capturar ticket</Text>
+            </TouchableOpacity>
+          )}
+          {statusFilter === 'historico' && (
+            <Text style={{ fontSize: 12, color: '#B0BEC5', marginTop: 8, textAlign: 'center', paddingHorizontal: 16 }}>
+              Los comprobantes aparecen aquí cuando su póliza o reembolso es cerrado.
+            </Text>
+          )}
         </View>
       ) : (
         <FlatList

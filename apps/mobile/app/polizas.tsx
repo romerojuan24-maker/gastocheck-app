@@ -315,8 +315,21 @@ export default function PolizasScreen() {
           text: 'Cerrar',
           style: 'destructive',
           onPress: async () => {
-            await supabase.from('policies').update({ status: 'closed', closed_at: new Date().toISOString() })
+            await supabase.from('policies')
+              .update({ status: 'closed', closed_at: new Date().toISOString() })
               .eq('id', selectedPolicy.id);
+
+            // Mover comprobantes de esta póliza al histórico
+            const { data: exps } = await supabase
+              .from('expenses')
+              .select('receipt_id')
+              .eq('policy_id', selectedPolicy.id)
+              .not('receipt_id', 'is', null);
+            const rids = (exps ?? []).map((e: any) => e.receipt_id).filter(Boolean);
+            if (rids.length > 0) {
+              await supabase.from('receipts').update({ status: 'exported' }).in('id', rids);
+            }
+
             setSelectedPolicy(null);
             await loadPolicies();
           },
@@ -373,6 +386,11 @@ export default function PolizasScreen() {
               onPress={handleClosePolicy}>
               <Text style={styles.actionBtnText}>Cerrar</Text>
             </TouchableOpacity>
+          )}
+          {selectedPolicy.status === 'closed' && (
+            <View style={[styles.actionBtn, { backgroundColor: '#ECEFF1', flex: 0, paddingHorizontal: 14 }]}>
+              <Text style={{ fontSize: 12, color: '#607D8B', fontWeight: '700' }}>🔒 Póliza cerrada</Text>
+            </View>
           )}
         </View>
 
