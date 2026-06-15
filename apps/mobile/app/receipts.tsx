@@ -318,7 +318,7 @@ export default function ReceiptsScreen() {
               <Text style={styles.reembolsoBarHint}>Nuevo reembolso vacío →</Text>
             </>
           )}
-        )
+        </TouchableOpacity>
       )}
 
       {/* Barra de búsqueda */}
