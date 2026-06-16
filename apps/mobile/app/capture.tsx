@@ -141,28 +141,41 @@ export default function CaptureScreen() {
   // ── Cargar catálogo de categorías ────────────────────────────────────────
 
   async function loadCategories(companyId: string) {
-    const { data } = await supabase
-      .from('expense_categories')
-      .select('id, name, parent_id')
-      .or(`company_id.eq.${companyId},is_template.eq.true`)
-      .eq('active', true)
-      .order('display_order')
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('expense_categories')
+        .select('id, name, parent_id')
+        .eq('company_id', companyId)
+        .order('display_order')
+        .order('name');
 
-    if (!data?.length) return;
+      if (error) {
+        console.error('[loadCategories] Error:', error);
+        return;
+      }
 
-    // Construir lista plana con prefijo del padre
-    const parentMap: Record<string, string> = {};
-    data.forEach((c: any) => {
-      if (!c.parent_id) parentMap[c.id] = c.name;
-    });
-    setCategories(
-      data.map((c: any) => ({
-        id:          c.id,
-        name:        c.name,
-        parent_name: c.parent_id ? parentMap[c.parent_id] : undefined,
-      })),
-    );
+      if (!data?.length) {
+        console.warn('[loadCategories] No categories found for company', companyId);
+        setCategories([]);
+        return;
+      }
+
+      // Construir lista plana con prefijo del padre
+      const parentMap: Record<string, string> = {};
+      data.forEach((c: any) => {
+        if (!c.parent_id) parentMap[c.id] = c.name;
+      });
+      setCategories(
+        data.map((c: any) => ({
+          id:          c.id,
+          name:        c.name,
+          parent_name: c.parent_id ? parentMap[c.parent_id] : undefined,
+        })),
+      );
+    } catch (err) {
+      console.error('[loadCategories] Exception:', err);
+      setCategories([]);
+    }
   }
 
   // ── Tomar foto ─────────────────────────────────────────────────────────────

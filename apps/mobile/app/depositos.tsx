@@ -59,20 +59,50 @@ export default function DepositosScreen() {
     if (!me?.company_id) { setLoading(false); return; }
     setCompanyId(me.company_id);
 
-    const { data: members } = await supabase
+    // Cargar compradores (members con rol spender/operator)
+    const { data: members, error: memErr } = await supabase
       .from('company_members')
-      .select('user_id, profiles:user_id(full_name, phone)')
+      .select('user_id')
       .eq('company_id', me.company_id)
       .eq('status', 'active')
       .in('role', COMPRADOR_ROLES);
 
-    setCompradors(
-      (members ?? []).map((m: any) => ({
-        user_id:   m.user_id,
-        full_name: m.profiles?.full_name ?? null,
-        phone:     m.profiles?.phone ?? null,
-      })),
-    );
+    if (memErr) {
+      console.error('[depositos] Error loading members:', memErr);
+      setLoading(false);
+      return;
+    }
+
+    // Cargar perfiles para obtener nombres y teléfono
+    if (members && members.length > 0) {
+      const userIds = members.map((m: any) => m.user_id);
+      const { data: profiles, error: profErr } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .in('id', userIds);
+
+      if (profErr) {
+        console.error('[depositos] Error loading profiles:', profErr);
+        setCompradors(
+          members.map((m: any) => ({
+            user_id: m.user_id,
+            full_name: null,
+            phone: null,
+          })),
+        );
+      } else {
+        const profileMap = new Map(profiles?.map((p: any) => [p.id, p]) ?? []);
+        setCompradors(
+          members.map((m: any) => ({
+            user_id: m.user_id,
+            full_name: profileMap.get(m.user_id)?.full_name ?? null,
+            phone: profileMap.get(m.user_id)?.phone ?? null,
+          })),
+        );
+      }
+    } else {
+      setCompradors([]);
+    }
     setLoading(false);
   }
 

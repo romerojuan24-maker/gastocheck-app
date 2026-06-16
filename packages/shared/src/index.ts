@@ -24,4 +24,4 @@ export const BRAND = {
 } as const;
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 45 · v1.0.45';
+export const APP_VERSION = 'HOTFIX · v1.0.46';

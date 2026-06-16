@@ -124,26 +124,35 @@ export default function BatchesScreen() {
       return;
     }
     setSaving(true);
-    const today = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from('receipt_batches')
-      .insert({
-        company_id,
-        name:         formName.trim(),
-        status:       'open',
-        period_start: formPeriodStart || today,
-        period_end:   formPeriodEnd   || null,
-        notes:        formNotes       || null,
-      })
-      .select('id')
-      .single();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No autenticado');
 
-    setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    setShowCreate(false);
-    setFormName(''); setFormPeriodStart(''); setFormPeriodEnd(''); setFormNotes('');
-    if (data?.id) router.push(`/batch-detail?id=${data.id}`);
-    else loadBatches();
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('receipt_batches')
+        .insert({
+          company_id,
+          created_by: user.id,
+          name:       formName.trim(),
+          status:     'draft',
+          period_start: formPeriodStart || today,
+          period_end:   formPeriodEnd   || today,
+          notes:      formNotes         || null,
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      setShowCreate(false);
+      setFormName(''); setFormPeriodStart(''); setFormPeriodEnd(''); setFormNotes('');
+      if (data?.id) router.push(`/batch-detail?id=${data.id}`);
+      else loadBatches();
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'No se pudo crear la relación');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // ── Prefill nombre cuando cambia período ─────────────────────────────────
