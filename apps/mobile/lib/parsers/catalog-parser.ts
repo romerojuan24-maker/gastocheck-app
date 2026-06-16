@@ -76,9 +76,7 @@ async function parseExcel(fileUri: string): Promise<CatalogAccount[]> {
  */
 async function parseCSV(fileUri: string): Promise<CatalogAccount[]> {
   try {
-    const content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    const content = await FileSystem.readAsStringAsync(fileUri);
 
     const lines = content.split('\n').filter((l) => l.trim());
     const accounts: CatalogAccount[] = [];
@@ -112,9 +110,7 @@ async function parseCSV(fileUri: string): Promise<CatalogAccount[]> {
  */
 async function parseTXT(fileUri: string): Promise<CatalogAccount[]> {
   try {
-    const content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    const content = await FileSystem.readAsStringAsync(fileUri);
 
     const lines = content.split('\n').filter((l) => l.trim());
     const accounts: CatalogAccount[] = [];
