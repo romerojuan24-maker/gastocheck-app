@@ -136,7 +136,6 @@ export default function PolizasScreen() {
       holder_id:       user.id,
       opening_balance: parseFloat(newBalance) || 0,
       status:          'open',
-      requested_by:    user.id,
       created_by:      user.id,
     }).select('id').single();
 

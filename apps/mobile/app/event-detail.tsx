@@ -121,17 +121,20 @@ export default function EventDetailScreen() {
           .from('company_members')
           .select('user_id')
           .eq('company_id', member.company_id)
-          .in('role', ['spender', 'employee'])
+          .in('role', ['spender', 'employee', 'owner', 'admin', 'supervisor'])
           .eq('status', 'active');
-        if (mems?.length) {
-          const uids = mems.map((m: any) => m.user_id);
-          const { data: pf } = await supabase.from('profiles').select('id, full_name').in('id', uids);
-          setGastadores((pf ?? []).map((p: any) => ({ user_id: p.id, full_name: p.full_name })));
-          // Pre-seleccionar el gastador del evento si aplica
-          if (ev.gastador_id) setFSpenderId(ev.gastador_id);
+
+        const uids = mems?.length ? mems.map((m: any) => m.user_id) : [user.id];
+        const { data: pf } = await supabase.from('profiles').select('id, full_name').in('id', uids);
+        const list = (pf ?? []).map((p: any) => ({ user_id: p.id, full_name: p.full_name }));
+        // Garantizar que el usuario actual esté en la lista
+        if (!list.find((g) => g.user_id === user.id)) {
+          list.unshift({ user_id: user.id, full_name: 'Yo' });
         }
+        setGastadores(list);
+        // Pre-seleccionar: primero el del evento, luego yo mismo
+        setFSpenderId(ev.gastador_id ?? user.id);
       } else {
-        // El gastador se asigna a sí mismo
         setFSpenderId(user.id);
       }
 
@@ -409,8 +412,8 @@ export default function EventDetailScreen() {
                 ))}
               </View>
 
-              {/* Gastador (solo si owner con múltiples gastadores) */}
-              {isOwner && gastadores.length > 1 && (
+              {/* Gastador (visible para admins/supervisores) */}
+              {isOwner && gastadores.length >= 1 && (
                 <>
                   <Text style={styles.fieldLabel}>Gastador</Text>
                   <View style={styles.chipWrap}>

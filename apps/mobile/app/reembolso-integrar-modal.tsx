@@ -93,16 +93,19 @@ export default function ReembolsoIntegrarModal({
     setIntegrating(true);
     try {
       // Crear expenses para cada comprobante seleccionado
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('No autenticado');
+
       const { error } = await supabase.from('expenses').insert(
         selected.map(r => ({
-          company_id: companyId,
-          policy_id: policyId,
-          spender_id: (supabase.auth.getUser()).then(u => u.data.user?.id),
-          receipt_id: r.id,
+          company_id:   companyId,
+          policy_id:    policyId,
+          spender_id:   currentUser.id,
+          receipt_id:   r.id,
           provider_name: r.provider_name,
-          provider_rfc: r.provider_rfc,
-          total_amount: r.total_amount,
-          status: 'captured',
+          provider_rfc:  r.provider_rfc,
+          total_amount:  r.total_amount,
+          status:        'captured',
         }))
       );
 
