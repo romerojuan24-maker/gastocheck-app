@@ -1,8 +1,8 @@
 // Pantalla de suscripción — muestra planes y abre Stripe Checkout
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, Linking,
+  ActivityIndicator, Alert, Linking, AppState,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
@@ -57,12 +57,15 @@ export default function BillingScreen() {
   const [loading,      setLoading]      = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [purchasing,   setPurchasing]   = useState<PlanId | null>(null);
+  const [verifying,    setVerifying]    = useState(false);
 
-  const loadSubscription = useCallback(async () => {
-    setLoading(true);
+  // Plan que el usuario acaba de intentar pagar (para detectar activación al volver)
+  const awaitingPlan = useRef<PlanId | null>(null);
+
+  const loadSubscription = useCallback(async (): Promise<Subscription | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
 
       const { data: member } = await supabase
         .from('company_members')
@@ -71,7 +74,7 @@ export default function BillingScreen() {
         .eq('status', 'active')
         .maybeSingle();
 
-      if (!member?.company_id) return;
+      if (!member?.company_id) return null;
 
       const { data } = await supabase
         .from('subscriptions')
@@ -82,7 +85,9 @@ export default function BillingScreen() {
         .limit(1)
         .maybeSingle();
 
-      setSubscription(data as Subscription | null);
+      const sub = (data as Subscription | null) ?? null;
+      setSubscription(sub);
+      return sub;
     } finally {
       setLoading(false);
     }
@@ -90,6 +95,43 @@ export default function BillingScreen() {
 
   useEffect(() => { loadSubscription(); }, [loadSubscription]);
   useFocusEffect(useCallback(() => { loadSubscription(); }, [loadSubscription]));
+
+  // Sondea la suscripción varias veces hasta detectar la activación del plan
+  // que se acaba de pagar (el webhook de Stripe tarda unos segundos).
+  const pollForActivation = useCallback(async (plan: PlanId) => {
+    setVerifying(true);
+    try {
+      for (let i = 0; i < 8; i++) {
+        const sub = await loadSubscription();
+        const ok = sub
+          && sub.plan_code === plan
+          && (sub.status === 'active' || sub.status === 'trialing');
+        if (ok) {
+          awaitingPlan.current = null;
+          Alert.alert('✓ Pago confirmado', `Tu plan ${PLANS.find(p => p.id === plan)?.name ?? ''} está activo.`);
+          return;
+        }
+        await new Promise(r => setTimeout(r, 2500));
+      }
+      // No se detectó tras ~20s: probablemente el webhook aún procesa
+      Alert.alert(
+        'Verificando pago',
+        'Si completaste el pago, tu plan se activará en unos momentos. Puedes tocar "Verificar pago" para revisar de nuevo.',
+      );
+    } finally {
+      setVerifying(false);
+    }
+  }, [loadSubscription]);
+
+  // Al regresar a la app después del checkout, sondear automáticamente
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && awaitingPlan.current) {
+        pollForActivation(awaitingPlan.current);
+      }
+    });
+    return () => sub.remove();
+  }, [pollForActivation]);
 
   async function handleSubscribe(planId: PlanId) {
     setPurchasing(planId);
@@ -109,14 +151,30 @@ export default function BillingScreen() {
       }
       if (!data?.url) throw new Error('No se recibió URL de pago');
 
+      // Marcar que esperamos confirmación de este plan al volver del navegador
+      awaitingPlan.current = planId;
       // Abrir Stripe Checkout en el navegador del dispositivo
       await Linking.openURL(data.url);
-      // Recargar suscripción al volver
-      await loadSubscription();
     } catch (err: any) {
+      awaitingPlan.current = null;
       Alert.alert('Error', err.message ?? 'No se pudo iniciar el pago');
     } finally {
       setPurchasing(null);
+    }
+  }
+
+  // Verificación manual de pago (por si el regreso automático no disparó)
+  async function handleVerifyPayment() {
+    setVerifying(true);
+    try {
+      const sub = await loadSubscription();
+      if (sub && (sub.status === 'active' || sub.status === 'trialing')) {
+        Alert.alert('✓ Pago confirmado', `Tu plan ${PLANS.find(p => p.id === sub.plan_code)?.name ?? ''} está activo.`);
+      } else {
+        Alert.alert('Sin pago confirmado', 'Aún no detectamos un pago activo. Si acabas de pagar, espera unos segundos e intenta de nuevo.');
+      }
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -163,6 +221,14 @@ export default function BillingScreen() {
         ) : (
           <Text style={[styles.statusBadge, { color: '#90A4AE' }]}>Sin plan activo</Text>
         )}
+
+        <TouchableOpacity style={styles.verifyBtn} onPress={handleVerifyPayment} disabled={verifying}>
+          {verifying ? (
+            <ActivityIndicator color={BRAND.blue} size="small" />
+          ) : (
+            <Text style={styles.verifyBtnText}>🔄 Verificar pago</Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Planes */}
@@ -247,6 +313,8 @@ const styles = StyleSheet.create({
   statusBadge:  { fontSize: 16, fontWeight: '800', marginBottom: 4 },
   statusPlan:   { fontSize: 13, color: BRAND.navy, marginTop: 4 },
   statusDate:   { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  verifyBtn:    { marginTop: 14, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: BRAND.blue },
+  verifyBtnText:{ fontSize: 12, fontWeight: '700', color: BRAND.blue },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   sectionHint:  { fontSize: 12, color: '#90A4AE', marginBottom: 16 },
   planCard: {
