@@ -1,7 +1,6 @@
 // Parser para catálogos de cuentas (Excel, CSV, TXT)
 import * as FileSystem from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
-import * as ExcelJS from 'exceljs';
 
 export interface CatalogAccount {
   codigo: string;
@@ -65,21 +64,11 @@ export async function parseCatalogFile(
 }
 
 /**
- * Parsea archivo Excel
+ * Parsea archivo Excel — fallback a CSV parsing
  */
 async function parseExcel(fileUri: string): Promise<CatalogAccount[]> {
-  try {
-    const workbook = new ExcelJS.Workbook();
-    // ExcelJS no funciona bien en React Native, usar fallback
-    const content = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-    console.warn('[parseExcel] ExcelJS no soportado en RN, usando fallback CSV');
-    return parseCSV(fileUri);
-  } catch (err) {
-    console.error('[parseExcel] Error:', err);
-    throw err;
-  }
+  console.warn('[parseExcel] Excel no soportado en RN, usando fallback CSV');
+  return parseCSV(fileUri);
 }
 
 /**
