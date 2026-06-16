@@ -1,5 +1,5 @@
 // Modal de importación de catálogo de cuentas
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
   ActivityIndicator, Alert, TextInput, FlatList, ScrollView,
@@ -23,12 +23,14 @@ interface Props {
 }
 
 export default function CatalogImportModal({ visible, companyId, onClose, onSuccess }: Props) {
-  const [step, setStep] = useState<'select' | 'preview' | 'confirm'>('select');
-  const [loading, setLoading] = useState(false);
+  const [step,     setStep]     = useState<'select' | 'preview' | 'confirm'>('select');
+  const [loading,  setLoading]  = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<CatalogAccount[]>([]);
-  const [search, setSearch] = useState('');
-  const [saving, setSaving] = useState(false);
+  // selectedSet en lugar de mutar todo el array en cada tap → O(1) por selección
+  const [selectedSet, setSelectedSet] = useState<Set<string>>(new Set());
+  const [search,   setSearch]   = useState('');
+  const [saving,   setSaving]   = useState(false);
 
   // Seleccionar archivo
   async function handlePickFile() {
@@ -46,7 +48,8 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
       }
 
       // Marcar todas como seleccionadas por defecto
-      setAccounts(parsed.map((a) => ({ ...a, selected: true })));
+      setAccounts(parsed);
+      setSelectedSet(new Set(parsed.map(a => a.codigo)));
       setStep('preview');
     } catch (err: any) {
       Alert.alert('Error al importar', err.message ?? 'No se pudo procesar el archivo');
@@ -55,24 +58,25 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
     }
   }
 
-  // Toggle selección
-  function toggleAccount(codigo: string) {
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.codigo === codigo ? { ...a, selected: !a.selected } : a,
-      ),
-    );
-  }
+  // Toggle selección individual — O(1)
+  const toggleAccount = useCallback((codigo: string) => {
+    setSelectedSet(prev => {
+      const next = new Set(prev);
+      next.has(codigo) ? next.delete(codigo) : next.add(codigo);
+      return next;
+    });
+  }, []);
 
   // Toggle todos
-  function toggleAll() {
-    const allSelected = accounts.every((a) => a.selected);
-    setAccounts((prev) => prev.map((a) => ({ ...a, selected: !allSelected })));
-  }
+  const toggleAll = useCallback(() => {
+    setSelectedSet(prev =>
+      prev.size === accounts.length ? new Set() : new Set(accounts.map(a => a.codigo)),
+    );
+  }, [accounts]);
 
   // Guardar cuentas seleccionadas
   async function handleSave() {
-    const selected = getSelectedAccounts(accounts);
+    const selected = accounts.filter(a => selectedSet.has(a.codigo));
 
     if (selected.length === 0) {
       Alert.alert('Sin selección', 'Debes seleccionar al menos una cuenta');
@@ -105,6 +109,7 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
               setStep('select');
               setFileName(null);
               setAccounts([]);
+              setSelectedSet(new Set());
               setSearch('');
               onClose();
               onSuccess();
@@ -119,9 +124,13 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
     }
   }
 
-  const filtered = search.trim() ? filterAccounts(accounts, search) : accounts;
-  const selected = accounts.filter((a) => a.selected).length;
-  const total = accounts.length;
+  // useMemo: recalcula solo cuando cambia accounts o search
+  const filtered = useMemo(
+    () => search.trim() ? filterAccounts(accounts, search) : accounts,
+    [accounts, search],
+  );
+  const selected = selectedSet.size;
+  const total    = accounts.length;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -165,7 +174,8 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
               <View style={styles.hint}>
                 <Text style={styles.hintTitle}>💡 Formato esperado:</Text>
                 <Text style={styles.hintText}>
-                  Columna A: Código | Columna B: Nombre | (Opcional) Columna C: Tipo
+                  Columna A: Código | Columna C: Nombre | (Opcional) Columna F: Tipo{'\n'}
+                  También acepta CSV y TXT de CONTPAQi
                 </Text>
               </View>
             </View>
@@ -199,33 +209,35 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
             {/* Toggle todos */}
             <TouchableOpacity style={styles.toggleAll} onPress={toggleAll}>
               <Text style={styles.toggleAllText}>
-                {accounts.every((a) => a.selected) ? '☑️' : '☐'} Seleccionar todo
+                {selectedSet.size === accounts.length && accounts.length > 0 ? '☑️' : '☐'} Seleccionar todo
               </Text>
             </TouchableOpacity>
 
-            {/* Lista de cuentas */}
+            {/* Lista de cuentas — getItemLayout evita medición de cada celda */}
             <FlatList
               data={filtered}
               keyExtractor={(a) => a.codigo}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.accountRow, item.selected && { backgroundColor: BRAND.blue + '10' }]}
-                  onPress={() => toggleAccount(item.codigo)}
-                >
-                  <Text style={styles.checkbox}>
-                    {item.selected ? '☑️' : '☐'}
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.codigo}>{item.codigo}</Text>
-                    <Text style={styles.nombre} numberOfLines={1}>
-                      {item.nombre}
-                    </Text>
-                  </View>
-                  {item.tipo && <Text style={styles.tipo}>{item.tipo}</Text>}
-                </TouchableOpacity>
-              )}
+              getItemLayout={(_, i) => ({ length: 66, offset: 66 * i + 16, index: i })}
+              initialNumToRender={20}
+              windowSize={5}
+              maxToRenderPerBatch={30}
+              renderItem={({ item }) => {
+                const isSelected = selectedSet.has(item.codigo);
+                return (
+                  <TouchableOpacity
+                    style={[styles.accountRow, isSelected && { backgroundColor: BRAND.blue + '10' }]}
+                    onPress={() => toggleAccount(item.codigo)}
+                  >
+                    <Text style={styles.checkbox}>{isSelected ? '☑️' : '☐'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.codigo}>{item.codigo}</Text>
+                      <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
+                    </View>
+                    {item.tipo ? <Text style={styles.tipo}>{item.tipo}</Text> : null}
+                  </TouchableOpacity>
+                );
+              }}
               contentContainerStyle={styles.list}
-              scrollEnabled
             />
 
             {/* Botones */}
@@ -235,6 +247,7 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
                 onPress={() => {
                   setStep('select');
                   setAccounts([]);
+                  setSelectedSet(new Set());
                   setFileName(null);
                   setSearch('');
                 }}

@@ -1,173 +1,129 @@
-// Parser para catálogos de cuentas (Excel, CSV, TXT)
-import * as FileSystem from 'expo-file-system';
+// Parser para catálogos de cuentas contables (Excel Contpaqi, CSV, TXT)
+import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
+import * as XLSX from 'xlsx';
 
 export interface CatalogAccount {
-  codigo: string;
-  nombre: string;
-  tipo?: string;
-  ctaSup?: string;
+  codigo:   string;
+  nombre:   string;
+  tipo?:    string;
+  ctaSup?:  string;
   selected?: boolean;
 }
 
-/**
- * Selecciona archivo y detecta formato automáticamente
- */
+// ── Selección de archivo ───────────────────────────────────────────────────────
+
 export async function pickCatalogFile(): Promise<{
-  uri: string;
-  name: string;
-  mimeType: string;
+  uri: string; name: string; mimeType: string;
 } | null> {
   try {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['text/plain', 'text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+      type: [
+        'text/plain',
+        'text/csv',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ],
     });
-
     if (result.canceled) return null;
-
     const file = result.assets[0];
-    return {
-      uri: file.uri,
-      name: file.name,
-      mimeType: file.mimeType ?? 'application/octet-stream',
-    };
+    return { uri: file.uri, name: file.name, mimeType: file.mimeType ?? 'application/octet-stream' };
   } catch (err) {
-    console.error('[pickCatalogFile] Error:', err);
+    console.error('[pickCatalogFile]', err);
     return null;
   }
 }
 
-/**
- * Detecta el tipo de archivo y parsea
- */
+// ── Dispatcher principal ───────────────────────────────────────────────────────
+
 export async function parseCatalogFile(
-  fileUri: string,
+  fileUri:  string,
   fileName: string,
   mimeType: string,
 ): Promise<CatalogAccount[]> {
-  try {
-    const ext = fileName.split('.').pop()?.toLowerCase();
+  const ext = fileName.split('.').pop()?.toLowerCase();
 
-    if (ext === 'xlsx' || ext === 'xls' || mimeType.includes('spreadsheet')) {
-      return await parseExcel(fileUri);
-    } else if (ext === 'csv' || mimeType === 'text/csv') {
-      return await parseCSV(fileUri);
-    } else if (ext === 'txt' || mimeType === 'text/plain') {
-      return await parseTXT(fileUri);
-    } else {
-      throw new Error(`Formato no soportado: ${ext}`);
-    }
-  } catch (err) {
-    console.error('[parseCatalogFile] Error:', err);
-    throw err;
+  if (ext === 'xlsx' || ext === 'xls' || mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+    return parseExcel(fileUri);
+  } else if (ext === 'csv' || mimeType === 'text/csv') {
+    return parseText(fileUri, 'csv');
+  } else if (ext === 'txt' || mimeType === 'text/plain') {
+    return parseText(fileUri, 'txt');
   }
+  throw new Error(`Formato no soportado: .${ext ?? 'desconocido'}`);
 }
 
-/**
- * Parsea archivo Excel — fallback a CSV parsing
- */
+// ── Parser Excel (.xls / .xlsx) ───────────────────────────────────────────────
+// Columnas Contpaqi: A(0)=Código, C(2)=Nombre, F(5)=Tipo
+// Se filtran filas donde Nombre esté vacío.
+
 async function parseExcel(fileUri: string): Promise<CatalogAccount[]> {
-  console.warn('[parseExcel] Excel no soportado en RN, usando fallback CSV');
-  return parseCSV(fileUri);
-}
+  const b64 = await FileSystem.readAsStringAsync(fileUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
 
-/**
- * Parsea archivo CSV
- */
-async function parseCSV(fileUri: string): Promise<CatalogAccount[]> {
-  try {
-    const content = await FileSystem.readAsStringAsync(fileUri);
+  const workbook = XLSX.read(b64, { type: 'base64' });
+  const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+  // header:1 → array de arrays (sin inferir cabecera)
+  const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
 
-    const lines = content.split('\n').filter((l) => l.trim());
-    const accounts: CatalogAccount[] = [];
+  const accounts: CatalogAccount[] = [];
 
-    // Detectar delimitador (coma, punto y coma, tabulador)
-    const delimiter = detectDelimiter(lines[0] ?? '');
+  for (let i = 1; i < rows.length; i++) {
+    const row    = rows[i];
+    const codigo = String(row[0] ?? '').trim();
+    const nombre = String(row[2] ?? '').trim();   // Columna C
+    const tipo   = String(row[5] ?? '').trim();   // Columna F
 
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(delimiter).map((p) => p.trim());
+    if (!nombre) continue; // filtrar filas sin nombre
 
-      if (parts.length < 2 || !parts[0]) continue;
-
-      accounts.push({
-        codigo: parts[0],
-        nombre: parts[1],
-        tipo: parts[2] ?? null,
-        ctaSup: parts[3] ?? null,
-        selected: false,
-      });
-    }
-
-    return accounts;
-  } catch (err) {
-    console.error('[parseCSV] Error:', err);
-    throw err;
+    accounts.push({ codigo, nombre, tipo: tipo || undefined, selected: false });
   }
+
+  return accounts;
 }
 
-/**
- * Parsea archivo TXT (CONTPAQi format)
- */
-async function parseTXT(fileUri: string): Promise<CatalogAccount[]> {
-  try {
-    const content = await FileSystem.readAsStringAsync(fileUri);
+// ── Parser CSV / TXT ───────────────────────────────────────────────────────────
 
-    const lines = content.split('\n').filter((l) => l.trim());
-    const accounts: CatalogAccount[] = [];
+async function parseText(fileUri: string, format: 'csv' | 'txt'): Promise<CatalogAccount[]> {
+  const content   = await FileSystem.readAsStringAsync(fileUri);
+  const lines     = content.split('\n').filter(l => l.trim());
+  const delimiter = format === 'txt' && lines[0]?.includes('|') ? '|'
+                  : detectDelimiter(lines[0] ?? '');
 
-    // CONTPAQi TXT puede usar pipes (|) o espacios como separador
-    const delimiter = lines[0]?.includes('|') ? '|' : '\t';
+  const accounts: CatalogAccount[] = [];
 
-    for (const line of lines) {
-      if (!line.trim() || line.startsWith('#')) continue;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].startsWith('#')) continue;
+    const parts = lines[i].split(delimiter).map(p => p.trim().replace(/^"|"$/g, ''));
 
-      const parts = line.split(delimiter).map((p) => p.trim());
+    const codigo = parts[0] ?? '';
+    const nombre = parts[1] ?? '';  // CSV/TXT: A=Código, B=Nombre
+    const tipo   = parts[2] ?? '';
 
-      if (parts.length < 2 || !parts[0]) continue;
-
-      accounts.push({
-        codigo: parts[0],
-        nombre: parts[1],
-        tipo: parts[2] ?? null,
-        ctaSup: parts[3] ?? null,
-        selected: false,
-      });
-    }
-
-    return accounts;
-  } catch (err) {
-    console.error('[parseTXT] Error:', err);
-    throw err;
+    if (!nombre) continue;
+    accounts.push({ codigo, nombre, tipo: tipo || undefined, selected: false });
   }
+
+  return accounts;
 }
 
-/**
- * Detecta el delimitador del CSV
- */
-function detectDelimiter(firstLine: string): string {
-  if (firstLine.includes(',')) return ',';
-  if (firstLine.includes(';')) return ';';
-  if (firstLine.includes('\t')) return '\t';
-  return ','; // default
+function detectDelimiter(line: string): string {
+  if (line.includes(';'))  return ';';
+  if (line.includes('\t')) return '\t';
+  return ',';
 }
 
-/**
- * Filtra cuentas por búsqueda
- */
+// ── Utilidades de UI ───────────────────────────────────────────────────────────
+
 export function filterAccounts(accounts: CatalogAccount[], query: string): CatalogAccount[] {
-  if (!query.trim()) return accounts;
-
-  const q = query.toLowerCase();
+  const q = query.toLowerCase().trim();
+  if (!q) return accounts;
   return accounts.filter(
-    (a) =>
-      a.codigo.toLowerCase().includes(q) ||
-      a.nombre.toLowerCase().includes(q),
+    a => a.codigo.toLowerCase().includes(q) || a.nombre.toLowerCase().includes(q),
   );
 }
 
-/**
- * Obtiene solo las cuentas seleccionadas
- */
 export function getSelectedAccounts(accounts: CatalogAccount[]): CatalogAccount[] {
-  return accounts.filter((a) => a.selected);
+  return accounts.filter(a => a.selected);
 }
