@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import { trialDaysRemaining, isTrialActive } from '../lib/trial';
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function TrialBanner({ onUpgrade }: Props) {
+  const router = useRouter();
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [loaded,      setLoaded]      = useState(false);
 
@@ -51,7 +53,7 @@ export default function TrialBanner({ onUpgrade }: Props) {
           ? '⚠️ Tu período de prueba ha terminado'
           : `⏳ Prueba gratuita: ${days} día${days !== 1 ? 's' : ''} restante${days !== 1 ? 's' : ''}`}
       </Text>
-      <TouchableOpacity style={[styles.btn, urgent && styles.btnUrgent]} onPress={onUpgrade}>
+      <TouchableOpacity style={[styles.btn, urgent && styles.btnUrgent]} onPress={() => { onUpgrade?.(); router.push('/billing' as any); }}>
         <Text style={[styles.btnText, urgent && styles.btnTextUrgent]}>
           {expired ? 'Activar plan' : 'Ver planes'}
         </Text>

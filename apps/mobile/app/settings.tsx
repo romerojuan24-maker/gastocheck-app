@@ -291,6 +291,16 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Suscripción */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Plan y suscripción</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/billing' as any)}>
+          <Text style={styles.menuIcon}>💳</Text>
+          <Text style={styles.menuLabel}>Ver planes y suscripción</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Cerrar sesión */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Cerrar sesión</Text>
