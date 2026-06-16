@@ -9,6 +9,8 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
+import PolicyExportModal from './policy-export-modal';
+import type { ExportExpense } from '../lib/exporters/policy-exporter';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,10 @@ export default function PolizasScreen() {
   const [availableReceipts,  setAvailableReceipts]  = useState<Receipt[]>([]);
   const [selectedIds,        setSelectedIds]        = useState<Set<string>>(new Set());
   const [assigning,          setAssigning]           = useState(false);
+
+  // Modal: exportar póliza
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportData, setExportData] = useState<ExportExpense[]>([]);
 
   // ── Inicialización ──────────────────────────────────────────────────────────
 
@@ -245,53 +251,28 @@ export default function PolizasScreen() {
     }
   }
 
-  // ── Compartir documento de póliza ───────────────────────────────────────────
+  // ── Exportar póliza ─────────────────────────────────────────────────────────
 
   async function handleShare() {
     if (!selectedPolicy) return;
 
-    const total = policyExpenses.reduce((s, e) => s + (e.total ?? 0), 0);
-    const autorizados = policyExpenses.filter(e => e.authorization_status === 'authorized');
-    const pendientes  = policyExpenses.filter(e => e.authorization_status === 'pending_auth' || e.authorization_status === 'captured');
-    const rechazados  = policyExpenses.filter(e => e.authorization_status === 'rejected');
+    // Preparar datos para exportación
+    const data = policyExpenses.map(e => ({
+      folio: e.receipt_folio ?? '',
+      provider_name: e.provider_name ?? '',
+      expense_date: e.expense_date ?? '',
+      total: e.total ?? 0,
+      iva: 0,
+      isr: 0,
+      ieps: 0,
+      category: '',
+      sat_status: e.sat_validation_status === 'validated' ? '✅ Vigente' : e.sat_validation_status === 'cancelled' ? '❌ Cancelado' : '⏳ Sin validar',
+      authorization_status: e.authorization_status === 'authorized' ? 'Autorizado' : 'Pendiente',
+      cfdi_uuid: e.fiscal_uuid ?? null,
+    }));
 
-    const lineas = policyExpenses.map((e, i) => {
-      const cfdi  = e.cfdi_type === 'con_cfdi'
-        ? (e.sat_validation_status === 'validated' ? '✅ CFDI Vigente' : '❌ CFDI Cancelado/Error')
-        : '📄 Sin Comprobante Fiscal';
-      const auth  = e.authorization_status === 'authorized' ? '✓ Autorizado'
-        : e.authorization_status === 'rejected' ? '✗ Rechazado'
-        : '⏳ Pendiente';
-      return `${i + 1}. ${e.provider_name ?? 'Sin proveedor'}
-   Fecha: ${e.expense_date ?? '—'}  |  Folio: ${e.receipt_folio ?? '—'}
-   Monto: ${fmt(e.total)}
-   ${cfdi}
-   ${auth}`;
-    }).join('\n\n');
-
-    const doc = [
-      '════════════════════════════════',
-      `PÓLIZA DE GASTOS — DOCUMENTO DE AUTORIZACIÓN`,
-      '════════════════════════════════',
-      `Póliza:   ${selectedPolicy.name}`,
-      selectedPolicy.gc_folio ? `Folio:    ${selectedPolicy.gc_folio}` : '',
-      `Estado:   ${selectedPolicy.status === 'open' ? 'Abierta' : 'Cerrada'}`,
-      `────────────────────────────────`,
-      `RESUMEN`,
-      `Total gastos:    ${fmt(total)}`,
-      `✓ Autorizados:   ${autorizados.length}  (${fmt(autorizados.reduce((s,e) => s+(e.total??0),0))})`,
-      `⏳ Pendientes:   ${pendientes.length}`,
-      `✗ Rechazados:    ${rechazados.length}`,
-      `────────────────────────────────`,
-      `DETALLE DE COMPROBANTES`,
-      '',
-      lineas,
-      '',
-      '════════════════════════════════',
-      `Generado: ${new Date().toLocaleString('es-MX')}`,
-    ].filter(Boolean).join('\n');
-
-    await Share.share({ message: doc, title: `Póliza ${selectedPolicy.name}` });
+    setExportData(data);
+    setShowExportModal(true);
   }
 
   // ── Cerrar póliza ────────────────────────────────────────────────────────────
@@ -299,6 +280,7 @@ export default function PolizasScreen() {
   async function handleClosePolicy() {
     if (!selectedPolicy || !member) return;
 
+    // ✅ VALIDACIÓN 1: Todos los gastos deben estar autorizados
     const pendientes = policyExpenses.filter(
       e => e.authorization_status === 'pending_auth' || e.authorization_status === 'captured',
     );
@@ -311,9 +293,23 @@ export default function PolizasScreen() {
       return;
     }
 
+    // ✅ VALIDACIÓN 2: Todos los comprobantes CFDI deben estar validados en SAT
+    const conCFDI = policyExpenses.filter(e => e.cfdi_type === 'con_cfdi');
+    const sinValidar = conCFDI.filter(
+      e => e.sat_validation_status !== 'validated',
+    );
+
+    if (sinValidar.length > 0) {
+      Alert.alert(
+        '⚠️ Comprobantes sin validar en SAT',
+        `Hay ${sinValidar.length} comprobante(s) CFDI que no están validados o están cancelados en SAT.\n\nNo se puede cerrar la póliza sin validar todos los CFDI.`,
+      );
+      return;
+    }
+
     Alert.alert(
       'Cerrar póliza',
-      '¿Confirmas cerrar esta póliza? Ya no podrás agregar más comprobantes.',
+      '✓ Todos los comprobantes han sido validados en SAT.\n\n¿Confirmas cerrar esta póliza? Ya no podrás agregar más comprobantes.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -663,6 +659,14 @@ export default function PolizasScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal exportar póliza */}
+      <PolicyExportModal
+        visible={showExportModal}
+        policyName={selectedPolicy?.name ?? ''}
+        expenses={exportData}
+        onClose={() => setShowExportModal(false)}
+      />
     </View>
   );
 }
