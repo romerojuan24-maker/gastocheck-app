@@ -94,6 +94,7 @@ export default function EmpresasScreen() {
           moneda: 'MXN',
           plan: 'basico',
           plan_seats: 2,
+          created_by: user.id,
         }])
         .select('id')
         .single();
