@@ -1,9 +1,3 @@
--- Agregar columna status a reembolsos
-ALTER TABLE reembolsos
-ADD COLUMN status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'pending_auth', 'approved', 'closed'));
-
--- Índice para queries por status
-CREATE INDEX idx_reembolsos_status ON reembolsos(company_id, status);
-
--- Actualizar pólizas existentes a 'closed' para compatibilidad hacia atrás
-UPDATE reembolsos SET status = 'closed' WHERE status IS NULL;
+-- Reembolsos son políticas con policy_type='reembolso', no tabla separada.
+-- Esta migración es no-op (la tabla reembolsos no existe en el schema final).
+SELECT 1;
