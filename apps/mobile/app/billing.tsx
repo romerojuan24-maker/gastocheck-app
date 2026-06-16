@@ -98,7 +98,15 @@ export default function BillingScreen() {
         body: { plan: planId },
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        // FunctionsHttpError.context es el Response — leer el body real
+        let msg = error.message;
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch {}
+        throw new Error(msg);
+      }
       if (!data?.url) throw new Error('No se recibió URL de pago');
 
       // Abrir Stripe Checkout en el navegador del dispositivo
