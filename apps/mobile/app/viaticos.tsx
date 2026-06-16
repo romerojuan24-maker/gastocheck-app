@@ -1,32 +1,28 @@
-// Módulo de Viáticos — gastos de viaje controlados y sin controlar
+// Viáticos — Gastos de viaje clasificados como viáticos
+// Reutiliza capture.tsx para OCR, solo agrega clasificación
 import { useEffect, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, Alert, Modal, TextInput, ScrollView,
-  KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Modal, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
-import DatePickerField from '../components/DatePickerField';
-import * as DocumentPicker from 'expo-document-picker';
 
 type ViaticoConcept = 'car_rental' | 'presentation' | 'meals' | 'accommodation' | 'transport' | 'other';
 type ViaticType = 'controlled' | 'uncontrolled';
-type ViaticStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 interface Viatico {
   id: string;
-  concept: ViaticoConcept;
-  type: ViaticType;
-  amount: number;
-  status: ViaticStatus;
-  description: string;
-  trip_date: string;
-  receipt_type: string;
+  provider_name: string | null;
+  total_amount: number;
+  viatico_concept: ViaticoConcept;
+  viatico_type: ViaticType;
+  trip_date: string | null;
+  trip_city: string | null;
+  status: string;
   created_at: string;
-  approved_at: string | null;
 }
 
 const CONCEPTS = [
@@ -38,13 +34,6 @@ const CONCEPTS = [
   { key: 'other' as ViaticoConcept, label: '📦 Otro', icon: '📦' },
 ];
 
-const STATUS_META: Record<ViaticStatus, { label: string; color: string; icon: string }> = {
-  pending: { label: 'Pendiente', color: BRAND.orange, icon: '⏳' },
-  approved: { label: 'Aprobado', color: BRAND.green, icon: '✅' },
-  rejected: { label: 'Rechazado', color: BRAND.red, icon: '❌' },
-  cancelled: { label: 'Cancelado', color: '#90A4AE', icon: '⭕' },
-};
-
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
@@ -54,26 +43,20 @@ export default function ViaticosScreen() {
   const [viaticos, setViaticos] = useState<Viatico[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showClassifyModal, setShowClassifyModal] = useState(false);
+  const [pendingExpenseId, setPendingExpenseId] = useState<string | null>(null);
+  const [classifyForm, setClassifyForm] = useState({
+    concept: 'car_rental' as ViaticoConcept,
+    type: 'controlled' as ViaticType,
+    city: '',
+  });
+  const [classifying, setClassifying] = useState(false);
 
-  // Form state
-  const [formConcept, setFormConcept] = useState<ViaticoConcept>('car_rental');
-  const [formType, setFormType] = useState<ViaticType>('controlled');
-  const [formAmount, setFormAmount] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formCity, setFormCity] = useState('');
-  const [formTripDate, setFormTripDate] = useState(new Date().toISOString().slice(0, 10));
-  const [formReceiptType, setFormReceiptType] = useState<'cfdi' | 'non_fiscal' | 'none'>('non_fiscal');
-  const [saving, setSaving] = useState(false);
-
-  // Cargar viáticos
   const loadViaticos = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setUserId(user.id);
 
       const { data: member } = await supabase
         .from('company_members')
@@ -85,11 +68,12 @@ export default function ViaticosScreen() {
       if (!member) return;
       setCompanyId(member.company_id);
 
+      // Obtener viáticos (expenses donde is_viatico=true)
       const { data } = await supabase
-        .from('viaticos')
-        .select('*')
+        .from('expenses')
+        .select('id, provider_name, total_amount, viatico_concept, viatico_type, trip_date, trip_city, status, created_at')
         .eq('company_id', member.company_id)
-        .eq('user_id', user.id)
+        .eq('is_viatico', true)
         .order('trip_date', { ascending: false });
 
       setViaticos((data ?? []) as Viatico[]);
@@ -98,121 +82,50 @@ export default function ViaticosScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadViaticos();
-  }, [loadViaticos]);
+  useEffect(() => { loadViaticos(); }, [loadViaticos]);
+  useFocusEffect(useCallback(() => { loadViaticos(); }, [loadViaticos]));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadViaticos();
-    }, [loadViaticos]),
-  );
+  // Capturar comprobante y luego clasificar como viático
+  async function handleCaptureAndClassify() {
+    // Abre capture.tsx, después retorna con expense_id
+    // Simulación: el usuario captura en capture.tsx y retorna aquí
+    // En produce, hay que pasar expense_id como parámetro
 
-  // Crear viático
-  async function handleSubmit() {
-    if (!formAmount || parseFloat(formAmount) <= 0) {
-      Alert.alert('Monto inválido', 'Ingresa un monto mayor a 0');
-      return;
-    }
-    if (!formDescription.trim()) {
-      Alert.alert('Descripción requerida', 'Describe el gasto de viático');
-      return;
-    }
-    if (!companyId || !userId) {
-      Alert.alert('Error', 'No tienes empresa asignada');
-      return;
-    }
+    // Por ahora, navega a capture y el usuario vuelve
+    router.push('/capture');
+  }
 
-    setSaving(true);
+  // Clasificar expense como viático
+  async function handleClassifyAsViatico() {
+    if (!pendingExpenseId || !companyId) return;
+
+    setClassifying(true);
     try {
-      const { error } = await supabase.from('viaticos').insert({
-        company_id: companyId,
-        user_id: userId,
-        concept: formConcept,
-        type: formType,
-        amount: parseFloat(formAmount),
-        description: formDescription.trim(),
-        city: formCity.trim() || null,
-        trip_date: formTripDate,
-        receipt_type: formReceiptType,
-        status: 'pending',
-      });
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          is_viatico: true,
+          viatico_concept: classifyForm.concept,
+          viatico_type: classifyForm.type,
+          trip_city: classifyForm.city || null,
+        })
+        .eq('id', pendingExpenseId)
+        .eq('company_id', companyId);
 
       if (error) throw error;
 
-      Alert.alert(
-        '✓ Viático registrado',
-        `${money(parseFloat(formAmount))} - ${formDescription}\nAguardando aprobación del supervisor`,
-        [{ text: 'OK', onPress: () => {
-          setShowModal(false);
-          setFormAmount('');
-          setFormDescription('');
-          setFormCity('');
-          loadViaticos();
-        }}],
-      );
+      Alert.alert('✓ Clasificado', `Viático registrado como ${CONCEPTS.find(c => c.key === classifyForm.concept)?.label}`);
+      setShowClassifyModal(false);
+      setPendingExpenseId(null);
+      await loadViaticos();
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', err.message ?? 'No se pudo clasificar el viático');
     } finally {
-      setSaving(false);
+      setClassifying(false);
     }
   }
 
-  // Renderizar viático
-  function renderViatico({ item }: { item: Viatico }) {
-    const conceptMeta = CONCEPTS.find((c) => c.key === item.concept);
-    const statusMeta = STATUS_META[item.status];
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.card,
-          item.status === 'rejected' && { borderColor: BRAND.red, borderWidth: 1.5 },
-          item.status === 'pending' && { borderColor: BRAND.orange, borderWidth: 1.5 },
-        ]}
-      >
-        <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.concept}>
-              {conceptMeta?.icon} {conceptMeta?.label}
-            </Text>
-            <Text style={styles.description} numberOfLines={1}>{item.description}</Text>
-            <Text style={styles.date}>
-              {item.trip_date} • {item.city ? `${item.city}` : '📍 Sin ubicación'}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.amount}>{money(item.amount)}</Text>
-            <View style={[styles.typeBadge, {
-              backgroundColor: item.type === 'controlled' ? BRAND.blue + '20' : '#FFC10720',
-            }]}>
-              <Text style={[styles.typeBadgeText, {
-                color: item.type === 'controlled' ? BRAND.blue : '#FF9800',
-              }]}>
-                {item.type === 'controlled' ? 'Controlado' : 'Sin control'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Estado */}
-        <View style={styles.footer}>
-          <View style={[styles.statusBadge, { backgroundColor: statusMeta.color + '20' }]}>
-            <Text style={[styles.statusText, { color: statusMeta.color }]}>
-              {statusMeta.icon} {statusMeta.label}
-            </Text>
-          </View>
-          {item.receipt_type && (
-            <Text style={styles.receiptHint}>
-              {item.receipt_type === 'cfdi' ? '📄 CFDI' : item.receipt_type === 'non_fiscal' ? '📋 No fiscal' : '❌ Sin comprobante'}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  if (loading && viaticos.length === 0) {
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
         <ActivityIndicator size="large" color={BRAND.blue} />
@@ -220,240 +133,175 @@ export default function ViaticosScreen() {
     );
   }
 
-  const pending = viaticos.filter((v) => v.status === 'pending');
-  const approved = viaticos.filter((v) => v.status === 'approved');
-  const rejected = viaticos.filter((v) => v.status === 'rejected');
-  const totalPending = pending.reduce((sum, v) => sum + v.amount, 0);
-  const totalApproved = approved.reduce((sum, v) => sum + v.amount, 0);
+  const pendiente = viaticos.filter(v => v.status === 'pending' || v.status === 'captured').length;
+  const aprobado = viaticos.filter(v => v.status === 'authorized').length;
+  const rechazado = viaticos.filter(v => v.status === 'rejected').length;
 
   return (
-    <View style={styles.container}>
-      {/* Resumen */}
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryRow}>
-          <View>
-            <Text style={styles.summaryLabel}>Pendientes</Text>
-            <Text style={[styles.summaryAmount, { color: BRAND.orange }]}>
-              {pending.length} • {money(totalPending)}
-            </Text>
+    <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <View style={styles.header}>
+          <Text style={styles.title}>✈️ Mis Viáticos</Text>
+          <Text style={styles.hint}>Gastos de viaje controlados y sin controlar</Text>
+        </View>
+
+        <View style={styles.stats}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{pendiente}</Text>
+            <Text style={styles.statLabel}>⏳ Pendientes</Text>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.summaryLabel}>Aprobados</Text>
-            <Text style={[styles.summaryAmount, { color: BRAND.green }]}>
-              {approved.length} • {money(totalApproved)}
-            </Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{aprobado}</Text>
+            <Text style={styles.statLabel}>✅ Aprobados</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{rechazado}</Text>
+            <Text style={styles.statLabel}>❌ Rechazados</Text>
           </View>
         </View>
-      </View>
 
-      {/* Botón crear */}
-      <TouchableOpacity
-        style={styles.createBtn}
-        onPress={() => setShowModal(true)}
-      >
-        <Text style={styles.createBtnText}>+ Registrar viático</Text>
-      </TouchableOpacity>
-
-      {/* Lista */}
-      {viaticos.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyIcon}>✈️</Text>
-          <Text style={styles.emptyText}>Sin viáticos registrados</Text>
-          <Text style={styles.emptyHint}>Registra tus gastos de viaje</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={viaticos}
-          keyExtractor={(v) => v.id}
-          renderItem={renderViatico}
-          contentContainerStyle={styles.list}
-          refreshing={loading}
-          onRefresh={loadViaticos}
-        />
-      )}
-
-      {/* Modal crear viático */}
-      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nuevo viático</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-              {/* Concepto */}
-              <Text style={styles.label}>Concepto *</Text>
-              {CONCEPTS.map((c) => (
-                <TouchableOpacity
-                  key={c.key}
-                  style={[
-                    styles.optionBtn,
-                    formConcept === c.key && { backgroundColor: BRAND.blue + '20', borderColor: BRAND.blue, borderWidth: 2 },
-                  ]}
-                  onPress={() => setFormConcept(c.key)}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    formConcept === c.key && { color: BRAND.blue, fontWeight: '700' }
-                  ]}>
-                    {formConcept === c.key ? '✓' : ' '} {c.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* Tipo */}
-              <Text style={styles.label}>Tipo *</Text>
-              {['controlled', 'uncontrolled'].map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[
-                    styles.optionBtn,
-                    formType === t && { backgroundColor: BRAND.blue + '20', borderColor: BRAND.blue, borderWidth: 2 },
-                  ]}
-                  onPress={() => setFormType(t as ViaticType)}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    formType === t && { color: BRAND.blue, fontWeight: '700' }
-                  ]}>
-                    {formType === t ? '✓' : ' '} {t === 'controlled' ? 'Controlado (con límite)' : 'Sin controlar'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* Monto */}
-              <Text style={styles.label}>Monto ($) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: 1500"
-                keyboardType="decimal-pad"
-                value={formAmount}
-                onChangeText={setFormAmount}
-              />
-
-              {/* Descripción */}
-              <Text style={styles.label}>Descripción *</Text>
-              <TextInput
-                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                placeholder="Describe el gasto..."
-                multiline
-                value={formDescription}
-                onChangeText={setFormDescription}
-              />
-
-              {/* Fecha */}
-              <Text style={styles.label}>Fecha del viaje *</Text>
-              <DatePickerField
-                label="Fecha"
-                value={formTripDate}
-                onChange={setFormTripDate}
-              />
-
-              {/* Ciudad */}
-              <Text style={styles.label}>Ciudad (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Ciudad de México"
-                value={formCity}
-                onChangeText={setFormCity}
-              />
-
-              {/* Tipo de comprobante */}
-              <Text style={styles.label}>Comprobante *</Text>
-              {['cfdi', 'non_fiscal', 'none'].map((rt) => (
-                <TouchableOpacity
-                  key={rt}
-                  style={[
-                    styles.optionBtn,
-                    formReceiptType === rt && { backgroundColor: BRAND.blue + '20', borderColor: BRAND.blue, borderWidth: 2 },
-                  ]}
-                  onPress={() => setFormReceiptType(rt as any)}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    formReceiptType === rt && { color: BRAND.blue, fontWeight: '700' }
-                  ]}>
-                    {formReceiptType === rt ? '✓' : ' '} {rt === 'cfdi' ? '📄 CFDI' : rt === 'non_fiscal' ? '📋 Comprobante no fiscal' : '❌ Sin comprobante'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setShowModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, (!formAmount || !formDescription || saving) && { opacity: 0.5 }]}
-                onPress={handleSubmit}
-                disabled={!formAmount || !formDescription || saving}
-              >
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Registrar</Text>}
-              </TouchableOpacity>
-            </View>
+        {viaticos.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>✈️</Text>
+            <Text style={styles.emptyTitle}>Sin viáticos registrados</Text>
+            <Text style={styles.emptyHint}>Captura comprobantes y clasifícalos como viáticos</Text>
           </View>
-        </KeyboardAvoidingView>
+        ) : (
+          <FlatList
+            scrollEnabled={false}
+            data={viaticos}
+            keyExtractor={v => v.id}
+            renderItem={({ item: v }) => (
+              <View style={styles.viaticCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.viaticProvider}>{v.provider_name || 'Sin proveedor'}</Text>
+                  <Text style={styles.viaticConcept}>
+                    {CONCEPTS.find(c => c.key === v.viatico_concept)?.label || v.viatico_concept}
+                  </Text>
+                  <Text style={styles.viaticMeta}>
+                    {v.trip_date} {v.trip_city ? `• ${v.trip_city}` : ''}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.viaticAmount}>{money(v.total_amount)}</Text>
+                  <Text style={[
+                    styles.viaticStatus,
+                    v.status === 'authorized' && { color: BRAND.green },
+                    v.status === 'rejected' && { color: BRAND.red },
+                  ]}>
+                    {v.status === 'pending' || v.status === 'captured' ? '⏳ Pendiente' : v.status === 'authorized' ? '✅ Aprobado' : '❌ Rechazado'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          />
+        )}
+
+        <TouchableOpacity style={styles.captureBtn} onPress={handleCaptureAndClassify}>
+          <Text style={styles.captureBtnIcon}>📷</Text>
+          <Text style={styles.captureBtnText}>Capturar Comprobante</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Modal: Clasificar como viático */}
+      <Modal visible={showClassifyModal} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowClassifyModal(false)}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowClassifyModal(false)}>
+            <Text style={{ color: '#90A4AE', fontSize: 15 }}>Cancelar</Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.navy }}>Clasificar como Viático</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+          <Text style={styles.fieldLabel}>Concepto *</Text>
+          <View style={styles.conceptGrid}>
+            {CONCEPTS.map(c => (
+              <TouchableOpacity
+                key={c.key}
+                style={[
+                  styles.conceptBtn,
+                  classifyForm.concept === c.key && styles.conceptBtnActive,
+                ]}
+                onPress={() => setClassifyForm({ ...classifyForm, concept: c.key })}
+              >
+                <Text style={styles.conceptIcon}>{c.icon}</Text>
+                <Text style={styles.conceptLabel}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Tipo *</Text>
+          <View style={styles.typeRow}>
+            <TouchableOpacity
+              style={[styles.typeBtn, classifyForm.type === 'controlled' && styles.typeBtnActive]}
+              onPress={() => setClassifyForm({ ...classifyForm, type: 'controlled' })}
+            >
+              <Text style={styles.typeLabel}>💰 Controlado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typeBtn, classifyForm.type === 'uncontrolled' && styles.typeBtnActive]}
+              onPress={() => setClassifyForm({ ...classifyForm, type: 'uncontrolled' })}
+            >
+              <Text style={styles.typeLabel}>🆓 Sin Controlar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.fieldLabel}>Ciudad (opcional)</Text>
+          <View style={styles.input}>
+            <Text>🏙️</Text>
+            <Text style={{ color: '#90A4AE', flex: 1, marginLeft: 8 }}>
+              {classifyForm.city || 'Ciudad del viaje'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.submitBtn, classifying && { opacity: 0.5 }]}
+            onPress={handleClassifyAsViatico}
+            disabled={classifying}
+          >
+            <Text style={styles.submitBtnText}>✓ Clasificar como Viático</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.gray },
-  summaryCard: {
-    margin: 12, padding: 16, backgroundColor: '#fff',
-    borderRadius: 14, borderWidth: 1, borderColor: '#E0E0E0',
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summaryLabel: { fontSize: 12, color: '#90A4AE', fontWeight: '600' },
-  summaryAmount: { fontSize: 16, fontWeight: '800', marginTop: 4 },
-  createBtn: {
-    marginHorizontal: 12, marginBottom: 8,
-    backgroundColor: BRAND.blue, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  list: { paddingHorizontal: 12, paddingBottom: 24 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0',
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  concept: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  description: { fontSize: 13, color: '#90A4AE', marginTop: 2 },
-  date: { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  amount: { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  typeBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
-  typeBadgeText: { fontSize: 11, fontWeight: '600' },
-  footer: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  statusText: { fontSize: 11, fontWeight: '600' },
-  receiptHint: { fontSize: 11, color: '#90A4AE', fontStyle: 'italic' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
-  emptyText: { fontSize: 16, color: BRAND.navy, fontWeight: '700' },
+  header: { marginBottom: 16 },
+  title: { fontSize: 22, fontWeight: '800', color: BRAND.navy },
+  hint: { fontSize: 13, color: '#90A4AE', marginTop: 4 },
+  stats: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, alignItems: 'center' },
+  statValue: { fontSize: 18, fontWeight: '800', color: BRAND.blue },
+  statLabel: { fontSize: 12, color: '#90A4AE', marginTop: 4 },
+  emptyState: { alignItems: 'center', marginTop: 40 },
+  emptyIcon: { fontSize: 64, marginBottom: 16 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: BRAND.navy },
   emptyHint: { fontSize: 13, color: '#90A4AE', marginTop: 4 },
-  modal: { flex: 1, backgroundColor: BRAND.gray },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  modalClose: { fontSize: 20, color: '#90A4AE' },
-  modalBody: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  label: { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 12 },
-  input: { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy, marginBottom: 8 },
-  optionBtn: { backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0' },
-  optionText: { fontSize: 14, color: BRAND.navy },
-  modalActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 32, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0F0F0' },
-  cancelBtn: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 15, fontWeight: '700', color: '#90A4AE' },
-  saveBtn: { flex: 1, backgroundColor: BRAND.blue, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  viaticCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  viaticProvider: { fontSize: 14, fontWeight: '700', color: BRAND.navy },
+  viaticConcept: { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  viaticMeta: { fontSize: 11, color: '#90A4AE', marginTop: 4 },
+  viaticAmount: { fontSize: 15, fontWeight: '800', color: BRAND.navy },
+  viaticStatus: { fontSize: 12, color: BRAND.orange, marginTop: 4 },
+  captureBtn: { backgroundColor: BRAND.blue, borderRadius: 10, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 20 },
+  captureBtnIcon: { fontSize: 18 },
+  captureBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0', paddingTop: 12 },
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: BRAND.navy, marginBottom: 10, marginTop: 16 },
+  conceptGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  conceptBtn: { flex: 1, minWidth: '48%', backgroundColor: '#fff', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0' },
+  conceptBtnActive: { backgroundColor: BRAND.blue + '10', borderColor: BRAND.blue },
+  conceptIcon: { fontSize: 24, marginBottom: 4 },
+  conceptLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  typeRow: { flexDirection: 'row', gap: 10 },
+  typeBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0' },
+  typeBtnActive: { backgroundColor: BRAND.green + '10', borderColor: BRAND.green },
+  typeLabel: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  input: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 20 },
+  submitBtn: { backgroundColor: BRAND.green, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

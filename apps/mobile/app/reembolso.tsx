@@ -7,6 +7,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
+import ReembolsoIntegrarModal from './reembolso-integrar-modal';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -36,6 +37,7 @@ export default function ReembolsoScreen() {
   const [assignedReceipts, setAssignedReceipts] = useState<ReceiptItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showAddReceipts, setShowAddReceipts] = useState(false);
+  const [showIntegrateModal, setShowIntegrateModal] = useState(false);
   const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
 
@@ -222,12 +224,20 @@ export default function ReembolsoScreen() {
         )}
 
         {/* Botones de acción */}
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => setShowAddReceipts(true)}
-        >
-          <Text style={styles.addBtnText}>+ Agregar Comprobantes</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={[styles.addBtn, { flex: 1 }]}
+            onPress={() => router.push('/capture')}
+          >
+            <Text style={styles.addBtnText}>📷 Capturar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.addBtn, { flex: 1, backgroundColor: BRAND.orange }]}
+            onPress={() => setShowIntegrateModal(true)}
+          >
+            <Text style={styles.addBtnText}>📥 Integrar</Text>
+          </TouchableOpacity>
+        </View>
 
         {assignedReceipts.length > 0 && (
           <TouchableOpacity
@@ -326,6 +336,18 @@ export default function ReembolsoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal integrar comprobantes existentes */}
+      <ReembolsoIntegrarModal
+        visible={showIntegrateModal}
+        companyId={reembolso?.company_id ?? ''}
+        policyId={reembolso_id ?? ''}
+        onClose={() => setShowIntegrateModal(false)}
+        onSuccess={() => {
+          setShowIntegrateModal(false);
+          loadReembolso();
+        }}
+      />
     </View>
   );
 }
