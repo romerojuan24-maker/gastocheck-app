@@ -1,8 +1,6 @@
-// Offline sync — AsyncStorage + network detection + queue manager
+// Offline sync — AsyncStorage queue (sin NetInfo: módulo nativo no disponible en APK actual)
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import { supabase } from './supabase';
-import { sendLocalNotification } from './notifications';
 
 const QUEUE_KEY = 'gastocheck_sync_queue';
 
@@ -14,9 +12,6 @@ export interface QueueItem {
   createdAt: number;
 }
 
-/**
- * Encolador offline — cuando está sin conexión, guarda localmente
- */
 export async function enqueueOffline(
   entityType: 'receipt' | 'advance_request' | 'expense',
   operation: 'create' | 'update' | 'delete',
@@ -24,24 +19,19 @@ export async function enqueueOffline(
 ): Promise<void> {
   try {
     const queue = await getQueue();
-    const item: QueueItem = {
-      id: `${Date.now()}_${Math.random()}`,
+    queue.push({
+      id: `${Date.now()}_${entityType}`,
       entityType,
       operation,
       payload,
       createdAt: Date.now(),
-    };
-
-    queue.push(item);
+    });
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch (err) {
     console.error('enqueueOffline error:', err);
   }
 }
 
-/**
- * Obtiene cola local
- */
 export async function getQueue(): Promise<QueueItem[]> {
   try {
     const json = await AsyncStorage.getItem(QUEUE_KEY);
@@ -51,9 +41,6 @@ export async function getQueue(): Promise<QueueItem[]> {
   }
 }
 
-/**
- * Sincroniza cola con Supabase cuando se reconecta
- */
 export async function syncQueue(): Promise<{ synced: number; failed: number }> {
   try {
     const queue = await getQueue();
@@ -63,7 +50,6 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
     if (!session?.access_token) return { synced: 0, failed: queue.length };
 
     let synced = 0;
-    const failed_items: string[] = [];
     const synced_ids: string[] = [];
 
     for (const item of queue) {
@@ -76,107 +62,47 @@ export async function syncQueue(): Promise<{ synced: number; failed: number }> {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({
-              queueItem: item,
-              user_id: session.user.id,
-            }),
+            body: JSON.stringify({ queueItem: item, user_id: session.user.id }),
           },
         );
-
-        if (res.ok) {
-          synced++;
-          synced_ids.push(item.id);
-        } else {
-          failed_items.push(item.id);
-        }
+        if (res.ok) { synced++; synced_ids.push(item.id); }
       } catch (err) {
-        failed_items.push(item.id);
-        console.error(`[Offline Sync] Failed to sync ${item.id}:`, err);
+        console.error(`[Offline Sync] Failed ${item.id}:`, err);
       }
     }
 
-    // Actualizar cola: remover items sincronizados exitosamente
-    const remaining = queue.filter((q) => !synced_ids.includes(q.id));
+    const remaining = queue.filter(q => !synced_ids.includes(q.id));
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
-
-    return { synced, failed: failed_items.length };
+    return { synced, failed: queue.length - synced };
   } catch (err) {
     console.error('syncQueue error:', err);
-    return { synced: 0, failed: queue.length };
+    return { synced: 0, failed: 0 };
   }
 }
 
-let lastSyncTime = 0;
-const SYNC_DEBOUNCE_MS = 3000; // No sincronizar más de una vez cada 3s
-
-/**
- * Monitora conexión y sincroniza automáticamente al reconectarse
- */
-export function startOfflineMonitor(onSync?: (result: { synced: number; failed: number }) => void) {
-  // Suscribirse a cambios de red con NetInfo
-  const unsubscribeNetInfo = NetInfo.addEventListener(async (state) => {
-    if (state.isConnected && state.isInternetReachable) {
-      const now = Date.now();
-      // Debounce: no sincronizar si acaba de hacerse hace < 3s
-      if (now - lastSyncTime < SYNC_DEBOUNCE_MS) return;
-      lastSyncTime = now;
-
-      try {
+// startOfflineMonitor: stub sin NetInfo (módulo nativo no en APK)
+// Intenta sincronizar al inicio si hay items en cola
+export function startOfflineMonitor(onSync?: (r: { synced: number; failed: number }) => void) {
+  // Sync inicial diferido
+  setTimeout(async () => {
+    try {
+      const queue = await getQueue();
+      if (queue.length > 0) {
         const result = await syncQueue();
-        if (result.synced > 0 || result.failed > 0) {
-          console.log(`[Offline Sync] Synced: ${result.synced}, Failed: ${result.failed}`);
-
-          // Notificar al usuario
-          if (result.synced > 0) {
-            await sendLocalNotification(
-              '✓ Sincronizado',
-              `${result.synced} comprobante${result.synced !== 1 ? 's' : ''} guardado${result.synced !== 1 ? 's' : ''}`,
-              { deepLink: '/receipts' },
-            );
-          }
-          if (result.failed > 0) {
-            await sendLocalNotification(
-              '⚠ Sincronización incompleta',
-              `${result.failed} comprobante${result.failed !== 1 ? 's' : ''} aún pendiente${result.failed !== 1 ? 's' : ''}. Reintentaremos pronto.`,
-            );
-          }
-
-          onSync?.(result);
-        }
-      } catch (err) {
-        console.error('[Offline Sync] Monitor error:', err);
+        if (result.synced > 0) onSync?.(result);
       }
-    }
-  });
+    } catch {}
+  }, 3000);
 
-  // Fallback: chequeo cada 60s por si NetInfo falla
+  // Retry cada 5 minutos
   const interval = setInterval(async () => {
     try {
       const queue = await getQueue();
       if (queue.length === 0) return;
+      const result = await syncQueue();
+      if (result.synced > 0) onSync?.(result);
+    } catch {}
+  }, 5 * 60 * 1000);
 
-      const state = await NetInfo.fetch();
-      if (state.isConnected && state.isInternetReachable) {
-        const now = Date.now();
-        if (now - lastSyncTime >= SYNC_DEBOUNCE_MS) {
-          lastSyncTime = now;
-          const result = await syncQueue();
-          if (result.synced > 0) {
-            await sendLocalNotification(
-              '✓ Sincronizado',
-              `${result.synced} comprobante${result.synced !== 1 ? 's' : ''} guardado${result.synced !== 1 ? 's' : ''}`,
-            );
-            onSync?.(result);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[Offline Sync] Fallback check error:', err);
-    }
-  }, 60000);
-
-  return () => {
-    unsubscribeNetInfo();
-    clearInterval(interval);
-  };
+  return () => clearInterval(interval);
 }

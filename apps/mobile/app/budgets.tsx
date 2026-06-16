@@ -308,7 +308,15 @@ export default function BudgetsScreen() {
                 </TouchableOpacity>
               ))
             ) : (
-              <Text style={styles.hint}>No hay categorías configuradas</Text>
+              <View style={{ backgroundColor: '#FFF8E1', borderRadius: 10, padding: 14, marginTop: 4 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#F57F17', marginBottom: 4 }}>
+                  Sin catálogo de cuentas
+                </Text>
+                <Text style={{ fontSize: 12, color: '#90A4AE', lineHeight: 18 }}>
+                  Para crear presupuestos por categoría, primero importa tu catálogo contable en{'\n'}
+                  Administración → Catálogo de Cuentas → Importar
+                </Text>
+              </View>
             )}
 
             {/* Límite de monto */}

@@ -55,10 +55,10 @@ export default function PresupuestoScreen() {
 
       const [membRes, budgetRes, spentRes] = await Promise.all([
         supabase.from('company_members')
-          .select('user_id, role, profiles:user_id(full_name)')
+          .select('user_id, role')
           .eq('company_id', companyId)
           .eq('status', 'active')
-          .in('role', ['spender', 'operator', 'office']),
+          .in('role', ['comprador', 'supervisor', 'admin', 'owner']),
 
         supabase.from('expense_budgets')
           .select('id, holder_id, amount')
@@ -87,7 +87,7 @@ export default function PresupuestoScreen() {
       setItems(
         (membRes.data ?? []).map((e: any) => ({
           user_id:   e.user_id,
-          full_name: (e.profiles as any)?.full_name ?? null,
+          full_name: null, // sin join a auth.users; se muestra rol + id
           role:      e.role,
           budget:    budgetMap[e.user_id]?.amount ?? null,
           spent:     spentMap[e.user_id] ?? 0,
@@ -214,7 +214,12 @@ export default function PresupuestoScreen() {
               <View key={item.user_id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.empName}>{item.full_name ?? '(sin nombre)'}</Text>
+                    <Text style={styles.empName}>
+                      {item.role === 'owner' ? 'Propietario' :
+                       item.role === 'admin' ? 'Admin' :
+                       item.role === 'supervisor' ? 'Supervisor' :
+                       `Comprador ···${item.user_id.slice(-4)}`}
+                    </Text>
                     <Text style={styles.empRole}>{item.role}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
