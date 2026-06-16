@@ -2,10 +2,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import * as WebBrowser from 'expo-web-browser';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
@@ -103,14 +102,9 @@ export default function BillingScreen() {
       if (!data?.url) throw new Error('No se recibió URL de pago');
 
       // Abrir Stripe Checkout en el navegador del dispositivo
-      const result = await WebBrowser.openBrowserAsync(data.url, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-      });
-
-      // Cuando regresa el usuario, recargar la suscripción
-      if (result.type === 'cancel' || result.type === 'dismiss') {
-        await loadSubscription();
-      }
+      await Linking.openURL(data.url);
+      // Recargar suscripción al volver
+      await loadSubscription();
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'No se pudo iniciar el pago');
     } finally {
