@@ -223,6 +223,12 @@ export default function Home() {
           hint={isAdmin ? 'Crear, revisar y autorizar gastos' : 'Crear póliza e integrar comprobantes'}
           onPress={() => router.push('/polizas' as any)}
         />
+        <MenuBtn
+          icon="✈️"
+          label="Viáticos"
+          hint="Registra gastos de viaje: renta, presentaciones, comidas, hospedaje"
+          onPress={() => router.push('/viaticos' as any)}
+        />
         {isAdmin && (
           <MenuBtn
             icon="💰"

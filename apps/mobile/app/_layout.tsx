@@ -98,6 +98,7 @@ export default function Layout() {
       <Stack.Screen name="receipt-search" options={{ title: 'Búsqueda avanzada' }} />
       <Stack.Screen name="batches"       options={{ title: 'Relaciones contables' }} />
       <Stack.Screen name="budgets"       options={{ title: 'Presupuestos' }} />
+      <Stack.Screen name="viaticos"      options={{ title: 'Viáticos' }} />
       <Stack.Screen name="batch-detail"  options={{ title: 'Detalle de relación' }} />
       <Stack.Screen name="receipt-detail"  options={{ title: 'Detalle del comprobante' }} />
       <Stack.Screen name="item-search"      options={{ title: '¿Dónde compro?' }} />
@@ -110,6 +111,7 @@ export default function Layout() {
       <Stack.Screen name="settings"      options={{ title: 'Ajustes' }} />
       <Stack.Screen name="supervisor"    options={{ title: 'Panel de supervisor' }} />
       <Stack.Screen name="supervisor/reembolsos"  options={{ title: 'Reembolsos Pendientes' }} />
+      <Stack.Screen name="supervisor/viaticos-aprobacion" options={{ title: 'Aprobar Viáticos' }} />
       <Stack.Screen name="gastadores"    options={{ title: 'Mis Compradores' }} />
       <Stack.Screen name="events"          options={{ title: 'Eventos' }} />
       <Stack.Screen name="event-detail"    options={{ title: 'Detalle del Evento' }} />
