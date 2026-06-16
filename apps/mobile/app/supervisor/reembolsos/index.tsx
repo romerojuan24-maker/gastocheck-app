@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList,
   ActivityIndicator, Alert, Modal, TextInput,
@@ -13,11 +13,11 @@ const money = (n: number) =>
 interface Reembolso {
   id: string
   employee_id: string
+  employee_email: string
   status: string
   total: number
   notes: string
   created_at: string
-  employee: { email: string }
 }
 
 interface Receipt {
@@ -55,13 +55,15 @@ export default function SupervisorReembolsosScreen() {
 
       if (!member) return
 
-      const { data: reembs } = await supabase
+      const { data: reembs, error } = await supabase
         .from("reembolsos")
-        .select("id, employee_id, status, total, notes, created_at, employee:auth.users(email)")
+        .select("id, employee_id, employee_email, status, total, notes, created_at")
+        .eq("company_id", member.company_id)
         .eq("status", "pending_auth")
         .order("created_at", { ascending: false })
 
-      setReembolsos(reembs as unknown as Reembolso[] ?? [])
+      if (error) console.error("[reembolsos load]", error)
+      setReembolsos(reembs as Reembolso[] ?? [])
     } finally {
       setLoading(false)
     }
@@ -90,7 +92,6 @@ export default function SupervisorReembolsosScreen() {
 
       for (const receipt of receipts) {
         if (receipt.fiscal_uuid) {
-          // Llamar a Edge Function de validación SAT
           const { data } = await supabase.functions.invoke("validate-cfdi", {
             body: { uuid: receipt.fiscal_uuid },
           })
@@ -126,7 +127,6 @@ export default function SupervisorReembolsosScreen() {
           onPress: async () => {
             setClassifying(true)
             try {
-              // Cambiar estado a approved
               const { error } = await supabase
                 .from("reembolsos")
                 .update({ status: "closed" })
@@ -134,20 +134,19 @@ export default function SupervisorReembolsosScreen() {
 
               if (error) throw error
 
-              // Actualizar status de recibos a included_in_batch
-              await supabase
+              // Marcar recibos incluidos en batch
+              const { data: rr } = await supabase
                 .from("receipt_reembolsos")
                 .select("receipt_id")
                 .eq("reembolso_id", selectedReembolso.id)
-                .then(({ data }) => {
-                  if (data) {
-                    const ids = data.map((r: any) => r.receipt_id)
-                    return supabase
-                      .from("receipts")
-                      .update({ status: "included_in_batch" })
-                      .in("id", ids)
-                  }
-                })
+
+              if (rr && rr.length > 0) {
+                const ids = rr.map((r: any) => r.receipt_id)
+                await supabase
+                  .from("receipts")
+                  .update({ status: "included_in_batch" })
+                  .in("id", ids)
+              }
 
               Alert.alert("✓ Reembolso cerrado", "La póliza está lista para exportar")
               setSelectedReembolso(null)
@@ -202,7 +201,7 @@ export default function SupervisorReembolsosScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>
-                    {item.employee?.email || "Anónimo"}
+                    {item.employee_email || "Anónimo"}
                   </Text>
                   <Text style={styles.cardDate}>
                     {new Date(item.created_at).toLocaleDateString("es-MX")}
@@ -394,5 +393,3 @@ const styles = StyleSheet.create({
   },
   closeBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 })
-
-
