@@ -8,6 +8,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import CatalogImportModal from './catalogo-import-modal';
 
 interface Account {
   id:           string;
@@ -29,6 +30,7 @@ export default function CatalogoCuentasScreen() {
   const [loading,     setLoading]     = useState(true);
   const [search,      setSearch]      = useState('');
   const [tab,         setTab]         = useState<ActiveTab>('accounts');
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Modal agregar/editar
   const [showAdd,     setShowAdd]     = useState(false);
@@ -243,7 +245,7 @@ export default function CatalogoCuentasScreen() {
       {/* ── Tab Cuentas ── */}
       {tab === 'accounts' && (
         <View style={{ flex:1 }}>
-          {/* Buscador */}
+          {/* Buscador + Botones de acción */}
           <View style={styles.searchRow}>
             <TextInput
               style={styles.searchInput}
@@ -253,8 +255,16 @@ export default function CatalogoCuentasScreen() {
               onChangeText={setSearch}
               autoCapitalize="none"
             />
+          </View>
+
+          {/* Botones de acción */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.importBtn} onPress={() => setShowImportModal(true)}>
+              <Text style={styles.importBtnIcon}>📥</Text>
+              <Text style={styles.importBtnTxt}>Importar</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-              <Text style={styles.addBtnTxt}>+ Agregar</Text>
+              <Text style={styles.addBtnTxt}>+ Agregar manual</Text>
             </TouchableOpacity>
           </View>
 
@@ -434,6 +444,14 @@ export default function CatalogoCuentasScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ── Modal importación (Excel/CSV/TXT) ── */}
+      <CatalogImportModal
+        visible={showImportModal}
+        companyId={companyId ?? ''}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => loadAccounts(companyId ?? '')}
+      />
     </View>
   );
 }
@@ -444,9 +462,13 @@ const styles = StyleSheet.create({
   tabActive:        { borderBottomWidth:2, borderBottomColor:BRAND.blue },
   tabTxt:           { fontSize:13, fontWeight:'600', color:'#90A4AE' },
   tabTxtActive:     { color:BRAND.blue },
-  searchRow:        { flexDirection:'row', gap:8, padding:12, backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:'#F0F0F0' },
-  searchInput:      { flex:1, backgroundColor:BRAND.gray, borderRadius:10, padding:10, fontSize:14, color:BRAND.navy },
-  addBtn:           { backgroundColor:BRAND.blue, borderRadius:10, paddingHorizontal:14, justifyContent:'center' },
+  searchRow:        { paddingHorizontal:12, paddingTop:12, paddingBottom:0, backgroundColor:'#fff', borderBottomWidth:0 },
+  searchInput:      { backgroundColor:BRAND.gray, borderRadius:10, padding:10, fontSize:14, color:BRAND.navy, marginBottom:12 },
+  actionRow:        { flexDirection:'row', gap:8, paddingHorizontal:12, paddingBottom:12, backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:'#F0F0F0' },
+  importBtn:        { flex:1, backgroundColor:BRAND.orange + '15', borderRadius:10, paddingHorizontal:12, paddingVertical:10, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:6, borderWidth:1, borderColor:BRAND.orange + '30' },
+  importBtnIcon:    { fontSize:16 },
+  importBtnTxt:     { color:BRAND.orange, fontSize:13, fontWeight:'700' },
+  addBtn:           { flex:1, backgroundColor:BRAND.blue, borderRadius:10, paddingHorizontal:14, justifyContent:'center', alignItems:'center' },
   addBtnTxt:        { color:'#fff', fontSize:13, fontWeight:'700' },
   acctCard:         { backgroundColor:'#fff', borderRadius:12, padding:14, marginBottom:6, flexDirection:'row', alignItems:'center', gap:10 },
   acctCardInactive: { opacity:0.5 },
