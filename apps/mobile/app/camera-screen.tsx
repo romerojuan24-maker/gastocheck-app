@@ -1,175 +1,114 @@
-﻿import { useState, useRef, useEffect } from "react"
-import {
-  View, Text, TouchableOpacity, StyleSheet, Alert,
-} from "react-native"
-import { Camera, CameraType, FlashMode } from "expo-camera"
-import { useRouter } from "expo-router"
-import { BRAND } from "@gastocheck/shared"
+import { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { CameraView, useCameraPermissions, type FlashMode } from 'expo-camera';
+import { useRouter } from 'expo-router';
+import { BRAND } from '@gastocheck/shared';
 
 export default function CameraWithFlashScreen() {
-  const router = useRouter()
-  const cameraRef = useRef<Camera>(null)
+  const router = useRouter();
+  const cameraRef = useRef<CameraView>(null);
 
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null)
-  const [flashMode, setFlashMode] = useState<FlashMode>(FlashMode.off)
-  const [cameraType, setCameraType] = useState<CameraType>(CameraType.back)
+  const [permission, requestPermission] = useCameraPermissions();
+  const [flash,   setFlash]   = useState<FlashMode>('off');
+  const [facing,  setFacing]  = useState<'back' | 'front'>('back');
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync()
-      setHasPermission(status === "granted")
-    })()
-  }, [])
+  if (!permission) return <View style={{ flex: 1 }} />;
+
+  if (!permission.granted) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', gap: 16 }]}>
+        <Text style={{ color: '#fff', fontSize: 15, textAlign: 'center', paddingHorizontal: 24 }}>
+          Necesitamos permiso para usar la cámara
+        </Text>
+        <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Dar permiso</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const flashLabel = { off: 'Off', on: 'On', auto: 'Auto' } as Record<FlashMode, string>;
+  const flashIcon  = { off: '🔦', on: '⚡', auto: '🤖' } as Record<FlashMode, string>;
+  const flashCycle: FlashMode[] = ['off', 'on', 'auto'];
 
   async function takePicture() {
-    if (!cameraRef.current) return
-
+    if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
-        base64: true,
-      })
-
-      // Volver a capture.tsx con la foto
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, base64: true });
+      if (!photo) return;
       router.push({
-        pathname: "/capture",
-        params: { 
-          photoUri: photo.uri,
-          photoBase64: photo.base64,
-        }
-      } as any)
-    } catch (error: any) {
-      Alert.alert("Error", "No se pudo capturar la foto")
+        pathname: '/capture',
+        params: { photoUri: photo.uri, photoBase64: photo.base64 },
+      } as any);
+    } catch {
+      Alert.alert('Error', 'No se pudo capturar la foto');
     }
-  }
-
-  if (hasPermission === null) {
-    return <View style={{ flex: 1 }} />
-  }
-
-  if (!hasPermission) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Necesitamos permiso para usar la cámara</Text>
-      </View>
-    )
-  }
-
-  const flashIcon = {
-    [FlashMode.off]: "🔦",
-    [FlashMode.on]: "⚡",
-    [FlashMode.auto]: "🤖",
   }
 
   return (
     <View style={styles.container}>
-      <Camera
+      <CameraView
         ref={cameraRef}
-        type={cameraType}
-        flashMode={flashMode}
+        facing={facing}
+        flash={flash}
         style={styles.camera}
       />
 
-      {/* Controles */}
+      {/* Controles superior */}
       <View style={styles.controls}>
-        {/* Flash/Torch */}
         <TouchableOpacity
           style={styles.controlBtn}
           onPress={() => {
-            const modes: FlashMode[] = [FlashMode.off, FlashMode.on, FlashMode.auto]
-            const nextMode = modes[(modes.indexOf(flashMode) + 1) % modes.length]
-            setFlashMode(nextMode)
+            const next = flashCycle[(flashCycle.indexOf(flash) + 1) % flashCycle.length];
+            setFlash(next);
           }}
         >
-          <Text style={styles.controlIcon}>{flashIcon[flashMode]}</Text>
-          <Text style={styles.controlLabel}>
-            {flashMode === FlashMode.off ? "Off" : flashMode === FlashMode.on ? "On" : "Auto"}
-          </Text>
+          <Text style={styles.controlIcon}>{flashIcon[flash]}</Text>
+          <Text style={styles.controlLabel}>{flashLabel[flash]}</Text>
         </TouchableOpacity>
 
-        {/* Cambiar cámara */}
         <TouchableOpacity
           style={styles.controlBtn}
-          onPress={() => {
-            setCameraType(cameraType === CameraType.back ? CameraType.front : CameraType.back)
-          }}
+          onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
         >
           <Text style={styles.controlIcon}>🔄</Text>
           <Text style={styles.controlLabel}>Voltear</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Botón capturar */}
+      {/* Botón disparador */}
       <View style={styles.captureContainer}>
-        <TouchableOpacity
-          style={styles.captureBtn}
-          onPress={takePicture}
-        >
+        <TouchableOpacity style={styles.captureBtn} onPress={takePicture}>
           <View style={styles.captureCircle} />
         </TouchableOpacity>
       </View>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  camera: {
-    flex: 1,
-  },
-  message: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    color: "#fff",
-    fontSize: 16,
-  },
+  container:        { flex: 1, backgroundColor: '#000' },
+  camera:           { flex: 1 },
   controls: {
-    position: "absolute",
-    top: 60,
-    left: 16,
-    right: 16,
-    flexDirection: "row",
-    gap: 12,
+    position: 'absolute', top: 60, left: 16, right: 16,
+    flexDirection: 'row', gap: 12,
   },
   controlBtn: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
+    alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
-  controlIcon: {
-    fontSize: 20,
-  },
-  controlLabel: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  captureContainer: {
-    backgroundColor: "rgba(0,0,0,0.5)",
-    paddingVertical: 30,
-    alignItems: "center",
-  },
+  controlIcon:      { fontSize: 20 },
+  controlLabel:     { color: '#fff', fontSize: 10, fontWeight: '600' },
+  captureContainer: { backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 30, alignItems: 'center' },
   captureBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 70, height: 70, borderRadius: 35,
+    backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center',
   },
-  captureCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: BRAND.blue,
+  captureCircle:    { width: 60, height: 60, borderRadius: 30, backgroundColor: BRAND.blue },
+  permBtn: {
+    backgroundColor: BRAND.blue, borderRadius: 12,
+    paddingHorizontal: 24, paddingVertical: 12,
   },
-})
+});
