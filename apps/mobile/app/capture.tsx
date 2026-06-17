@@ -789,7 +789,7 @@ export default function CaptureScreen() {
           </View>
         ) : (
           <View style={styles.photoContainer}>
-            <Image source={{ uri: photo.uri }} style={styles.photo} />
+            <Image source={{ uri: photo.uri }} style={styles.photo} resizeMode="contain" />
           </View>
         )}
 
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
   placeholderLabel: { fontSize: 14, color: '#90A4AE', marginTop: 8 },
   placeholderHint:  { fontSize: 12, color: '#B0BEC5', marginTop: 4 },
   photoContainer:  { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
-  photo:           { width: '100%', height: 260 },
+  photo:           { width: '100%', aspectRatio: 3 / 4, backgroundColor: '#f5f5f5' },
   form:            { marginBottom: 24 },
   fieldGroup:      { marginBottom: 12 },
   fieldLabel:      { fontSize: 13, color: '#90A4AE', fontWeight: '600', marginBottom: 4 },
