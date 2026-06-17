@@ -3,11 +3,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
-import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
-
-SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
   const router   = useRouter();
@@ -56,11 +53,6 @@ export default function Layout() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Ocultar splash nativo cuando sesión ya se resolvió
-  useEffect(() => {
-    if (session !== undefined) SplashScreen.hideAsync().catch(() => null);
-  }, [session]);
-
   useEffect(() => {
     if (session === undefined) return;
 
@@ -90,7 +82,6 @@ export default function Layout() {
     );
   }
 
-  // Mientras sesión se resuelve, splash nativo cubre la pantalla (SplashScreen.preventAutoHideAsync)
   if (session === undefined) return null;
 
   return (
