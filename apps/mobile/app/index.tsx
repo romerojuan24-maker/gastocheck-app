@@ -233,14 +233,6 @@ export default function Home() {
         />
         {isSupervisor && (
           <MenuBtn
-            icon="💰"
-            label="Presupuestos"
-            hint="Establecer límites por categoría y monitorear gastos"
-            onPress={() => router.push('/budgets' as any)}
-          />
-        )}
-        {isSupervisor && (
-          <MenuBtn
             icon="👥"
             label="Panel supervisor"
             hint="Aprobar reembolsos, viáticos y gastos del equipo"

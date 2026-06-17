@@ -223,7 +223,7 @@ export default function ReceiptsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search, page, periodFilter]);
+  }, [statusFilter, search, periodFilter]);
 
   useEffect(() => {
     loadReceipts(true);

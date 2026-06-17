@@ -461,12 +461,27 @@ serve(async (req) => {
       mime     = 'text/csv';
     }
 
+    // Subir a Storage y retornar URL firmada (para descarga en móvil)
+    const storagePath = `${company_id}/${filename}`;
+    const fileBytes = encoding === 'base64'
+      ? Uint8Array.from(atob(content), c => c.charCodeAt(0))
+      : new TextEncoder().encode(content);
+
+    const { error: upErr } = await supabase.storage
+      .from('report-exports')
+      .upload(storagePath, fileBytes, { contentType: mime, upsert: true });
+    if (upErr) throw upErr;
+
+    const { data: signedData, error: signErr } = await supabase.storage
+      .from('report-exports')
+      .createSignedUrl(storagePath, 3600);
+    if (signErr || !signedData?.signedUrl) throw signErr ?? new Error('No se pudo generar URL firmada');
+
     return Response.json({
       ok:           true,
       filename,
       mime,
-      content,
-      encoding,
+      signed_url:   signedData.signedUrl,
       row_count:    receipts.length,
       period:       periodLabel,
       with_account: withAccount,

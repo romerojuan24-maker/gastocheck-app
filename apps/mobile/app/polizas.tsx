@@ -94,6 +94,7 @@ export default function PolizasScreen() {
         .maybeSingle()
         .then(({ data }) => {
           if (data) setMember(data);
+          else setLoading(false);
         });
     });
   }, []);

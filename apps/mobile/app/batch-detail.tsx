@@ -12,6 +12,7 @@ import {
   canRemoveReceiptFromBatch, summarizeBatch,
 } from '@gastocheck/shared';
 import type { BatchStatus, ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
+import { Linking } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 const money = (n: number) =>
@@ -272,23 +273,22 @@ export default function BatchDetailScreen() {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? 'Error exportando');
 
-      // Descargar (en móvil: compartir o guardar)
-      const base64 = json.content;
-      const bin = atob(base64);
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-
       const pct = json.pct_account ?? 0;
       const acctMsg = pct === 100
         ? '\n\n✓ Todos los comprobantes tienen cuenta contable.'
         : pct > 0
           ? `\n\n⚠️ ${pct}% con cuenta contable asignada — revisa los demás en el Panel de Supervisor.`
           : '\n\n⚠️ Ningún comprobante tiene cuenta contable. Asígnalas en el Panel de Supervisor antes de importar.';
+
+      setShowExport(false);
       Alert.alert(
         '✓ Exportación lista',
-        `${json.row_count} comprobantes en ${json.filename}.${acctMsg}`,
+        `${json.row_count} comprobantes. El archivo se abrirá en tu navegador para descargarlo.${acctMsg}`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir archivo', onPress: () => Linking.openURL(json.signed_url) },
+        ],
       );
-      setShowExport(false);
     } catch (err: any) {
       Alert.alert('Error', err.message);
     } finally {

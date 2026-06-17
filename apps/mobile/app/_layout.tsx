@@ -59,11 +59,11 @@ export default function Layout() {
     const inLogin = segments[0] === 'login';
 
     if (!session && !inLogin) {
-      // Pequeño delay para permitir que autoRefreshToken renueve el token
+      // Delay generoso para que autoRefreshToken renueve antes de redirigir
       const timer = setTimeout(async () => {
-        const { data: { session: freshSession } } = await supabase.auth.getSession();
-        if (!freshSession) router.replace('/login');
-      }, 800);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) router.replace('/login');
+      }, 3000);
       return () => clearTimeout(timer);
     } else if (session && inLogin) {
       router.replace('/');
@@ -99,8 +99,7 @@ export default function Layout() {
       <Stack.Screen name="receipts"      options={{ title: 'Mis comprobantes' }} />
       <Stack.Screen name="receipt-search" options={{ title: 'Búsqueda avanzada' }} />
       <Stack.Screen name="batches"       options={{ title: 'Relaciones contables' }} />
-      <Stack.Screen name="budgets"       options={{ title: 'Presupuestos' }} />
-      <Stack.Screen name="viaticos"      options={{ title: 'Viáticos' }} />
+<Stack.Screen name="viaticos"      options={{ title: 'Viáticos' }} />
       <Stack.Screen name="batch-detail"  options={{ title: 'Detalle de relación' }} />
       <Stack.Screen name="receipt-detail"  options={{ title: 'Detalle del comprobante' }} />
       <Stack.Screen name="item-search"      options={{ title: '¿Dónde compro?' }} />
