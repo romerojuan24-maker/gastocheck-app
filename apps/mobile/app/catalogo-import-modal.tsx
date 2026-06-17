@@ -86,14 +86,15 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
     setSaving(true);
     try {
       // Insertar cuentas en Supabase
-      const { error } = await supabase.from('expense_categories').insert(
+      const { error } = await supabase.from('accounting_accounts').insert(
         selected.map((a) => ({
-          company_id: companyId,
-          name: a.nombre,
-          acct_code: a.codigo,
-          is_custom: false,
-          active: true,
-          display_order: 0,
+          company_id:   companyId,
+          code:         a.codigo,
+          name:         a.nombre,
+          account_type: a.tipo ?? 'gastos',
+          level:        3,
+          parent_code:  a.ctaSup ?? null,
+          active:       true,
         })),
       );
 

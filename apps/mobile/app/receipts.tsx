@@ -29,7 +29,30 @@ interface ReceiptRow {
   created_at:            string;
 }
 
-type FilterTab = 'vigentes' | 'revision' | 'rechazados' | 'historico';
+type FilterTab    = 'vigentes' | 'revision' | 'rechazados' | 'historico';
+type PeriodFilter = 'today' | 'week' | 'month' | 'year' | 'all';
+
+const PERIODS: { key: PeriodFilter; label: string }[] = [
+  { key: 'today', label: 'Hoy' },
+  { key: 'week',  label: 'Semana' },
+  { key: 'month', label: 'Mes' },
+  { key: 'year',  label: 'Año' },
+  { key: 'all',   label: 'Todo' },
+];
+
+function periodStart(p: PeriodFilter): string | null {
+  if (p === 'all') return null;
+  const now = new Date();
+  if (p === 'today') return now.toISOString().slice(0, 10);
+  if (p === 'week') {
+    const d = new Date(now); d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  }
+  if (p === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  }
+  return new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+}
 
 const TABS: { key: FilterTab; label: string; color: string }[] = [
   { key: 'vigentes',   label: 'Vigentes',    color: BRAND.green },
@@ -51,6 +74,7 @@ export default function ReceiptsScreen() {
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterTab>('vigentes');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month');
   const [page,         setPage]         = useState(0);
   const PAGE_SIZE = 20;
 
@@ -180,6 +204,9 @@ export default function ReceiptsScreen() {
         query = query.ilike('provider_name', `%${search.trim()}%`);
       }
 
+      const pStart = periodStart(periodFilter);
+      if (pStart) query = query.gte('receipt_date', pStart);
+
       const { data, error } = await query;
       if (error) { console.error(error); return; }
 
@@ -196,7 +223,7 @@ export default function ReceiptsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search, page]);
+  }, [statusFilter, search, page, periodFilter]);
 
   useEffect(() => {
     loadReceipts(true);
@@ -361,6 +388,22 @@ export default function ReceiptsScreen() {
         >
           <Text style={styles.advancedSearchText}>🔍</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Filtro por periodo */}
+      <View style={[styles.filtersRow, { marginBottom: 4 }]}>
+        {PERIODS.map((p) => {
+          const active = periodFilter === p.key;
+          return (
+            <TouchableOpacity
+              key={p.key}
+              style={[styles.filterChip, active && { backgroundColor: BRAND.navy, borderColor: BRAND.navy }]}
+              onPress={() => { setPeriodFilter(p.key); setPage(0); }}
+            >
+              <Text style={[styles.filterText, active && { color: '#fff' }]}>{p.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Tabs de estado */}

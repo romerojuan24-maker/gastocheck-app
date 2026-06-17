@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
+import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
   const router   = useRouter();
@@ -41,21 +44,35 @@ export default function Layout() {
     // Sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
 
-    // Escuchar cambios de auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    // Escuchar cambios de auth — solo reaccionar a eventos reales
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+        setSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Ocultar splash nativo cuando sesión ya se resolvió
   useEffect(() => {
-    if (session === undefined) return; // Cargando
+    if (session !== undefined) SplashScreen.hideAsync().catch(() => null);
+  }, [session]);
+
+  useEffect(() => {
+    if (session === undefined) return;
 
     const inLogin = segments[0] === 'login';
 
     if (!session && !inLogin) {
-      router.replace('/login');
+      // Pequeño delay para permitir que autoRefreshToken renueve el token
+      const timer = setTimeout(async () => {
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        if (!freshSession) router.replace('/login');
+      }, 800);
+      return () => clearTimeout(timer);
     } else if (session && inLogin) {
       router.replace('/');
     }
@@ -73,14 +90,8 @@ export default function Layout() {
     );
   }
 
-  // Splash de carga mientras resolvemos sesión
-  if (session === undefined) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
-        <ActivityIndicator size="large" color={BRAND.blue} />
-      </View>
-    );
-  }
+  // Mientras sesión se resuelve, splash nativo cubre la pantalla (SplashScreen.preventAutoHideAsync)
+  if (session === undefined) return null;
 
   return (
     <Stack

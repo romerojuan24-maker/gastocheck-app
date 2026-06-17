@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, ActivityIndicator, ScrollView,
+  FlatList, ActivityIndicator, ScrollView, Linking,
 } from 'react-native';
 import { BRAND, itemSearchPattern } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
@@ -274,14 +274,11 @@ export default function ItemSearchScreen() {
                 </View>
 
                 <View style={styles.priceRow}>
+                  {item.min_price !== null && (
+                    <PriceStat label="Precio menor" value={money(item.min_price)} color={BRAND.green} />
+                  )}
                   {item.avg_price !== null && (
                     <PriceStat label="Promedio" value={money(item.avg_price)} />
-                  )}
-                  {item.min_price !== null && (
-                    <PriceStat label="Mín." value={money(item.min_price)} color={BRAND.green} />
-                  )}
-                  {item.max_price !== null && (
-                    <PriceStat label="Máx." value={money(item.max_price)} color={BRAND.orange} />
                   )}
                 </View>
 
@@ -359,31 +356,27 @@ function SupplierRow({
           <Text style={styles.rankText}>{rank}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.supplierName} numberOfLines={1}>{supplier.provider_name}</Text>
-            {isBest && (
-              <View style={styles.bestBadge}>
-                <Text style={styles.bestText}>✅ Mejor precio</Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.supplierName} numberOfLines={2}>{supplier.provider_name}</Text>
+          {isBest && (
+            <View style={[styles.bestBadge, { marginTop: 2 }]}>
+              <Text style={styles.bestText}>✅ Mejor precio</Text>
+            </View>
+          )}
           <Text style={styles.supplierMeta}>
             {supplier.purchase_count} {supplier.purchase_count === 1 ? 'compra' : 'compras'}
             {supplier.last_date ? ` · última: ${daysAgo(supplier.last_date)}` : ''}
           </Text>
-          {supplier.min_price !== supplier.max_price && (
-            <Text style={styles.supplierRange}>
-              Rango: {money(supplier.min_price)} — {money(supplier.max_price)}
-            </Text>
-          )}
+          <TouchableOpacity onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(supplier.provider_name)}`)}>
+            <Text style={{ fontSize: 11, color: BRAND.blue, fontWeight: '600', marginTop: 3 }}>📍 Ver ruta en Maps</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.supplierRight}>
         <Text style={[styles.supplierAvg, isBest ? { color: BRAND.green } : { color: BRAND.navy }]}>
-          {money(supplier.avg_price)}
+          {money(supplier.last_price)}
         </Text>
-        <Text style={styles.supplierAvgLabel}>promedio</Text>
+        <Text style={styles.supplierAvgLabel}>último precio</Text>
         {!isBest && priceDiff > 5 && (
           <Text style={styles.diffText}>+{priceDiff.toFixed(0)}%</Text>
         )}

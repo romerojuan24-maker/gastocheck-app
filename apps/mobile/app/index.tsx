@@ -10,7 +10,8 @@ import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 import { checkMonthEndReminder } from '../lib/notifications';
 
-const ADMIN_ROLES = ['owner', 'admin'];
+const ADMIN_ROLES     = ['owner', 'admin'];
+const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor'];
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -114,7 +115,8 @@ export default function Home() {
     );
   }
 
-  const isAdmin = userRole && ADMIN_ROLES.includes(userRole);
+  const isAdmin      = userRole ? ADMIN_ROLES.includes(userRole) : false;
+  const isSupervisor = userRole ? SUPERVISOR_ROLES.includes(userRole) : false;
 
   return (
     <ScrollView
@@ -229,12 +231,20 @@ export default function Home() {
           hint="Registra gastos de viaje: renta, presentaciones, comidas, hospedaje"
           onPress={() => router.push('/viaticos' as any)}
         />
-        {isAdmin && (
+        {isSupervisor && (
           <MenuBtn
             icon="💰"
             label="Presupuestos"
             hint="Establecer límites por categoría y monitorear gastos"
             onPress={() => router.push('/budgets' as any)}
+          />
+        )}
+        {isSupervisor && (
+          <MenuBtn
+            icon="👥"
+            label="Panel supervisor"
+            hint="Aprobar reembolsos, viáticos y gastos del equipo"
+            onPress={() => router.push('/supervisor' as any)}
           />
         )}
         <MenuBtn
