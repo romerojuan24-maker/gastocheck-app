@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, Image,
+  ActivityIndicator, Alert, Image, Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -11,6 +11,9 @@ import {
 } from '@gastocheck/shared';
 import type { Receipt, ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 const money = (n: number | null) =>
   n == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -30,6 +33,7 @@ export default function ReceiptDetailScreen() {
   const [photoUrl,  setPhotoUrl]  = useState<string | null>(null);
   const [vehicleName, setVehicleName] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState<string | null>(null);
+  const [uploadingCfdi, setUploadingCfdi] = useState(false);
 
   // ── Cargar comprobante ─────────────────────────────────────────────────────
 
@@ -81,6 +85,58 @@ export default function ReceiptDetailScreen() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── Adjuntar CFDI/ZIP ──────────────────────────────────────────────────────
+
+  async function handleAttachCfdi() {
+    if (!receipt) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/xml', 'application/xml', 'application/zip', 'application/octet-stream', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const file = result.assets[0];
+
+      setUploadingCfdi(true);
+
+      const base64 = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const ext  = file.name.split('.').pop() ?? 'xml';
+      const path = `${(receipt as any).company_id}/${receipt.id}/cfdi.${ext}`;
+      const mimeType = file.mimeType ?? (ext === 'zip' ? 'application/zip' : 'application/xml');
+
+      const { error: upErr } = await supabase.storage
+        .from('expense-attachments')
+        .upload(path, decode(base64), { contentType: mimeType, upsert: true });
+
+      if (upErr) throw upErr;
+
+      const { error: updateErr } = await supabase
+        .from('receipts')
+        .update({ cfdi_url: path })
+        .eq('id', receipt.id);
+
+      if (updateErr) throw updateErr;
+
+      Alert.alert('✓ Archivo adjuntado', `"${file.name}" adjuntado exitosamente.`);
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo adjuntar el archivo');
+    } finally {
+      setUploadingCfdi(false);
+    }
+  }
+
+  async function handleViewCfdi() {
+    if (!receipt) return;
+    const path = (receipt as any).cfdi_url;
+    if (!path) return;
+    const { data } = await supabase.storage.from('expense-attachments').createSignedUrl(path, 3600);
+    if (data?.signedUrl) await Linking.openURL(data.signedUrl);
+  }
 
   // ── Acciones ───────────────────────────────────────────────────────────────
 
@@ -338,6 +394,28 @@ export default function ReceiptDetailScreen() {
           onPress={() => router.push(`/supplier-detail?id=${receipt.supplier_id}`)}
         >
           <Text style={styles.providerBtnText}>🏪 Ver historial del proveedor</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ── CFDI / ZIP adjunto ── */}
+      {(receipt as any).cfdi_url ? (
+        <TouchableOpacity
+          style={[styles.providerBtn, { backgroundColor: '#E8F5E9' }]}
+          onPress={handleViewCfdi}
+        >
+          <Text style={[styles.providerBtnText, { color: BRAND.green }]}>📎 Ver CFDI adjunto</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.providerBtn, uploadingCfdi && { opacity: 0.5 }]}
+          onPress={handleAttachCfdi}
+          disabled={uploadingCfdi}
+        >
+          {uploadingCfdi ? (
+            <ActivityIndicator color={BRAND.blue} size="small" />
+          ) : (
+            <Text style={styles.providerBtnText}>📎 Adjuntar XML / CFDI / ZIP</Text>
+          )}
         </TouchableOpacity>
       )}
 

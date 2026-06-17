@@ -34,7 +34,7 @@ export default function CameraWithFlashScreen() {
   async function takePicture() {
     if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, base64: false });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: false });
       if (!photo) return;
       router.push({
         pathname: '/capture',

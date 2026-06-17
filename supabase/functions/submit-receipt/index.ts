@@ -48,6 +48,7 @@ interface SubmitInput {
   fiscal_uuid?:     string | null;
   internal_folio?: string | null;
   payment_method?: string | null;
+  is_credit?:      boolean;
   ocr_text?:       string | null;
   ocr_confidence?: number | null;
   extracted_json?: Record<string, unknown> | null;
@@ -93,7 +94,7 @@ Deno.serve(async (req) => {
       provider_name, provider_rfc, receipt_date,
       receipt_time, total_amount, subtotal_amount, tax_amount,
       discount_amount, ieps_amount, ish_amount, retencion_iva, retencion_isr,
-      fiscal_uuid, internal_folio, payment_method,
+      fiscal_uuid, internal_folio, payment_method, is_credit = false,
       ocr_text, ocr_confidence, extracted_json, line_items,
       category_id, cost_center_id, notes,
       vehicle_id = null, operator_id = null,
@@ -269,6 +270,7 @@ Deno.serve(async (req) => {
       fiscal_uuid:               fiscal_uuid ?? null,
       internal_folio:            internal_folio ?? null,
       payment_method:            payment_method ?? null,
+      is_credit:                 is_credit,
       ocr_text:                  ocr_text ?? null,
       ocr_confidence:            ocr_confidence ?? null,
       extracted_json:            extracted_json ?? null,

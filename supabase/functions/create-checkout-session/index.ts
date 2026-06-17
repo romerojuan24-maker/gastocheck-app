@@ -23,6 +23,13 @@ Deno.serve(async (req: Request) => {
       httpClient: Stripe.createFetchHttpClient(),
     })
 
+    // Admin client (service role — bypasses RLS para todas las queries internas)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    )
+
+    // Anon client solo para verificar el JWT del usuario
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -46,8 +53,8 @@ Deno.serve(async (req: Request) => {
     }
     const priceId = PLAN_PRICE_MAP[plan]
 
-    // Obtener empresa del usuario
-    const { data: member } = await supabase
+    // Obtener empresa del usuario (admin bypasses RLS)
+    const { data: member } = await supabaseAdmin
       .from("company_members")
       .select("company_id")
       .eq("user_id", user.id)
@@ -55,16 +62,11 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (!member?.company_id) {
-      throw new Error("El usuario no pertenece a ninguna empresa")
+      throw new Error("El usuario no pertenece a ninguna empresa activa")
     }
     const companyId = member.company_id
 
     // Buscar o crear stripe_customer para la empresa
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    )
-
     const { data: existing } = await supabaseAdmin
       .from("stripe_customers")
       .select("stripe_customer_id")
@@ -76,7 +78,7 @@ Deno.serve(async (req: Request) => {
     if (existing?.stripe_customer_id) {
       stripeCustomerId = existing.stripe_customer_id
     } else {
-      // Obtener datos de la empresa
+      // Obtener nombre de la empresa
       const { data: company } = await supabaseAdmin
         .from("companies")
         .select("name")

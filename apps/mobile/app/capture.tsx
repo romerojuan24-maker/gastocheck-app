@@ -131,6 +131,7 @@ export default function CaptureScreen() {
   const [folio,      setFolio]      = useState('');
   const [description, setDescription] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [isCredit,      setIsCredit]      = useState(false);
 
   // Fuente: foto o XML
   const [isXml,      setIsXml]      = useState(false);
@@ -244,7 +245,7 @@ export default function CaptureScreen() {
     }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
+      quality: 0.5,
       base64: true,
       exif: false,
     });
@@ -528,6 +529,7 @@ export default function CaptureScreen() {
             fiscal_uuid:      extracted?.fiscalUuid ?? null,
             internal_folio:   folio      || null,
             payment_method:   paymentMethod || extracted?.paymentMethod || null,
+            is_credit:        isCredit,
             ocr_text:         extracted?.fullText ?? null,
             ocr_confidence:   extracted?.confidence === 'high' ? 90
                             : extracted?.confidence === 'medium' ? 65 : 40,
@@ -884,6 +886,32 @@ export default function CaptureScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+
+          {/* Tipo de comprobante */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Tipo de comprobante</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['Pagado directo', 'A crédito'] as const).map((opt) => {
+                const active = opt === 'A crédito' ? isCredit : !isCredit;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.pmChip, active && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
+                    onPress={() => setIsCredit(opt === 'A crédito')}
+                  >
+                    <Text style={[styles.pmChipText, active && { color: '#fff' }]}>
+                      {opt === 'Pagado directo' ? '💵 ' : '💳 '}{opt}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {isCredit && (
+              <Text style={{ fontSize: 11, color: '#90A4AE', marginTop: 6 }}>
+                Los comprobantes a crédito no descuentan tu saldo de anticipo
+              </Text>
+            )}
           </View>
 
           {/* Categoría de gasto */}

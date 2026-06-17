@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList,
-  ActivityIndicator, Alert, Modal, TextInput,
+  ActivityIndicator, Alert, Modal, TextInput, Linking,
 } from "react-native"
 import { useRouter } from "expo-router"
 import { BRAND } from "@gastocheck/shared"
@@ -39,6 +39,8 @@ export default function SupervisorReembolsosScreen() {
   const [satVerifying, setSatVerifying] = useState(false)
   const [classifying, setClassifying] = useState(false)
   const [satResults, setSatResults] = useState<any[]>([])
+  const [generatingReport, setGeneratingReport] = useState(false)
+  const [companyId, setCompanyId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -54,6 +56,7 @@ export default function SupervisorReembolsosScreen() {
         .maybeSingle()
 
       if (!member) return
+      setCompanyId(member.company_id)
 
       const { data: reembs, error } = await supabase
         .from("reembolsos")
@@ -111,6 +114,26 @@ export default function SupervisorReembolsosScreen() {
       Alert.alert("Error", error.message ?? "No se pudo verificar SAT")
     } finally {
       setSatVerifying(false)
+    }
+  }
+
+  async function handleGenerateReport() {
+    if (!selectedReembolso) return
+    setGeneratingReport(true)
+    try {
+      const { data, error } = await supabase.functions.invoke("reembolsos-workflow", {
+        body: { action: "generate_report", reembolso_id: selectedReembolso.id, company_id: companyId },
+      })
+      if (error) throw error
+      if (data?.url) {
+        await Linking.openURL(data.url)
+      } else {
+        Alert.alert("Error", "No se pudo generar el reporte")
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "No se pudo generar el reporte")
+    } finally {
+      setGeneratingReport(false)
     }
   }
 
@@ -264,6 +287,18 @@ export default function SupervisorReembolsosScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={[styles.reportBtn, generatingReport && { opacity: 0.6 }]}
+              onPress={handleGenerateReport}
+              disabled={generatingReport}
+            >
+              {generatingReport ? (
+                <ActivityIndicator color={BRAND.green} />
+              ) : (
+                <Text style={styles.reportBtnText}>📄 Generar Reporte PDF</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.classifyBtn}
               onPress={() => {
                 setShowSatModal(false)
@@ -392,4 +427,11 @@ const styles = StyleSheet.create({
     alignItems: "center", marginTop: 16,
   },
   closeBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+
+  reportBtn: {
+    backgroundColor: "#fff", borderRadius: 12, paddingVertical: 14,
+    alignItems: "center", marginTop: 10,
+    borderWidth: 2, borderColor: BRAND.green,
+  },
+  reportBtnText: { fontSize: 15, fontWeight: "700", color: BRAND.green },
 })
