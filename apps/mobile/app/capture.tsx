@@ -5,9 +5,10 @@ import {
   ScrollView, FlatList, Image, TextInput, Alert, Modal,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import DatePickerField from '../components/DatePickerField';
@@ -43,6 +44,7 @@ interface DuplicateResult {
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const { photoUri } = useLocalSearchParams<{ photoUri?: string }>();
   const { extractFromImage, loading: ocrLoading } = useOcr();
 
   // Setup offline sync monitor + cargar categorías al inicio
@@ -60,6 +62,53 @@ export default function CaptureScreen() {
     })();
     return unsubscribe;
   }, []);
+
+  // Procesar foto llegando desde camera-screen
+  useEffect(() => {
+    if (!photoUri || typeof photoUri !== 'string') return;
+    (async () => {
+      try {
+        const base64 = await FileSystem.readAsStringAsync(photoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setPhoto({ uri: photoUri, base64 });
+        const { data: result, error: ocrErr } = await extractFromImage(base64, 'image/jpeg');
+        if (result) {
+          setExtracted(result);
+          const prov = result.providerName ?? '';
+          setProveedor(prov);
+          setRfc(result.providerRfc ?? '');
+          setTotal(String(result.total ?? ''));
+          setSubtotal(String(result.subtotal ?? ''));
+          setIva(String(result.tax ?? ''));
+          setDescuento(String(result.discount ?? ''));
+          setIeps(String(result.ieps ?? ''));
+          setIsh(String(result.ish ?? ''));
+          setRetencionIva(String(result.retencionIva ?? ''));
+          setRetencionIsr(String(result.retencionIsr ?? ''));
+          const cat = suggestCategoryFromProvider(prov);
+          setSuggestedCategory(cat);
+          const flags = categoryExtraTax(cat);
+          const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
+          setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
+          setFecha(result.receiptDate ?? '');
+          setFolio(result.internalFolio ?? '');
+          setStep('confirm');
+        } else {
+          Alert.alert(
+            'OCR falló',
+            ocrErr ?? 'La IA no pudo extraer datos de la imagen.',
+            [
+              { text: 'Elegir otra imagen', style: 'cancel' },
+              { text: 'Ingresar manualmente', onPress: () => { setFecha(new Date().toISOString().slice(0, 10)); setStep('confirm'); } },
+            ],
+          );
+        }
+      } catch (e: any) {
+        Alert.alert('Error', 'No se pudo leer la foto: ' + (e?.message ?? ''));
+      }
+    })();
+  }, [photoUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
   const [extracted,  setExtracted]  = useState<OcrResult | null>(null);

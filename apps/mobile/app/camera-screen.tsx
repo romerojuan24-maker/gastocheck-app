@@ -34,11 +34,11 @@ export default function CameraWithFlashScreen() {
   async function takePicture() {
     if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, base64: true });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, base64: false });
       if (!photo) return;
       router.push({
         pathname: '/capture',
-        params: { photoUri: photo.uri, photoBase64: photo.base64 },
+        params: { photoUri: photo.uri },
       } as any);
     } catch {
       Alert.alert('Error', 'No se pudo capturar la foto');
