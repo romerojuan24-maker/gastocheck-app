@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "reac
 import { useState } from "react"
 import { useAuth } from "@gastocheck/shared"
 import { Link, useRouter } from "expo-router"
+import { VERSION_STRING } from "../lib/version"
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("cobrador@test.com")
@@ -24,6 +25,10 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.versionBadge}>
+        <Text style={styles.versionText}>{VERSION_STRING}</Text>
+      </View>
+
       <View style={styles.header}>
         <Text style={styles.title}>CobraCheck</Text>
         <Text style={styles.subtitle}>Controla lo que te debes</Text>
@@ -71,6 +76,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     justifyContent: "center",
     paddingHorizontal: 24,
+  },
+  versionBadge: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    backgroundColor: "#182535",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  versionText: {
+    color: "#36BF6A",
+    fontSize: 11,
+    fontWeight: "bold",
   },
   header: {
     alignItems: "center",

@@ -1,7 +1,17 @@
 import { Tabs } from "expo-router"
 import { Users, Navigation, CreditCard, RotateCcw } from "lucide-react-native"
+import { View, Text } from "react-native"
+import { VERSION_STRING } from "../../lib/version"
 
 export default function TabsLayout() {
+  const headerRight = () => (
+    <View style={{ paddingRight: 16 }}>
+      <Text style={{ color: "#36BF6A", fontSize: 10, fontWeight: "bold" }}>
+        {VERSION_STRING}
+      </Text>
+    </View>
+  )
+
   return (
     <Tabs
       screenOptions={{
@@ -13,6 +23,7 @@ export default function TabsLayout() {
         headerTitleStyle: {
           fontWeight: "bold",
         },
+        headerRight,
         tabBarStyle: {
           backgroundColor: "#fff",
           borderTopColor: "#e0e0e0",

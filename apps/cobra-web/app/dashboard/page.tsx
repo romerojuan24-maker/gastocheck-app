@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@gastocheck/shared"
+import { VERSION_STRING } from "@/lib/version"
 import styles from "./dashboard.module.css"
 
 interface DashboardSummary {
@@ -72,6 +73,7 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.container}>
+      <div className={styles.versionBadge}>{VERSION_STRING}</div>
       <header className={styles.header}>
         <h1>CobraCheck Dashboard</h1>
         <Link href="/settings" className={styles.settingsLink}>

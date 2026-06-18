@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@gastocheck/shared"
+import { VERSION_STRING } from "@/lib/version"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("admin@test.com")
@@ -35,7 +36,22 @@ export default function LoginPage() {
       minHeight: "100vh",
       backgroundColor: "#f5f5f5",
       fontFamily: "system-ui, -apple-system, sans-serif",
+      position: "relative",
     }}>
+      <div style={{
+        position: "absolute",
+        top: 16,
+        right: 16,
+        backgroundColor: "#182535",
+        color: "#36BF6A",
+        padding: "6px 12px",
+        borderRadius: 12,
+        fontSize: 11,
+        fontWeight: "bold",
+      }}>
+        {VERSION_STRING}
+      </div>
+
       <div style={{
         backgroundColor: "#fff",
         borderRadius: 8,
