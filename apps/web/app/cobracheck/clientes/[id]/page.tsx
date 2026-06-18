@@ -2,8 +2,8 @@
 
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
-import { CobraClient, CobraInvoice } from '@gastocheck/shared/types/cobracheck'
+import { supabase, getSessionUser } from '../../../lib/supabase'
+import { CobraClient, CobraInvoice } from '@gastocheck/shared'
 
 export default function ClientDetailPage() {
   const { id } = useParams() as { id: string }

@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
-import { CobraPromise } from '@gastocheck/shared/types/cobracheck'
+import { supabase, getSessionUser } from '../../../lib/supabase'
+import { CobraPromise } from '@gastocheck/shared'
 
 export default function PromesasPage() {
   const [promises, setPromises] = useState<CobraPromise[]>([])

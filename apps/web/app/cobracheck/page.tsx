@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
-import { CobraClient, CobraInvoice, CobraPayment } from '@gastocheck/shared/types/cobracheck'
+import { supabase, getSessionUser } from '../../../lib/supabase'
+import { CobraClient, CobraInvoice, CobraPayment } from '@gastocheck/shared'
 
 export default function CobraCheckDashboard() {
   const [kpis, setKpis] = useState({ totalCartera: 0, vencidos: 0, enRiesgo: 0, avgScore: 0 })

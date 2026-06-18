@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
+import { supabase, getSessionUser } from '../../../lib/supabase'
 import Link from 'next/link'
-import { CobraClient } from '@gastocheck/shared/types/cobracheck'
+import { CobraClient } from '@gastocheck/shared'
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<CobraClient[]>([])

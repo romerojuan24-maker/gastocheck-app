@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
-import { CobraInvoice } from '@gastocheck/shared/types/cobracheck'
+import { supabase, getSessionUser } from '../../../lib/supabase'
+import { CobraInvoice } from '@gastocheck/shared'
 
 export default function FacturasPage() {
   const [invoices, setInvoices] = useState<CobraInvoice[]>([])

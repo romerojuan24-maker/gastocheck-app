@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@gastocheck/shared'
+import { supabase, getSessionUser } from '../../../lib/supabase'
 
 export default function BitacoraPage() {
   const [entries, setEntries] = useState([])
