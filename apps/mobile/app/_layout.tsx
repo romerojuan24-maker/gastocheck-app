@@ -125,6 +125,7 @@ export default function Layout() {
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
       <Stack.Screen name="bancocheck"        options={{ title: 'BancoCheck' }} />
       <Stack.Screen name="facturacheck"      options={{ title: 'FacturaCheck' }} />
+      <Stack.Screen name="flujocheck"        options={{ title: 'FlujoCheck' }} />
     </Stack>
   );
 }
