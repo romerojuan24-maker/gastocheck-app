@@ -81,8 +81,14 @@ export default function PolicyExportModal({
       }
 
       await saveFileSilently(content, fileName, ext);
-      Alert.alert('✓ Guardado', `Archivo guardado en tu dispositivo (${fileName}.${ext})`);
-      onClose();
+      Alert.alert(
+        '✓ Exportado',
+        `Archivo ${fileName}.${ext} generado.\n\nUsa "Compartir" para enviártelo por WhatsApp, correo u otra app.`,
+        [
+          { text: 'Compartir ahora', onPress: () => handleShareFile() },
+          { text: 'Cerrar', style: 'cancel', onPress: onClose },
+        ],
+      );
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'No se pudo guardar el archivo');
     } finally {

@@ -52,7 +52,8 @@ export default function CatalogoCuentasScreen() {
 
   const init = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session: catSession } } = await supabase.auth.getSession();
+    const user = catSession?.user;
     if (!user) { setLoading(false); return; }
     const { data: m } = await supabase
       .from('company_members').select('company_id').eq('user_id', user.id).maybeSingle();

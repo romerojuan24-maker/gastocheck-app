@@ -103,7 +103,8 @@ export default function SupervisorScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: supSession } } = await supabase.auth.getSession();
+      const user = supSession?.user;
       if (!user) return;
 
       const { data: member } = await supabase
@@ -192,7 +193,8 @@ export default function SupervisorScreen() {
     if (!companyId || !polName.trim() || !polHolder.trim()) return;
     setSavingPol(true);
 
-    const { data: { user: u } } = await supabase.auth.getUser();
+    const { data: { session: polSession } } = await supabase.auth.getSession();
+    const u = polSession?.user;
     if (!u) { setSavingPol(false); return; }
 
     // Obtener folio correlativo para la póliza
@@ -224,7 +226,8 @@ export default function SupervisorScreen() {
   async function createAdvance() {
     if (!advPolicy.trim() || !advAmount.trim()) return;
     setSavingAdv(true);
-    const { data: { user: u } } = await supabase.auth.getUser();
+    const { data: { session: advSession } } = await supabase.auth.getSession();
+    const u = advSession?.user;
     if (!u || !companyId) { setSavingAdv(false); return; }
     const { error } = await supabase.from('advances').insert({
       company_id: companyId,
@@ -244,7 +247,8 @@ export default function SupervisorScreen() {
 
   async function handleApproveRequest() {
     if (!approveReq || !approvePolicy) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session: approveSession } } = await supabase.auth.getSession();
+    const user = approveSession?.user;
     if (!user) return;
 
     setApproveSaving(true);
@@ -310,7 +314,8 @@ export default function SupervisorScreen() {
 
   async function handleRejectRequest() {
     if (!rejectReqId || !rejectReason.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session: rejectSession } } = await supabase.auth.getSession();
+    const user = rejectSession?.user;
     if (!user) return;
 
     setRejectSaving(true);

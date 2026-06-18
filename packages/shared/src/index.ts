@@ -26,4 +26,4 @@ export const BRAND = {
 export * from './cobra';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 69 · v1.0.69';
+export const APP_VERSION = 'OTA 70 · v1.0.70';

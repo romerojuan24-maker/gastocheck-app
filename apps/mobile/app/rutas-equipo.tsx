@@ -62,7 +62,8 @@ export default function RutasEquipoScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: rutasSession } } = await supabase.auth.getSession();
+      const user = rutasSession?.user;
       if (!user) return;
       const { data: m } = await supabase
         .from('company_members').select('company_id, role')

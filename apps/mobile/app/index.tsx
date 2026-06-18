@@ -37,7 +37,8 @@ export default function Home() {
   async function loadData() {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: homeSession } } = await supabase.auth.getSession();
+      const user = homeSession?.user;
       if (!user) { setLoading(false); return; }
 
       const { data: member } = await supabase
@@ -127,6 +128,14 @@ export default function Home() {
       <View style={styles.splashHeader}>
         <View style={styles.circleTopRight} />
         <View style={styles.circleBottomLeft} />
+        <TouchableOpacity
+          style={styles.settingsBtn}
+          onPress={() => router.push('/settings')}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 22 }}>⚙️</Text>
+        </TouchableOpacity>
+
         <View style={styles.splashContent}>
           <Image source={require('../assets/icon.png')} style={styles.splashIcon} />
           <View style={{ flex: 1, marginLeft: 14 }}>

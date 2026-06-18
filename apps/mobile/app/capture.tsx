@@ -53,7 +53,8 @@ export default function CaptureScreen() {
     setupNotifications();
     // Pre-cargar categorías tan pronto se carga la pantalla
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: initSession } } = await supabase.auth.getSession();
+      const user = initSession?.user;
       if (!user) return;
       setMemberUserId(user.id);
       const { data: m } = await supabase
@@ -468,8 +469,9 @@ export default function CaptureScreen() {
     setShowDupModal(false);
 
     try {
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !user) throw new Error('No autenticado');
+      const { data: { session: confirmSession } } = await supabase.auth.getSession();
+      const user = confirmSession?.user;
+      if (!user) throw new Error('No autenticado');
 
       // Obtener company_id del membership (sin necesidad de póliza abierta)
       const { data: membership, error: memErr } = await supabase
@@ -649,18 +651,17 @@ export default function CaptureScreen() {
 
   async function handlePressConfirm() {
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    if (!memberUserId) {
       setSaving(false);
       Alert.alert('Sesión expirada', 'Inicia sesión nuevamente.');
       return;
     }
-    const { data: membership } = await supabase.from('company_members').select('company_id')
-      .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+    const membership = memberCompanyId ? { company_id: memberCompanyId } : null;
+    const user = { id: memberUserId };
 
     // 1. Verificación hard-block en cliente (mismo UUID o mismo proveedor+monto+fecha)
-    if (membership?.company_id && user) {
-      const blockMsg = await clientDuplicateBlock(membership.company_id, user.id);
+    if (membership?.company_id) {
+      const blockMsg = await clientDuplicateBlock(membership.company_id, memberUserId);
       if (blockMsg) {
         setSaving(false);
         Alert.alert('🚫 Comprobante duplicado', blockMsg, [{ text: 'Entendido' }]);
@@ -803,8 +804,10 @@ export default function CaptureScreen() {
               style={{
                 borderColor: 'rgba(255,255,255,0.35)', borderWidth: 1,
                 borderRadius: 12, padding: 14, alignItems: 'center',
+                opacity: quickSaving ? 0.4 : 1,
               }}
               onPress={startOcrAndReview}
+              disabled={quickSaving}
             >
               <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
                 ✏️ Revisar y completar

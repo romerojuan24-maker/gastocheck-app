@@ -402,11 +402,6 @@ serve(async (req) => {
       queryAccountCodes(supabase, receiptIds),
     ]);
 
-    if (receipts.length === 0) {
-      return Response.json({ ok: false, error: 'Sin comprobantes para el período/relación indicado' },
-        { status: 404, headers: CORS });
-    }
-
     // Etiqueta del período
     const periodStart = batch_id ? '' : (date_from ?? receipts[0]?.receipt_date ?? '');
     const periodEnd   = batch_id ? '' : (date_to   ?? receipts[receipts.length - 1]?.receipt_date ?? '');

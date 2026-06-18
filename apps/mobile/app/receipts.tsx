@@ -253,9 +253,9 @@ export default function ReceiptsScreen() {
   // ── Renderizado de cada comprobante ───────────────────────────────────────
 
   function renderReceipt({ item }: { item: ReceiptRow }) {
-    const statusMeta = RECEIPT_STATUS_META[item.status];
-    const dupMeta = DUPLICATE_STATUS_META[item.duplicate_status];
-    const isWarning = item.duplicate_status !== 'no_duplicate';
+    const statusMeta = RECEIPT_STATUS_META[item.status] ?? RECEIPT_STATUS_META.captured;
+    const dupMeta = DUPLICATE_STATUS_META[item.duplicate_status as keyof typeof DUPLICATE_STATUS_META] ?? null;
+    const isWarning = item.duplicate_status !== 'no_duplicate' && !!dupMeta;
     const inPoliza = item.status === 'submitted';
 
     // Estado SAT
@@ -316,7 +316,7 @@ export default function ReceiptsScreen() {
                 <Text style={[styles.tagText,
                   { color: satOk ? '#2E7D32' : satFail ? '#C62828' : '#E65100' }]}>
                   {satOk   ? '✅ CFDI Vigente'
-                  : satFail ? '❌ CFDI Cancelado'
+                  : satFail ? '❌ CFDI Cancelado — Solicita nueva factura'
                   : satPend ? '🧾 Con CFDI'
                   : '⏳ CFDI sin verificar'}
                 </Text>
