@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, getSessionUser } from '../../../../lib/supabase';
 import { parseBankCSVRow } from '@gastocheck/shared';
@@ -36,7 +36,7 @@ export default function BancoCheckImportPage() {
     if (data?.length) setSelectedAccount(data[0].id);
   }, []);
 
-  useState(() => {
+  useEffect(() => {
     getSessionUser().then(u => {
       if (!u) return;
       setCompanyId(u.company_id);
