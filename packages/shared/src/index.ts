@@ -23,5 +23,7 @@ export const BRAND = {
   purple: '#7B1FA2',
 } as const;
 
+export * from './cobra';
+
 // Versión de la app — actualizar con cada OTA
 export const APP_VERSION = 'OTA 69 · v1.0.69';
