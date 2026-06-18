@@ -123,6 +123,7 @@ export default function Layout() {
       <Stack.Screen name="reportes"          options={{ title: 'Reportes' }} />
       <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
+      <Stack.Screen name="bancocheck"        options={{ title: 'BancoCheck' }} />
     </Stack>
   );
 }

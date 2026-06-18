@@ -12,11 +12,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  // Owner
+  // Dashboards primarios
   { href: '/hoy',          label: 'Hoy',           icon: '⚡', roles: ['owner'] },
-  // Managers
   { href: '/pendientes',   label: 'Pendientes',     icon: '📋', roles: ['owner','admin','accountant','supervisor'] },
-  // Operadores
   { href: '/mis-tareas',   label: 'Mis tareas',     icon: '✅', roles: ['employee','collector','operator'] },
   // Módulos
   { href: '/gastocheck',   label: 'GastoCheck',     icon: '🧾', roles: ['owner','admin','accountant','supervisor','employee','operator'] },
