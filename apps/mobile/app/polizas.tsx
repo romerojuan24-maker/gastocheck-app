@@ -81,8 +81,9 @@ export default function PolizasScreen() {
   // ── Inicialización ──────────────────────────────────────────────────────────
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
-      if (!u) { router.replace('/login' as any); return; }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user;
+      if (!u) { setLoading(false); router.replace('/login' as any); return; }
       setUser(u);
 
       supabase.from('company_members')
@@ -102,21 +103,25 @@ export default function PolizasScreen() {
   const loadPolicies = useCallback(async () => {
     if (!user || !member) return;
     setLoading(true);
+    try {
+      const isAdmin = ['owner', 'supervisor', 'admin'].includes(member.role);
 
-    const isAdmin = ['owner', 'supervisor', 'admin'].includes(member.role);
+      let q = supabase
+        .from('policies')
+        .select('id, name, status, gc_folio, holder_id, opening_balance, created_at')
+        .eq('company_id', member.company_id)
+        .order('created_at', { ascending: false });
 
-    let q = supabase
-      .from('policies')
-      .select('id, name, status, gc_folio, holder_id, opening_balance, created_at')
-      .eq('company_id', member.company_id)
-      .order('created_at', { ascending: false });
+      // Compradores solo ven sus propias pólizas
+      if (!isAdmin) q = q.eq('holder_id', user.id);
 
-    // Compradores solo ven sus propias pólizas
-    if (!isAdmin) q = q.eq('holder_id', user.id);
-
-    const { data } = await q;
-    setPolicies((data ?? []) as Policy[]);
-    setLoading(false);
+      const { data } = await q;
+      setPolicies((data ?? []) as Policy[]);
+    } catch {
+      // silencioso — no crash si la query falla
+    } finally {
+      setLoading(false);
+    }
   }, [user, member]);
 
   useEffect(() => { loadPolicies(); }, [loadPolicies]);
@@ -490,6 +495,14 @@ export default function PolizasScreen() {
           />
         )}
 
+        {/* Modal exportar póliza */}
+        <PolicyExportModal
+          visible={showExportModal}
+          policyName={selectedPolicy?.name ?? ''}
+          expenses={exportData}
+          onClose={() => setShowExportModal(false)}
+        />
+
         {/* Modal: seleccionar comprobantes */}
         <Modal visible={showSelectReceipts} animationType="slide">
           <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
@@ -646,27 +659,20 @@ export default function PolizasScreen() {
             <TextInput style={styles.sheetInput} value={newBalance} onChangeText={setNewBalance}
               keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#B0BEC5" />
             <TouchableOpacity
-              style={[styles.confirmBtn, (creating || !newName.trim()) && { opacity: 0.5 }]}
+              style={[styles.sheetBtn, (creating || !newName.trim()) && { opacity: 0.5 }]}
               onPress={handleCreatePolicy} disabled={creating || !newName.trim()}>
               {creating
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={styles.confirmBtnText}>Crear póliza</Text>
               }
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCreate(false)}>
+            <TouchableOpacity style={[styles.cancelBtn, { flex: 0, marginTop: 10 }]} onPress={() => setShowCreate(false)}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Modal exportar póliza */}
-      <PolicyExportModal
-        visible={showExportModal}
-        policyName={selectedPolicy?.name ?? ''}
-        expenses={exportData}
-        onClose={() => setShowExportModal(false)}
-      />
     </View>
   );
 }
@@ -745,9 +751,10 @@ const styles = StyleSheet.create({
   receiptTotal: { fontSize: 14, fontWeight: '800', color: BRAND.navy, width: 80, textAlign: 'right' },
   // ── Modal footer ─────────────────────────────────────────────────────────
   modalFooter:  { flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 32 },
-  confirmBtn:   { flex: 2, backgroundColor: BRAND.green, padding: 14, borderRadius: 12, alignItems: 'center' },
+  confirmBtn:   { flex: 2, backgroundColor: BRAND.green, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   confirmBtnText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
-  cancelBtn:    { flex: 1, borderWidth: 1.5, borderColor: '#ccc', padding: 14, borderRadius: 12, alignItems: 'center' },
+  sheetBtn:     { backgroundColor: BRAND.green, padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 0 },
+  cancelBtn:    { flex: 1, borderWidth: 1.5, borderColor: '#ccc', padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cancelBtnText:{ color: '#666', fontWeight: '600' },
   overlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet:        { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
