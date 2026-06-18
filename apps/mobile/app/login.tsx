@@ -197,6 +197,11 @@ export default function LoginScreen() {
 
           {tab === 'register' && (
             <>
+              {/* Escape hatch visible — evita que el usuario quede atrapado */}
+              <TouchableOpacity style={styles.backLink} onPress={() => setTab('login')}>
+                <Text style={styles.backLinkText}>← Volver a Iniciar sesión</Text>
+              </TouchableOpacity>
+
               <Text style={styles.label}>Nombre de tu empresa *</Text>
               <TextInput
                 style={styles.input}
@@ -250,9 +255,14 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {tab === 'register' && (
-            <Text style={styles.trialNote}>
-              ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 comprador
-            </Text>
+            <>
+              <Text style={styles.trialNote}>
+                ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 comprador
+              </Text>
+              <TouchableOpacity style={styles.demoLinkBtn} onPress={handleDemo} disabled={loading}>
+                <Text style={styles.demoLinkText}>🧪 Solo quiero ver el demo</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
@@ -326,4 +336,8 @@ const styles = StyleSheet.create({
   demoBtnText:    { fontSize: 14, fontWeight: '700', color: BRAND.orange },
   demoBtnSub:     { fontSize: 11, color: '#90A4AE', marginTop: 2 },
   footer:         { fontSize: 12, color: '#90A4AE', textAlign: 'center', lineHeight: 18 },
+  backLink:       { marginBottom: 12 },
+  backLinkText:   { fontSize: 13, color: BRAND.blue, fontWeight: '600' },
+  demoLinkBtn:    { alignItems: 'center', marginTop: 12, paddingVertical: 8 },
+  demoLinkText:   { fontSize: 13, color: BRAND.orange, fontWeight: '600' },
 });
