@@ -1,190 +1,52 @@
 'use client';
-
 import { useEffect, useState, useCallback } from 'react';
 import { supabase, getSessionUser } from '../../../lib/supabase';
-import { projectCashFlow, CASH_FLOW_RISK_META } from '@gastocheck/shared';
+import { CASH_FLOW_RISK_META, projectCashFlow } from '@gastocheck/shared';
 import type { CashFlowItem } from '@gastocheck/shared';
 
-const money = (n: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
-
-interface Dashboard {
-  current_balance: number;
-  expected_income_7d: number;
-  expected_expense_7d: number;
-  projected_balance_7d: number;
-  risk_level_7d: 'green' | 'yellow' | 'red';
-  items: CashFlowItem[];
-}
+const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function FlujoCheckPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [data, setData] = useState<Dashboard | null>(null);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [items, setItems] = useState<CashFlowItem[]>([]);
+  const [risk, setRisk] = useState<'green' | 'yellow' | 'red'>('green');
+  const [projected, setProjected] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [horizon, setHorizon] = useState(7);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
     try {
-      // Saldo actual
-      const { data: accData } = await supabase
-        .from('bank_accounts')
-        .select('current_balance').eq('company_id', cid).eq('is_active', true);
-      const currentBalance = (accData ?? []).reduce((s, a) => s + (a.current_balance ?? 0), 0);
-
-      // Items de flujo
-      const { data: itemsData } = await supabase
-        .from('cash_flow_items')
-        .select('*').eq('company_id', cid).eq('is_scenario', false)
-        .order('expected_date', { ascending: true });
-
-      const items = (itemsData ?? []) as CashFlowItem[];
-
-      // Calcular proyección
-      const { balance: bal7d, risk: risk7d } = projectCashFlow(currentBalance, items, 7);
-      const { balance: bal30d, risk: risk30d } = projectCashFlow(currentBalance, items, 30);
-
-      const income7d = items
-        .filter(i => i.direction === 'in' && new Date(i.expected_date) <= new Date(Date.now() + 7*24*60*60*1000))
-        .reduce((s, i) => s + i.amount, 0);
-
-      const expense7d = items
-        .filter(i => i.direction === 'out' && new Date(i.expected_date) <= new Date(Date.now() + 7*24*60*60*1000))
-        .reduce((s, i) => s + i.amount, 0);
-
-      setData({
-        current_balance: currentBalance,
-        expected_income_7d: income7d,
-        expected_expense_7d: expense7d,
-        projected_balance_7d: bal7d,
-        risk_level_7d: risk7d,
-        items,
-      });
+      const [accData, itemsRes] = await Promise.all([
+        supabase.from('bank_accounts').select('current_balance').eq('company_id', cid).eq('is_active', true),
+        supabase.from('cash_flow_items').select('*').eq('company_id', cid).eq('is_scenario', false).order('expected_date', { ascending: true }).limit(50),
+      ]);
+      const bal = (accData.data ?? []).reduce((s, a) => s + (a.current_balance ?? 0), 0);
+      setCurrentBalance(bal);
+      const its = (itemsRes.data ?? []) as CashFlowItem[];
+      setItems(its);
+      const { balance, risk: r } = projectCashFlow(bal, its, 7);
+      setProjected(balance);
+      setRisk(r);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    getSessionUser().then(u => {
-      if (!u) return;
-      setCompanyId(u.company_id);
-      load(u.company_id);
-    });
+    getSessionUser().then(u => { if (u) { setCompanyId(u.company_id); load(u.company_id); } });
   }, [load]);
 
-  if (loading || !data) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  const riskMeta = CASH_FLOW_RISK_META[data.risk_level_7d];
+  const riskMeta = CASH_FLOW_RISK_META[risk];
+  const income = items.filter(i => i.direction === 'in').reduce((s, i) => s + i.amount, 0);
+  const expense = items.filter(i => i.direction === 'out').reduce((s, i) => s + i.amount, 0);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-900">📈 FlujoCheck</h1>
-        <p className="text-slate-500 text-sm mt-1">¿Me va a alcanzar?</p>
-      </div>
-
-      {/* KPI principal */}
-      <div className={`rounded-2xl p-6 mb-6 border-2 ${
-        data.risk_level_7d === 'green'  ? 'bg-emerald-50 border-emerald-300'
-        : data.risk_level_7d === 'yellow' ? 'bg-amber-50 border-amber-300'
-        : 'bg-red-50 border-red-300'
-      }`}>
-        <p className={`text-xs font-bold mb-2 ${
-          data.risk_level_7d === 'green'  ? 'text-emerald-700'
-          : data.risk_level_7d === 'yellow' ? 'text-amber-700'
-          : 'text-red-700'
-        }`}>
-          {riskMeta.message.toUpperCase()}
-        </p>
-        <p className="text-4xl font-black text-slate-900 mb-1">{money(data.projected_balance_7d)}</p>
-        <p className={`text-sm font-bold ${
-          data.risk_level_7d === 'green'  ? 'text-emerald-700'
-          : data.risk_level_7d === 'yellow' ? 'text-amber-700'
-          : 'text-red-700'
-        }`}>
-          Saldo proyectado en 7 días
-        </p>
-      </div>
-
-      {/* Fila de KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-600 mb-1">Saldo actual</p>
-          <p className="text-xl font-black text-slate-900">{money(data.current_balance)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-600 mb-1">Ingresos 7d</p>
-          <p className="text-xl font-black text-emerald-700">+{money(data.expected_income_7d)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-600 mb-1">Egresos 7d</p>
-          <p className="text-xl font-black text-red-700">-{money(data.expected_expense_7d)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-600 mb-1">Disponible</p>
-          <p className="text-xl font-black text-slate-900">
-            {money(data.current_balance + data.expected_income_7d - data.expected_expense_7d)}
-          </p>
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <h2 className="text-sm font-bold text-slate-900 mb-4">Próximos movimientos</h2>
-      <div className="space-y-2 mb-8">
-        {data.items.slice(0, 10).map((item, i) => {
-          const daysFromNow = Math.ceil(
-            (new Date(item.expected_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-          );
-          const isIncome = item.direction === 'in';
-
-          return (
-            <div
-              key={item.id}
-              className={`rounded-xl p-3 flex items-center justify-between border ${
-                isIncome
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">{item.description}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {daysFromNow === 0
-                    ? 'Hoy'
-                    : daysFromNow === 1
-                    ? 'Mañana'
-                    : `En ${daysFromNow} días`}
-                </p>
-              </div>
-              <p
-                className={`text-sm font-black shrink-0 ml-2 ${
-                  isIncome ? 'text-emerald-700' : 'text-red-700'
-                }`}
-              >
-                {isIncome ? '+' : '-'}{money(Math.abs(item.amount))}
-              </p>
-            </div>
-          );
-        })}
-        {data.items.length === 0 && (
-          <p className="text-sm text-slate-500 text-center py-8">Sin movimientos proyectados</p>
-        )}
-      </div>
-
-      {/* Escenarios (futuro) */}
-      <div className="bg-slate-100 rounded-xl border border-slate-200 p-4 text-center">
-        <p className="text-sm text-slate-600">
-          🔮 Escenarios "¿Qué pasa si?" próximamente
-        </p>
-      </div>
+      <div className="mb-6"><h1 className="text-2xl font-black text-slate-900">📈 FlujoCheck</h1><p className="text-slate-500 text-sm mt-1">Proyección de flujo de caja</p></div>
+      <div className="grid grid-cols-3 gap-4 mb-6"><div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600 mb-1">Saldo hoy</p><p className="text-2xl font-black">{money(currentBalance)}</p></div><div className="bg-green-50 rounded-xl border border-green-200 p-4"><p className="text-xs text-green-600 mb-1">Ingresos</p><p className="text-2xl font-black text-green-700">+{money(income)}</p></div><div className="bg-red-50 rounded-xl border border-red-200 p-4"><p className="text-xs text-red-600 mb-1">Egresos</p><p className="text-2xl font-black text-red-700">-{money(expense)}</p></div></div>
+      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6"><p className="text-sm font-bold text-slate-600 mb-2">PROYECCIÓN 7 DÍAS</p><div className="flex items-baseline gap-4"><p className="text-4xl font-black">{money(projected)}</p><p style={{ color: riskMeta.color }} className="text-sm font-bold">{riskMeta.label}</p></div></div>
+      {loading ? <div className="text-center py-12">Cargando...</div> : items.length === 0 ? <div className="text-center py-12 bg-white rounded-xl">Sin movimientos</div> : <div className="space-y-3">{items.map(i => <div key={i.id} className={`rounded-xl p-4 flex justify-between ${i.direction === 'in' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}><p className="font-bold">{i.description}</p><p className={`font-black ${i.direction === 'in' ? 'text-green-600' : 'text-red-600'}`}>{i.direction === 'in' ? '+' : '-'}{money(Math.abs(i.amount))}</p></div>)}</div>}
     </div>
   );
 }

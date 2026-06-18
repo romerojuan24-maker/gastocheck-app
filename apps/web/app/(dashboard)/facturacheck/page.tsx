@@ -1,158 +1,48 @@
 'use client';
-
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, getSessionUser } from '../../../lib/supabase';
-import { CFDI_STATUS_META } from '@gastocheck/shared';
 import type { CfdiDocument } from '@gastocheck/shared';
 
-const money = (n: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
+const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function FacturaCheckPage() {
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [cfdis, setCfdis] = useState<CfdiDocument[]>([]);
+  const [documents, setDocuments] = useState<CfdiDocument[]>([]);
   const [tab, setTab] = useState<'received' | 'issued' | 'problems'>('received');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('cfdi_documents')
-        .select('*').eq('company_id', cid)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      setCfdis((data ?? []) as CfdiDocument[]);
+      const { data } = await supabase.from('cfdi_documents').select('*').eq('company_id', cid).order('fecha_emision', { ascending: false }).limit(100);
+      setDocuments((data ?? []) as CfdiDocument[]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    getSessionUser().then(u => {
-      if (!u) return;
-      setCompanyId(u.company_id);
-      load(u.company_id);
-    });
+    getSessionUser().then(u => { if (u) { setCompanyId(u.company_id); load(u.company_id); } });
   }, [load]);
 
-  const filtered = cfdis.filter(c => {
-    if (tab === 'received') return c.direction === 'received' && c.status !== 'cancelado';
-    if (tab === 'issued') return c.direction === 'issued' && c.status !== 'cancelado';
-    if (tab === 'problems') return ['cancelado', 'not_found', 'duplicate'].includes(c.status);
-    return true;
+  const filtered = documents.filter(d => {
+    if (tab === 'received') return d.direction === 'received';
+    if (tab === 'issued') return d.direction === 'issued';
+    return ['cancelado', 'not_found', 'duplicate'].includes(d.status);
   });
 
-  const totalAmount = filtered.reduce((s, c) => s + (c.total ?? 0), 0);
-  const problemCount = cfdis.filter(c => ['cancelado','not_found','duplicate'].includes(c.status)).length;
+  const received = documents.filter(d => d.direction === 'received').length;
+  const issued = documents.filter(d => d.direction === 'issued').length;
+  const problems = documents.filter(d => ['cancelado', 'not_found', 'duplicate'].includes(d.status)).length;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-900">📄 FacturaCheck</h1>
-        <p className="text-slate-500 text-sm mt-1">Gestión de CFDI y validación SAT</p>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs font-semibold text-slate-600 mb-1">Recibidas vigentes</p>
-          <p className="text-2xl font-black text-slate-900">
-            {cfdis.filter(c => c.direction === 'received' && c.status === 'vigente').length}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs font-semibold text-slate-600 mb-1">Emitidas vigentes</p>
-          <p className="text-2xl font-black text-slate-900">
-            {cfdis.filter(c => c.direction === 'issued' && c.status === 'vigente').length}
-          </p>
-        </div>
-        <div className="bg-red-50 rounded-xl border border-red-200 p-4">
-          <p className="text-xs font-semibold text-red-600 mb-1">Con problemas</p>
-          <p className="text-2xl font-black text-red-700">{problemCount}</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-slate-200">
-        {[
-          { key: 'received', label: `Recibidas (${cfdis.filter(c => c.direction === 'received').length})` },
-          { key: 'issued',   label: `Emitidas (${cfdis.filter(c => c.direction === 'issued').length})` },
-          { key: 'problems', label: `Con problemas (${problemCount})` },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key as any)}
-            className={`px-3 py-3 text-sm font-bold transition-colors ${
-              tab === t.key
-                ? 'text-emerald-600 border-b-2 border-emerald-500'
-                : 'text-slate-500 border-b-2 border-transparent hover:text-slate-700'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Acciones */}
-      {tab !== 'problems' && (
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => router.push('/facturacheck/subir')}
-            className="px-4 py-2.5 bg-emerald-500 text-white font-bold rounded-lg hover:bg-emerald-600"
-          >
-            📤 Subir XML
-          </button>
-        </div>
-      )}
-
-      {/* Lista */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-4xl mb-2">📋</p>
-          <p className="text-slate-500 font-medium">
-            {tab === 'problems' ? 'Sin problemas' : 'Sin CFDI'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(c => {
-            const meta = CFDI_STATUS_META[c.status as keyof typeof CFDI_STATUS_META] || {
-              label: c.status, color: '#999', icon: '?',
-            };
-            return (
-              <div
-                key={c.id}
-                onClick={() => router.push(`/facturacheck/${c.id}`)}
-                className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer flex items-start gap-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate font-mono">{c.uuid_cfdi}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {c.rfc_emisor} → {c.rfc_receptor}
-                  </p>
-                  {c.razon_social_emisor && (
-                    <p className="text-xs text-slate-500">{c.razon_social_emisor}</p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  {c.total && <p className="text-base font-black text-slate-900">{money(c.total)}</p>}
-                  <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ color: meta.color, backgroundColor: meta.color + '15' }}>
-                    {meta.icon} {meta.label}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="mb-6"><h1 className="text-2xl font-black text-slate-900">📄 FacturaCheck</h1><p className="text-slate-500 text-sm mt-1">Gestión de CFDI</p></div>
+      <div className="grid grid-cols-3 gap-4 mb-6"><div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Recibidas</p><p className="text-2xl font-black">{received}</p></div><div className="bg-white rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Emitidas</p><p className="text-2xl font-black">{issued}</p></div><div className="bg-red-50 rounded-xl border border-red-200 p-4"><p className="text-xs text-red-600">Problemas</p><p className="text-2xl font-black text-red-700">{problems}</p></div></div>
+      <div className="flex gap-1 mb-6 border-b border-slate-200">{['received', 'issued', 'problems'].map(t => <button key={t} onClick={() => setTab(t as any)} className={`px-3 py-3 text-sm font-bold ${tab === t ? 'text-emerald-600 border-b-2 border-emerald-500' : 'text-slate-500'}`}>{t === 'received' ? 'Recibidas' : t === 'issued' ? 'Emitidas' : 'Problemas'}</button>)}</div>
+      {loading ? <div className="text-center py-12">Cargando...</div> : filtered.length === 0 ? <div className="text-center py-12 bg-white rounded-xl">Sin facturas</div> : <div className="space-y-3">{filtered.map(d => <div key={d.id} onClick={() => router.push(`/facturacheck/${d.id}`)} className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md"><div className="flex justify-between"><div><p className="font-bold text-sm">{d.uuid_cfdi}</p><p className="text-xs text-slate-500">{d.rfc_emisor}</p></div><p className="font-black text-lg">{money(d.total)}</p></div></div>)}</div>}
     </div>
   );
 }
