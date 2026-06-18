@@ -1,238 +1,138 @@
-// Edge Function: invite-gastador
-// Crea un usuario Auth + perfil + membresía en company_members.
-// Solo puede ser llamada por un owner o admin de la empresa.
-// Deploy: npx supabase functions deploy invite-gastador
+// invite-gastador — Crea un nuevo comprador (spender) en la empresa
+// Input:  { company_id, full_name, email, role?, password? }
+// Output: { ok, user_id, temp_password? }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')             ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
-const CORS_HEADERS = {
+const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface InviteBody {
-  company_id: string;
-  full_name:  string;
-  email:      string;
-  password?:  string;
-  role?:      string;
+function randomPassword(len = 10): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST')    return new Response('Method not allowed', { status: 405 });
 
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  });
-}
-
-/** Genera contraseña temporal: 'Gasto' + 4 dígitos + '!' */
-function generateTempPassword(): string {
-  const digits = Math.floor(1000 + Math.random() * 9000).toString();
-  return `Gasto${digits}!`;
-}
-
-// ---------------------------------------------------------------------------
-// Handler
-// ---------------------------------------------------------------------------
-Deno.serve(async (req: Request): Promise<Response> => {
-  // Preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
-
-  if (req.method !== 'POST') {
-    return jsonResponse({ ok: false, error: 'Method not allowed' }, 405);
-  }
-
-  // -------------------------------------------------------------------------
-  // Autenticación del caller
-  // -------------------------------------------------------------------------
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return jsonResponse({ ok: false, error: 'Missing Authorization header' }, 401);
-  }
-  const callerToken = authHeader.replace('Bearer ', '').trim();
-
-  // Cliente con service role (para operaciones admin)
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  // Verificar que el token es válido y obtener el caller
-  const { data: callerData, error: callerErr } = await admin.auth.getUser(callerToken);
-  if (callerErr || !callerData?.user) {
-    return jsonResponse({ ok: false, error: 'Invalid or expired token' }, 401);
-  }
-  const callerId = callerData.user.id;
-
-  // -------------------------------------------------------------------------
-  // Parsear body
-  // -------------------------------------------------------------------------
-  let body: InviteBody;
   try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ ok: false, error: 'Invalid JSON body' }, 400);
-  }
-
-  const { company_id, full_name, email, password, role } = body;
-
-  // -------------------------------------------------------------------------
-  // Validación de campos obligatorios
-  // -------------------------------------------------------------------------
-  if (!company_id || typeof company_id !== 'string' || company_id.trim() === '') {
-    return jsonResponse({ ok: false, error: 'company_id es requerido' }, 400);
-  }
-  if (!full_name || typeof full_name !== 'string' || full_name.trim() === '') {
-    return jsonResponse({ ok: false, error: 'full_name es requerido' }, 400);
-  }
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return jsonResponse({ ok: false, error: 'email válido es requerido' }, 400);
-  }
-  if (password !== undefined && password !== null) {
-    if (typeof password !== 'string' || password.length < 8) {
-      return jsonResponse({ ok: false, error: 'La contraseña debe tener al menos 8 caracteres' }, 400);
+    // Verificar que el llamador es admin/owner
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user: caller }, error: authErr } = await supabaseUser.auth.getUser();
+    if (authErr || !caller) {
+      return Response.json({ error: 'No autenticado' }, { status: 401, headers: CORS });
     }
-  }
 
-  // -------------------------------------------------------------------------
-  // Verificar que el caller es owner o admin de la empresa
-  // -------------------------------------------------------------------------
-  const { data: membership, error: memberErr } = await admin
-    .from('company_members')
-    .select('role, status')
-    .eq('company_id', company_id)
-    .eq('user_id', callerId)
-    .eq('status', 'active')
-    .in('role', ['owner', 'admin'])
-    .maybeSingle();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
-  if (memberErr) {
-    console.error('Error checking caller membership:', memberErr);
-    return jsonResponse({ ok: false, error: 'Error verificando permisos' }, 500);
-  }
-  if (!membership) {
-    return jsonResponse(
-      { ok: false, error: 'No tienes permisos para invitar miembros a esta empresa' },
-      403,
-    );
-  }
+    const { company_id, full_name, email, role = 'spender', password } = await req.json() as {
+      company_id: string;
+      full_name:  string;
+      email:      string;
+      role?:      string;
+      password?:  string;
+    };
 
-  // -------------------------------------------------------------------------
-  // Determinar contraseña final
-  // -------------------------------------------------------------------------
-  const isPasswordGenerated = !password;
-  const finalPassword = password ?? generateTempPassword();
-
-  // -------------------------------------------------------------------------
-  // Crear usuario en Auth
-  // -------------------------------------------------------------------------
-  const { data: createData, error: createErr } = await admin.auth.admin.createUser({
-    email:          email.trim().toLowerCase(),
-    password:       finalPassword,
-    email_confirm:  true,
-    user_metadata: {
-      full_name: full_name.trim(),
-    },
-  });
-
-  if (createErr) {
-    const msg = createErr.message ?? '';
-    // Supabase devuelve "already registered" cuando el email existe
-    if (
-      msg.toLowerCase().includes('already registered') ||
-      msg.toLowerCase().includes('already been registered') ||
-      msg.toLowerCase().includes('user already exists')
-    ) {
-      return jsonResponse(
-        {
-          ok:    false,
-          error: `El correo ${email} ya está registrado en el sistema. Usa otro correo o comunícate con soporte.`,
-          code:  'EMAIL_ALREADY_REGISTERED',
-        },
-        409,
+    if (!company_id || !full_name || !email) {
+      return Response.json(
+        { error: 'company_id, full_name y email son requeridos' },
+        { status: 400, headers: CORS },
       );
     }
-    console.error('Error creating auth user:', createErr);
-    return jsonResponse({ ok: false, error: `Error creando usuario: ${msg}` }, 500);
-  }
 
-  const newUser = createData.user;
-  if (!newUser) {
-    return jsonResponse({ ok: false, error: 'No se pudo crear el usuario' }, 500);
-  }
+    // Verificar que el llamador tiene permisos en la empresa
+    const { data: callerMember } = await supabase
+      .from('company_members')
+      .select('role')
+      .eq('company_id', company_id)
+      .eq('user_id', caller.id)
+      .eq('status', 'active')
+      .maybeSingle();
 
-  // -------------------------------------------------------------------------
-  // Insertar perfil
-  // -------------------------------------------------------------------------
-  const { error: profileErr } = await admin
-    .from('profiles')
-    .insert({
-      id:        newUser.id,
-      full_name: full_name.trim(),
-    });
-
-  if (profileErr) {
-    // El perfil puede ya existir si hay un trigger on-auth-create; tolerar el error
-    // solo si es de conflicto (código 23505), pero logueamos cualquier otro.
-    if (profileErr.code !== '23505') {
-      console.error('Error inserting profile:', profileErr);
-      // No revertimos el usuario — el perfil se puede crear manualmente; pero
-      // intentamos continuar para al menos crear la membresía.
+    if (!callerMember || !['owner', 'admin', 'supervisor'].includes(callerMember.role)) {
+      return Response.json({ error: 'Sin permisos para agregar compradores' }, { status: 403, headers: CORS });
     }
-  }
 
-  // -------------------------------------------------------------------------
-  // Insertar membresía
-  // -------------------------------------------------------------------------
-  const assignedRole = role?.trim() || 'spender';
+    // Contraseña: usar la proporcionada o generar una temporal
+    const tempPassword   = password?.trim() || randomPassword();
+    const isAutoPassword = !password?.trim();
 
-  const { error: memberInsertErr } = await admin
-    .from('company_members')
-    .insert({
-      company_id,
-      user_id: newUser.id,
-      role:    assignedRole,
-      status:  'active',
+    // Crear usuario en Auth
+    let userId: string;
+    const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+      email:          email.trim().toLowerCase(),
+      password:       tempPassword,
+      email_confirm:  true,
+      user_metadata:  { full_name: full_name.trim() },
     });
 
-  if (memberInsertErr) {
-    console.error('Error inserting company_member:', memberInsertErr);
-    // En este punto el usuario Auth y el perfil ya existen; informamos del error
-    // para que el caller pueda tomar acción (p.ej. re-intentar solo la membresía).
-    return jsonResponse(
-      {
-        ok:      false,
-        error:   `Usuario creado (${newUser.id}) pero no se pudo agregar a la empresa: ${memberInsertErr.message}`,
-        user_id: newUser.id,
-      },
-      500,
+    if (createErr) {
+      // Si ya existe, recuperar el user_id
+      if (createErr.message?.includes('already') || createErr.message?.includes('exists')) {
+        const { data: listRes } = await supabase.auth.admin.listUsers();
+        const existing = listRes?.users?.find((u: any) => u.email === email.trim().toLowerCase());
+        if (!existing) {
+          return Response.json({ error: createErr.message }, { status: 400, headers: CORS });
+        }
+        userId = existing.id;
+      } else {
+        return Response.json({ error: createErr.message }, { status: 400, headers: CORS });
+      }
+    } else {
+      userId = newUser.user.id;
+    }
+
+    // Asegurar perfil con nombre
+    await supabase.from('profiles').upsert(
+      { id: userId, full_name: full_name.trim() },
+      { onConflict: 'id' },
     );
+
+    // Agregar como miembro de la empresa (o re-activar si ya existía)
+    const { data: existingMember } = await supabase
+      .from('company_members')
+      .select('id')
+      .eq('company_id', company_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingMember) {
+      await supabase.from('company_members')
+        .update({ status: 'active', role })
+        .eq('id', existingMember.id);
+    } else {
+      await supabase.from('company_members').insert({
+        company_id,
+        user_id: userId,
+        role,
+        status: 'active',
+      });
+    }
+
+    return Response.json(
+      {
+        ok:      true,
+        user_id: userId,
+        ...(isAutoPassword ? { temp_password: tempPassword } : {}),
+      },
+      { headers: CORS },
+    );
+  } catch (err: any) {
+    console.error('invite-gastador error:', err);
+    return Response.json({ error: err.message ?? 'Error interno' }, { status: 500, headers: CORS });
   }
-
-  // -------------------------------------------------------------------------
-  // Respuesta exitosa
-  // -------------------------------------------------------------------------
-  const responseBody: Record<string, unknown> = {
-    ok:      true,
-    user_id: newUser.id,
-    message: `${full_name.trim()} ha sido agregado a la empresa con el rol "${assignedRole}".`,
-  };
-
-  if (isPasswordGenerated) {
-    responseBody.temp_password = finalPassword;
-  }
-
-  return jsonResponse(responseBody, 201);
 });

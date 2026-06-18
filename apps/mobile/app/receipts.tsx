@@ -27,6 +27,7 @@ interface ReceiptRow {
   fiscal_uuid:           string | null;
   sat_validation_status: string | null;
   created_at:            string;
+  is_processing:         boolean;
 }
 
 type FilterTab    = 'vigentes' | 'revision' | 'rechazados' | 'historico';
@@ -83,7 +84,8 @@ export default function ReceiptsScreen() {
   const [tabCounts, setTabCounts] = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
 
   async function handleCreateReembolso() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
 
     // Obtener empresa del usuario actual
@@ -124,23 +126,26 @@ export default function ReceiptsScreen() {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   async function loadTabCounts(userId: string, role: string) {
-    // Comprador: solo sus recibos. Supervisor/Admin: todos de la empresa
-    const filter = role === 'spender' ? `employee_id.eq.${userId},uploaded_by.eq.${userId}` : '';
-    const [v, r, x, h] = await Promise.all([
-      supabase.from('receipts').select('id', { count: 'exact', head: true })
-        .then(q => filter ? q.or(filter) : q)
-        .eq('status', 'captured'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true })
-        .then(q => filter ? q.or(filter) : q)
-        .eq('status', 'submitted'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true })
-        .then(q => filter ? q.or(filter) : q)
-        .eq('status', 'rejected'),
-      supabase.from('receipts').select('id', { count: 'exact', head: true })
-        .then(q => filter ? q.or(filter) : q)
-        .in('status', ['approved', 'included_in_batch', 'exported']),
-    ]);
-    setTabCounts({ vigentes: v.count ?? 0, revision: r.count ?? 0, rechazados: x.count ?? 0, historico: h.count ?? 0 });
+    try {
+      const isSpender = role === 'spender';
+
+      async function countStatus(statuses: string | string[]) {
+        let q = supabase.from('receipts').select('id', { count: 'exact', head: true });
+        if (isSpender) q = q.or(`employee_id.eq.${userId},uploaded_by.eq.${userId}`);
+        if (Array.isArray(statuses)) q = (q as any).in('status', statuses);
+        else q = q.eq('status', statuses);
+        const { count } = await q;
+        return count ?? 0;
+      }
+
+      const [v, r, x, h] = await Promise.all([
+        countStatus('captured'),
+        countStatus('submitted'),
+        countStatus('rejected'),
+        countStatus(['approved', 'included_in_batch', 'exported']),
+      ]);
+      setTabCounts({ vigentes: v, revision: r, rechazados: x, historico: h });
+    } catch { /* silencioso */ }
   }
 
   // pageOverride evita el problema de closure stale: onEndReached pasa el next page explícitamente
@@ -150,7 +155,8 @@ export default function ReceiptsScreen() {
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       // Obtener rol del usuario
@@ -164,13 +170,13 @@ export default function ReceiptsScreen() {
       const role = member?.role ?? 'spender';
       setUserRole(role);
 
-      if (reset) loadTabCounts(user.id, role);
+      if (reset) loadTabCounts(user.id, role).catch(() => {});
 
       let query = supabase
         .from('receipts')
         .select(
           'id, company_id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
-          'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at',
+          'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at, is_processing',
         );
 
       // Filtro por rol: comprador solo ve sus recibos, supervisor ve todos de empresa
@@ -229,6 +235,14 @@ export default function ReceiptsScreen() {
     loadReceipts(true);
   }, [statusFilter, search]);
 
+  // Auto-refresh cada 4 seg mientras haya comprobantes procesándose
+  useEffect(() => {
+    const hasProcessing = receipts.some(r => r.is_processing);
+    if (!hasProcessing) return;
+    const interval = setInterval(() => loadReceipts(true), 4000);
+    return () => clearInterval(interval);
+  }, [receipts]);
+
   // Refrescar al volver de receipt-detail (ej. tras cancelar un comprobante)
   useFocusEffect(
     useCallback(() => {
@@ -264,9 +278,16 @@ export default function ReceiptsScreen() {
         {/* Encabezado: proveedor + monto */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={styles.provider} numberOfLines={1}>
-              {item.provider_name ?? '(sin proveedor)'}
-            </Text>
+            {item.is_processing ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ActivityIndicator size="small" color={BRAND.blue} />
+                <Text style={[styles.provider, { color: BRAND.blue }]}>Analizando…</Text>
+              </View>
+            ) : (
+              <Text style={styles.provider} numberOfLines={1}>
+                {item.provider_name ?? '(sin proveedor)'}
+              </Text>
+            )}
             <Text style={styles.date}>
               {item.receipt_date ?? item.created_at?.slice(0, 10) ?? '—'}
               {'  '}

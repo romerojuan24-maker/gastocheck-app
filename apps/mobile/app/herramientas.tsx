@@ -131,17 +131,6 @@ export default function HerramientasScreen() {
         />
       )}
 
-      {/* ── Presupuestos (admin/supervisor) ── */}
-      {canSeeBudget && (
-        <ToolBtn
-          icon="🎯"
-          title="Presupuestos mensuales"
-          hint="Define límites de gasto por empleado y monitorea el avance"
-          accent={BRAND.blue}
-          onPress={() => router.push('/presupuesto' as any)}
-        />
-      )}
-
       {/* ── Control de ruta ── */}
       {canSeeRouteAdmin && (
         <ToolBtn

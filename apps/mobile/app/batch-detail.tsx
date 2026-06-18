@@ -137,7 +137,8 @@ export default function BatchDetailScreen() {
 
   async function addReceipt(receipt_id: string) {
     if (!batch_id) return;
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user;
     if (!currentUser) { Alert.alert('Error', 'Sesión expirada'); return; }
     const { error } = await supabase
       .from('receipt_batch_items')

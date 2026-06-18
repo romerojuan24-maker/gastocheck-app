@@ -55,7 +55,8 @@ export default function BatchesScreen() {
   const loadBatches = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       // Obtener company_id del usuario
@@ -125,7 +126,8 @@ export default function BatchesScreen() {
     }
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const user = s?.user;
       if (!user) throw new Error('No autenticado');
 
       const today = new Date().toISOString().slice(0, 10);

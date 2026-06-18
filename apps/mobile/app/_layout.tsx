@@ -61,8 +61,9 @@ export default function Layout() {
     if (!session && !inLogin) {
       // Delay generoso para que autoRefreshToken renueve antes de redirigir
       const timer = setTimeout(async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) router.replace('/login');
+        // getSession() usa caché local — no falla por red ni token expirado temporalmente
+        const { data: { session: fresh } } = await supabase.auth.getSession();
+        if (!fresh) router.replace('/login');
       }, 3000);
       return () => clearTimeout(timer);
     } else if (session && inLogin) {
@@ -121,6 +122,7 @@ export default function Layout() {
       <Stack.Screen name="herramientas"      options={{ title: 'Herramientas' }} />
       <Stack.Screen name="reportes"          options={{ title: 'Reportes' }} />
       <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
+      <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
     </Stack>
   );
 }

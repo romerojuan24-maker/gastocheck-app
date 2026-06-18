@@ -467,6 +467,9 @@ serve(async (req) => {
       ? Uint8Array.from(atob(content), c => c.charCodeAt(0))
       : new TextEncoder().encode(content);
 
+    // Asegurar que el bucket existe (error ignorado si ya existe)
+    await supabase.storage.createBucket('report-exports', { public: false }).catch(() => {});
+
     const { error: upErr } = await supabase.storage
       .from('report-exports')
       .upload(storagePath, fileBytes, { contentType: mime, upsert: true });

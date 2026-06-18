@@ -55,15 +55,19 @@ export default function CaptureScreen() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setMemberUserId(user.id);
       const { data: m } = await supabase
         .from('company_members').select('company_id')
         .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
-      if (m?.company_id) loadCategories(m.company_id);
+      if (m?.company_id) {
+        setMemberCompanyId(m.company_id);
+        loadCategories(m.company_id);
+      }
     })();
     return unsubscribe;
   }, []);
 
-  // Procesar foto llegando desde camera-screen
+  // Procesar foto llegando desde camera-screen — ir a preview sin esperar OCR
   useEffect(() => {
     if (!photoUri || typeof photoUri !== 'string') return;
     (async () => {
@@ -72,38 +76,7 @@ export default function CaptureScreen() {
           encoding: FileSystem.EncodingType.Base64,
         });
         setPhoto({ uri: photoUri, base64 });
-        const { data: result, error: ocrErr } = await extractFromImage(base64, 'image/jpeg');
-        if (result) {
-          setExtracted(result);
-          const prov = result.providerName ?? '';
-          setProveedor(prov);
-          setRfc(result.providerRfc ?? '');
-          setTotal(String(result.total ?? ''));
-          setSubtotal(String(result.subtotal ?? ''));
-          setIva(String(result.tax ?? ''));
-          setDescuento(String(result.discount ?? ''));
-          setIeps(String(result.ieps ?? ''));
-          setIsh(String(result.ish ?? ''));
-          setRetencionIva(String(result.retencionIva ?? ''));
-          setRetencionIsr(String(result.retencionIsr ?? ''));
-          const cat = suggestCategoryFromProvider(prov);
-          setSuggestedCategory(cat);
-          const flags = categoryExtraTax(cat);
-          const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
-          setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
-          setFecha(result.receiptDate ?? '');
-          setFolio(result.internalFolio ?? '');
-          setStep('confirm');
-        } else {
-          Alert.alert(
-            'OCR falló',
-            ocrErr ?? 'La IA no pudo extraer datos de la imagen.',
-            [
-              { text: 'Elegir otra imagen', style: 'cancel' },
-              { text: 'Ingresar manualmente', onPress: () => { setFecha(new Date().toISOString().slice(0, 10)); setStep('confirm'); } },
-            ],
-          );
-        }
+        setStep('preview');
       } catch (e: any) {
         Alert.alert('Error', 'No se pudo leer la foto: ' + (e?.message ?? ''));
       }
@@ -112,8 +85,12 @@ export default function CaptureScreen() {
 
   const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
   const [extracted,  setExtracted]  = useState<OcrResult | null>(null);
-  const [step,       setStep]       = useState<'camera' | 'confirm'>('camera');
+  const [step,       setStep]       = useState<'camera' | 'preview' | 'confirm'>('camera');
   const [saving,     setSaving]     = useState(false);
+  const [ocrRunning,  setOcrRunning]  = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [memberCompanyId, setMemberCompanyId] = useState<string | null>(null);
+  const [memberUserId,    setMemberUserId]    = useState<string | null>(null);
 
   // Campos editables
   const [proveedor,  setProveedor]  = useState('');
@@ -228,6 +205,74 @@ export default function CaptureScreen() {
     }
   }
 
+  // ── Captura rápida: guarda ahora, OCR corre en el servidor ───────────────
+
+  async function handleQuickCapture() {
+    if (!photo?.base64 || !memberCompanyId || !memberUserId) {
+      Alert.alert('Error', 'Faltan datos de empresa. Intenta de nuevo.');
+      return;
+    }
+    setQuickSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('quick-capture', {
+        body: {
+          company_id:   memberCompanyId,
+          employee_id:  memberUserId,
+          image_base64: photo.base64,
+        },
+      });
+      if (error || !data?.ok) throw new Error(data?.error ?? 'No se pudo guardar');
+      router.replace('/receipts');
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar el comprobante');
+    } finally {
+      setQuickSaving(false);
+    }
+  }
+
+  // ── Revisar datos: corre OCR y muestra formulario ─────────────────────────
+
+  async function startOcrAndReview() {
+    if (!photo?.base64) return;
+    setOcrRunning(true);
+    try {
+      const { data: result, error: ocrErr } = await extractFromImage(photo.base64, 'image/jpeg');
+      if (result) {
+        setExtracted(result);
+        const prov = result.providerName ?? '';
+        setProveedor(prov);
+        setRfc(result.providerRfc ?? '');
+        setTotal(String(result.total ?? ''));
+        setSubtotal(String(result.subtotal ?? ''));
+        setIva(String(result.tax ?? ''));
+        setDescuento(String(result.discount ?? ''));
+        setIeps(String(result.ieps ?? ''));
+        setIsh(String(result.ish ?? ''));
+        setRetencionIva(String(result.retencionIva ?? ''));
+        setRetencionIsr(String(result.retencionIsr ?? ''));
+        const cat = suggestCategoryFromProvider(prov);
+        setSuggestedCategory(cat);
+        const flags = categoryExtraTax(cat);
+        const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
+        setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
+        setFecha(result.receiptDate ?? '');
+        setFolio(result.internalFolio ?? '');
+        setStep('confirm');
+      } else {
+        Alert.alert(
+          'OCR falló',
+          ocrErr ?? 'La IA no pudo extraer datos.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Ingresar manualmente', onPress: () => { if (!fecha) setFecha(new Date().toISOString().slice(0, 10)); setStep('confirm'); } },
+          ],
+        );
+      }
+    } finally {
+      setOcrRunning(false);
+    }
+  }
+
   // ── Tomar foto ─────────────────────────────────────────────────────────────
 
   async function takePhoto() {
@@ -252,46 +297,7 @@ export default function CaptureScreen() {
     if (res.canceled || !res.assets[0]) return;
     const asset = res.assets[0];
     setPhoto({ uri: asset.uri, base64: asset.base64 });
-    if (asset.base64) {
-      const { data: result, error: ocrErr } = await extractFromImage(asset.base64, 'image/jpeg');
-      if (result) {
-        setExtracted(result);
-        const prov = result.providerName ?? '';
-        setProveedor(prov);
-        setRfc(         result.providerRfc     ?? '');
-        setTotal(       String(result.total    ?? ''));
-        setSubtotal(    String(result.subtotal ?? ''));
-        setIva(         String(result.tax      ?? ''));
-        setDescuento(   String(result.discount ?? ''));
-        setIeps(        String(result.ieps        ?? ''));
-        setIsh(         String(result.ish         ?? ''));
-        setRetencionIva(String(result.retencionIva ?? ''));
-        setRetencionIsr(String(result.retencionIsr ?? ''));
-        const cat = suggestCategoryFromProvider(prov);
-        setSuggestedCategory(cat);
-        const flags = categoryExtraTax(cat);
-        const hasExtraTax = !!(result.ieps || result.ish || result.retencionIva || result.retencionIsr);
-        setShowExtraImpuestos(hasExtraTax || flags.ieps || flags.ish || flags.retenciones);
-        setFecha(   result.receiptDate   ?? '');
-        setFolio(   result.internalFolio ?? '');
-        setStep('confirm');
-      } else {
-        Alert.alert(
-          'OCR falló',
-          ocrErr ?? 'La IA no pudo extraer datos de la imagen.',
-          [
-            { text: 'Elegir otra imagen', style: 'cancel' },
-            {
-              text: 'Ingresar manualmente',
-              onPress: () => {
-                if (!fecha) setFecha(new Date().toISOString().slice(0, 10));
-                setStep('confirm');
-              },
-            },
-          ],
-        );
-      }
-    }
+    setStep('preview');
   }
 
   // ── Subir XML/CFDI ─────────────────────────────────────────────────────────
@@ -748,6 +754,75 @@ export default function CaptureScreen() {
           </View>
         </View>
       </Modal>
+    );
+  }
+
+  // ── Paso: Vista previa — elegir modo ────────────────────────────────────
+
+  if (step === 'preview' && photo) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <Image source={{ uri: photo.uri }} style={{ flex: 1 }} resizeMode="contain" />
+
+        {ocrRunning ? (
+          <View style={{ padding: 28, backgroundColor: BRAND.navy, alignItems: 'center' }}>
+            <ActivityIndicator color="#fff" size="large" />
+            <Text style={{ color: '#fff', marginTop: 14, fontSize: 15, fontWeight: '600' }}>
+              Analizando imagen con IA…
+            </Text>
+            <Text style={{ color: '#78909C', marginTop: 4, fontSize: 12 }}>
+              Esto puede tomar unos segundos
+            </Text>
+          </View>
+        ) : (
+          <View style={{ padding: 16, paddingBottom: 28, backgroundColor: BRAND.navy, gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: BRAND.green, borderRadius: 12,
+                padding: 16, alignItems: 'center',
+                opacity: quickSaving ? 0.6 : 1,
+              }}
+              onPress={handleQuickCapture}
+              disabled={quickSaving}
+            >
+              {quickSaving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
+                    ⚡ Guardar rápido
+                  </Text>
+                  <Text style={{ color: '#CFFAD8', fontSize: 12, marginTop: 3 }}>
+                    La IA llena los datos sola · tú sigues capturando
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                borderColor: 'rgba(255,255,255,0.35)', borderWidth: 1,
+                borderRadius: 12, padding: 14, alignItems: 'center',
+              }}
+              onPress={startOcrAndReview}
+            >
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
+                ✏️ Revisar y completar
+              </Text>
+              <Text style={{ color: '#78909C', fontSize: 12, marginTop: 3 }}>
+                Ver y editar los datos antes de guardar
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setStep('camera')}
+              style={{ alignItems: 'center', paddingVertical: 8 }}
+            >
+              <Text style={{ color: '#546E7A', fontSize: 13 }}>← Tomar otra foto</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     );
   }
 

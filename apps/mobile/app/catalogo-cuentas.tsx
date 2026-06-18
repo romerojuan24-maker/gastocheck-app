@@ -100,6 +100,10 @@ export default function CatalogoCuentasScreen() {
 
   async function saveAccount() {
     if (!companyId || !newCode.trim() || !newName.trim()) return;
+    if (!/^[\d][\d\-\.]*$/.test(newCode.trim())) {
+      Alert.alert('Código inválido', 'El código de cuenta debe comenzar con un número y contener solo dígitos, guiones o puntos. Ej: 605, 1010, 6-001');
+      return;
+    }
     setSavingAcct(true);
     try {
       const payload = {
@@ -406,7 +410,8 @@ export default function CatalogoCuentasScreen() {
           <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
             <Text style={styles.fieldLabel}>Código de cuenta *</Text>
             <TextInput style={styles.input} placeholder="Ej: 605-001" value={newCode}
-              onChangeText={setNewCode} autoCapitalize="none" />
+              onChangeText={t => setNewCode(t.replace(/[^0-9\-\.]/g, ''))}
+              keyboardType="numeric" autoCapitalize="none" />
 
             <Text style={styles.fieldLabel}>Nombre *</Text>
             <TextInput style={styles.input} placeholder="Ej: Combustibles y lubricantes"

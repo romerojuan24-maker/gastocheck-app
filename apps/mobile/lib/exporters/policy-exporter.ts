@@ -1,6 +1,6 @@
 // Exportador de pólizas a formatos contables (CSV, XLS, CONTPAQi, Aspel)
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+import { Share } from 'react-native';
 
 export interface ExportExpense {
   folio: string;
@@ -94,30 +94,14 @@ export async function saveAndShareFile(
   fileName: string,
   fileExtension: 'csv' | 'txt' | 'xls',
 ): Promise<void> {
-  const mimeType = {
-    csv: 'text/csv',
-    txt: 'text/plain',
-    xls: 'application/vnd.ms-excel',
-  }[fileExtension];
-
-  const path = `${FileSystem.documentDirectory}${fileName}.${fileExtension}`;
-
   try {
-    // Guardar archivo
-    await FileSystem.writeAsStringAsync(path, content, {
-      encoding: FileSystem.EncodingType.UTF8,
+    // Guardar en el dispositivo
+    await saveFileSilently(content, fileName, fileExtension);
+    // Compartir el contenido como texto (Share nativo de React Native)
+    await Share.share({
+      title:   `${fileName}.${fileExtension}`,
+      message: content,
     });
-
-    // Compartir (abre diálogo nativo)
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(path, {
-        mimeType,
-        dialogTitle: `Compartir ${fileName}`,
-        UTI: `public.${fileExtension}`,
-      });
-    } else {
-      throw new Error('Compartir no disponible en este dispositivo');
-    }
   } catch (err) {
     console.error('[saveAndShareFile] Error:', err);
     throw err;

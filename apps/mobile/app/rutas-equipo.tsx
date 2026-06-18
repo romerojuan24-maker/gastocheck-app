@@ -81,7 +81,7 @@ export default function RutasEquipoScreen() {
           .select('user_id, role, profiles:user_id(full_name)')
           .eq('company_id', companyId)
           .eq('status', 'active')
-          .in('role', ['spender', 'operator', 'supervisor', 'office']),
+          .in('role', ['spender', 'operator', 'supervisor', 'office', 'admin', 'owner', 'employee']),
 
         supabase.from('daily_routes')
           .select('user_id, route_date, points, total_km, updated_at')
