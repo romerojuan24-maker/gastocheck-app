@@ -60,11 +60,10 @@ async function queryReceipts(
       internal_folio, subtotal_amount, tax_amount, total_amount,
       payment_method, source_type, status, duplicate_status,
       ocr_confidence, created_at, uploaded_by,
-      category_name:expense_categories!receipts_category_id_fkey(name),
-      uploader:profiles!receipts_uploaded_by_fkey(full_name)
+      category_name:expense_categories(name)
     `)
     .eq('company_id', company_id)
-    .not('status', 'in', '(cancelled,rejected)')
+    .filter('status', 'not.in', '("cancelled","rejected")')
     .order('receipt_date', { ascending: true });
 
   if (batch_id) {
@@ -154,7 +153,7 @@ function buildDetalleRows(receipts: any[], accountCodes: Record<string, string> 
     parseFloat(fmt(r.tax_amount)),
     parseFloat(fmt(r.total_amount)),
     (r.category_name as any)?.name ?? r.category_name ?? '',
-    (r.uploader as any)?.full_name ?? '',
+    r.uploaded_by ?? '',
     r.payment_method ?? '',
     r.source_type    ?? '',
     r.status         ?? '',
@@ -167,7 +166,8 @@ function buildDetalleRows(receipts: any[], accountCodes: Record<string, string> 
 function buildPorCategoriaRows(receipts: any[]): any[][] {
   const map: Record<string, { count: number; sub: number; iva: number; total: number }> = {};
   for (const r of receipts) {
-    const cat = (r.category_name as any)?.name ?? r.category_name ?? 'Sin categoría';
+    const catObj = r.category_name as any;
+    const cat = typeof catObj === 'object' && catObj?.name ? catObj.name : (typeof catObj === 'string' ? catObj : 'Sin categoría');
     if (!map[cat]) map[cat] = { count: 0, sub: 0, iva: 0, total: 0 };
     map[cat].count++;
     map[cat].sub   += r.subtotal_amount ?? r.total_amount ?? 0;
@@ -232,7 +232,7 @@ function buildAuditoriaRows(receipts: any[]): any[][] {
   ];
   const rows = receipts.map((r) => [
     fmtDate(r.created_at),
-    (r.uploader as any)?.full_name ?? '',
+    r.uploaded_by ?? '',
     r.provider_name    ?? '',
     parseFloat(fmt(r.total_amount)),
     r.duplicate_status ?? '',

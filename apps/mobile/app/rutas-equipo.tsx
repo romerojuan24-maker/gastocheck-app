@@ -79,7 +79,7 @@ export default function RutasEquipoScreen() {
     try {
       const [membRes, routeRes] = await Promise.all([
         supabase.from('company_members')
-          .select('user_id, role, profiles:user_id(full_name)')
+          .select('user_id, role')
           .eq('company_id', companyId)
           .eq('status', 'active')
           .in('role', ['spender', 'operator', 'supervisor', 'office', 'admin', 'owner', 'employee']),
@@ -90,10 +90,25 @@ export default function RutasEquipoScreen() {
           .eq('route_date', fecha),
       ]);
 
+      const members_data = (membRes.data ?? []) as any[];
+      const userIds = members_data.map(m => m.user_id).filter(Boolean);
+
+      let profilesMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        profilesMap = {};
+        for (const p of (profilesData ?? []) as any[]) {
+          profilesMap[p.id] = p.full_name;
+        }
+      }
+
       setMembers(
-        (membRes.data ?? []).map((e: any) => ({
+        members_data.map((e: any) => ({
           user_id:   e.user_id,
-          full_name: (e.profiles as any)?.full_name ?? null,
+          full_name: profilesMap[e.user_id] ?? null,
           role:      e.role,
         })),
       );
