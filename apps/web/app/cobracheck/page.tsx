@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, getSessionUser } from '../../../lib/supabase'
+import { Modal, SkeletonCard, ErrorBoundary } from '../../../components'
 import { CobraClient, CobraInvoice, CobraPayment } from '@gastocheck/shared'
 
-export default function CobraCheckDashboard() {
+function CobraCheckDashboard() {
   const [kpis, setKpis] = useState({ totalCartera: 0, vencidos: 0, enRiesgo: 0, avgScore: 0 })
   const [activeTab, setActiveTab] = useState<'clientes' | 'vencidas' | 'actividad'>('clientes')
   const [clientes, setClientes] = useState<CobraClient[]>([])
   const [invoices, setInvoices] = useState<CobraInvoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [showNewClient, setShowNewClient] = useState(false)
+  const [newClientError, setNewClientError] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -61,12 +64,45 @@ export default function CobraCheckDashboard() {
     }
   }
 
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">CobraCheck Dashboard</h1>
+  const handleAddClient = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setNewClientError(null)
+    try {
+      const formData = new FormData(e.currentTarget)
+      const name = formData.get('name') as string
+      const rfc = formData.get('rfc') as string
 
-      {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      if (!name || name.length < 3) throw new Error('Nombre requerido (min 3 caracteres)')
+      if (!rfc || rfc.length < 12) throw new Error('RFC inválido')
+
+      await supabase.from('cobra_clients').insert({ name, rfc, company_id: kpis })
+      setShowNewClient(false)
+      loadData()
+    } catch (err: any) {
+      setNewClientError(err.message)
+    }
+  }
+
+  return (
+    <ErrorBoundary>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">CobraCheck Dashboard</h1>
+          <button onClick={() => setShowNewClient(true)} className="px-4 py-2 bg-emerald-500 text-white font-bold rounded-lg hover:bg-emerald-600">
+            + Nuevo Cliente
+          </button>
+        </div>
+
+        <Modal isOpen={showNewClient} title="Nuevo Cliente" onClose={() => setShowNewClient(false)} actions={<button type="submit" form="addClientForm" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">Agregar</button>}>
+          <form id="addClientForm" onSubmit={handleAddClient} className="space-y-3">
+            <input name="name" placeholder="Nombre del cliente" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <input name="rfc" placeholder="RFC" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            {newClientError && <p className="text-red-600 text-sm">{newClientError}</p>}
+          </form>
+        </Modal>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm text-gray-600">Total por Cobrar</div>
           <div className="text-2xl font-bold text-blue-600">${(kpis.totalCartera / 1000).toFixed(1)}k</div>
@@ -145,6 +181,11 @@ export default function CobraCheckDashboard() {
           Actividad en desarrollo
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
+}
+
+export default function CobraCheckDashboardPage() {
+  return <CobraCheckDashboard />
 }
