@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
+  password: z.string()
+    .min(12, 'Mínimo 12 caracteres')
+    .regex(/[A-Z]/, 'Debe contener mayúsculas')
+    .regex(/[0-9]/, 'Debe contener números')
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Debe contener caracteres especiales'),
 });
 
 export const cobraClientSchema = z.object({

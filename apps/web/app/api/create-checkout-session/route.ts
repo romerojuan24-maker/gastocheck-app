@@ -54,9 +54,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("Checkout error:", error)
+    // Log error internally without exposing details
+    console.error("Checkout error:", {
+      message: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString(),
+    })
+    // Return generic error to client
     return NextResponse.json(
-      { error: error.message || "Error creating checkout session" },
+      { error: "Failed to create checkout session" },
       { status: 500 },
     )
   }
