@@ -81,12 +81,29 @@ function CobraCheckDashboard() {
 
       const formData = new FormData(e.currentTarget)
       const name = formData.get('name') as string
-      const rfc = formData.get('rfc') as string
+      const rfc = (formData.get('rfc') as string)?.toUpperCase()
+      const email = formData.get('email') as string
 
       if (!name || name.length < 3) throw new Error('Nombre requerido (min 3 caracteres)')
-      if (!rfc || rfc.length < 12) throw new Error('RFC inválido')
+      if (!rfc || rfc.length !== 13) throw new Error('RFC debe ser exactamente 13 caracteres')
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email inválido')
 
-      await supabase.from('cobra_clients').insert({ name, rfc, company_id: member.company_id })
+      // Verificar RFC duplicado
+      const { data: existing } = await supabase
+        .from('cobra_clients')
+        .select('id')
+        .eq('rfc', rfc)
+        .eq('company_id', member.company_id)
+        .maybeSingle()
+
+      if (existing) throw new Error('RFC ya existe en esta empresa')
+
+      await supabase.from('cobra_clients').insert({
+        name,
+        rfc,
+        email: email || null,
+        company_id: member.company_id
+      })
       setShowNewClient(false)
       loadData()
     } catch (err: any) {
@@ -107,7 +124,8 @@ function CobraCheckDashboard() {
         <Modal isOpen={showNewClient} title="Nuevo Cliente" onClose={() => setShowNewClient(false)} actions={<button type="submit" form="addClientForm" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600">Agregar</button>}>
           <form id="addClientForm" onSubmit={handleAddClient} className="space-y-3">
             <input name="name" placeholder="Nombre del cliente" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-            <input name="rfc" placeholder="RFC" required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <input name="rfc" placeholder="RFC (exacto 13 caracteres)" maxLength={13} required className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <input name="email" placeholder="Email (opcional)" type="email" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             {newClientError && <p className="text-red-600 text-sm">{newClientError}</p>}
           </form>
         </Modal>
