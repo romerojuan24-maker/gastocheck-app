@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase, getSessionUser } from '../../../lib/supabase'
-import { Modal, SkeletonCard, ErrorBoundary } from '../../../components'
-import { CobraClient, CobraInvoice, CobraPayment } from '@gastocheck/shared'
+import { supabase } from '../../lib/supabase'
+import { Modal, SkeletonCard, ErrorBoundary } from '../../components'
+import { CobraClient, CobraInvoice } from '@gastocheck/shared'
 
 function CobraCheckDashboard() {
   const [kpis, setKpis] = useState({ totalCartera: 0, vencidos: 0, enRiesgo: 0, avgScore: 0 })
@@ -26,7 +26,7 @@ function CobraCheckDashboard() {
       const { data: member } = await supabase
         .from('company_members')
         .select('company_id')
-        .eq('auth_id', session.user.id)
+        .eq('user_id', session.user.id)
         .single()
 
       if (!member) return
@@ -68,6 +68,17 @@ function CobraCheckDashboard() {
     e.preventDefault()
     setNewClientError(null)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) throw new Error('No autorizado')
+
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('company_id')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (!member) throw new Error('No se encontró empresa')
+
       const formData = new FormData(e.currentTarget)
       const name = formData.get('name') as string
       const rfc = formData.get('rfc') as string
@@ -75,7 +86,7 @@ function CobraCheckDashboard() {
       if (!name || name.length < 3) throw new Error('Nombre requerido (min 3 caracteres)')
       if (!rfc || rfc.length < 12) throw new Error('RFC inválido')
 
-      await supabase.from('cobra_clients').insert({ name, rfc, company_id: kpis })
+      await supabase.from('cobra_clients').insert({ name, rfc, company_id: member.company_id })
       setShowNewClient(false)
       loadData()
     } catch (err: any) {

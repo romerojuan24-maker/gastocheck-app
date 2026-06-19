@@ -1,0 +1,34 @@
+Fase,Componente,Flujo,Pasos,Resultado Esperado,Status,Notas
+PC,Auth,Login,1. Ir a http://localhost:3001/login 2. Email: testadmin@gastocheck.com 3. Password: TestPass123! 4. Click Iniciar sesión,Redirige a /hoy con dashboard visible,PENDIENTE,
+PC,Auth,Logout,1. Click avatar 2. Click Logout,Redirige a /login,PENDIENTE,
+PC,CobraCheck,Dashboard KPIs,1. Ir a /cobracheck 2. Ver KPIs,Total por cobrar / Vencidas / En riesgo / Score visible,PENDIENTE,
+PC,CobraCheck,Ver clientes,1. /cobracheck 2. Tab Clientes,Lista con 5 clientes test visible,PENDIENTE,
+PC,CobraCheck,Nuevo cliente,1. Click + Nuevo Cliente 2. Llenar: name=ABC Corp rfc=ABC123456789 3. Click Agregar,Cliente aparece en lista,PENDIENTE,
+PC,CobraCheck,Ver facturas vencidas,1. /cobracheck 2. Tab Facturas vencidas,Lista con facturas que vencieron,PENDIENTE,
+PC,Advisor IA,Consulta básica,1. Ir a /advisor 2. Escribir: "¿Me alcanza dinero para pagar?" 3. Click Preguntar,Responde en 2-3 seg con análisis de cartera,PENDIENTE,Requiere ANTHROPIC_API_KEY
+PC,GastoCheck,Ver comprobantes,1. Ir a /gastocheck,Lista de comprobantes capturados visible,PENDIENTE,
+PC,GastoCheck,Exportar,1. /gastocheck 2. Seleccionar 1+ comprobantes 3. Generar relación 4. Descargar Excel,Archivo Excel descarga correctamente,PENDIENTE,
+PC,BancoCheck,Importar CSV,1. /bancocheck 2. Importar 3. Seleccionar CSV test 4. Click Importar,10 transacciones importadas sin error,PENDIENTE,
+PC,BancoCheck,Clasificar,1. /bancocheck 2. Tab Sin clasificar 3. Click transacción 4. Seleccionar categoría,Transacción mueve a Clasificadas,PENDIENTE,
+PC,FlujoCheck,Proyección,1. /flujocheck,Ver saldo + proyección 7/30/60 días visible,PENDIENTE,
+PC,FlujoCheck,Risk badge,1. /flujocheck,Risk badge muestra color (verde/amarillo/rojo),PENDIENTE,
+Mobile,Auth,Login Android,1. Abrir app 2. Email 3. Password 4. Tap Login,Dashboard visible,PENDIENTE,APK instalado en teléfono
+Mobile,Auth,Login Performance,1. Abrir app 2. Completar login,Carga en < 2 segundos,PENDIENTE,
+Mobile,GastoCheck,Capturar receipt,1. Tab Capturar 2. Cámara 3. Tomar foto 4. Confirmar,OCR procesa en 2-3 seg,PENDIENTE,Requiere cámara funcional
+Mobile,GastoCheck,Ver comprobantes,1. Tab Mis comprobantes,Lista con comprobantes visibles,PENDIENTE,
+Mobile,CobraCheck,Ver clientes,1. Tab CobraCheck 2. Tab Clientes,5 clientes visibles,PENDIENTE,
+Mobile,CobraCheck,Ver scoring,1. CobraCheck 2. Click cliente,Risk score visible con color,PENDIENTE,
+Mobile,BancoCheck,Ver transacciones,1. Tab BancoCheck,Transacciones en lista sin lag,PENDIENTE,
+Mobile,Performance,Scroll lista clientes,1. CobraCheck 2. Tab Clientes 3. Scroll rápido,Scroll suave sin freezes,PENDIENTE,
+Mobile,Performance,Offline,1. Airplane mode ON 2. Abrir app 3. Navegar,Datos anteriores visibles sin cambios,PENDIENTE,
+Mobile,Performance,Offline sync,1. Airplane OFF 2. Esperaf 3 seg,Sync automático sin manual refresh,PENDIENTE,
+E2E,Capturar-Exportar,Flujo completo,1. Capturar en mobile 2. Ver en /gastocheck web 3. Exportar Excel,Excel descarga con datos correctos,PENDIENTE,
+E2E,Cliente-Factura-Pago,Flujo cobranza,1. Crear cliente 2. Crear factura 3. Registrar pago,Balance = 0 y risk score baja,PENDIENTE,
+E2E,BancoCheck-FlujoCheck-Advisor,Análisis financiero,1. Importar CSV 2. Clasificar 3. /flujocheck 4. Preguntar Advisor,Advisor responde con análisis,PENDIENTE,Requiere ANTHROPIC_API_KEY
+E2E,RBAC,Permisos por rol,1. Test owner/supervisor/employee,Cada rol ve solo sus datos y opciones,PENDIENTE,Requiere múltiples usuarios
+PC,Build,TypeScript,npm run typecheck en apps/web,Sin errores de tipo,PENDIENTE,
+PC,Build,Next.js,npm run build en apps/web,Build exitoso en < 3 minutos,PENDIENTE,
+Mobile,Build,EAS,eas build --platform android --profile preview,APK descargado sin errores,PENDIENTE,
+Deploy,Vercel,URL accesible,Ir a https://[proyecto].vercel.app,Página carga en < 2 seg,PENDIENTE,
+Deploy,Vercel,Login en prod,Login con testadmin@gastocheck.com,Redirige a /hoy,PENDIENTE,Requiere Supabase prod
+Deploy,EAS,APK en teléfono,Instalar APK descargado,App abre sin crashes,PENDIENTE,

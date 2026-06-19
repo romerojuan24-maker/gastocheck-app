@@ -1,6 +1,14 @@
 // Advisor IA - Claude API integration
 export async function askAdvisor(question: string, context: any) {
   try {
+    if (!process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY) {
+      return {
+        answer: '⚠️ Advisor IA no configurado. Por favor, agrega NEXT_PUBLIC_ANTHROPIC_API_KEY en .env.local',
+        success: false,
+        error: 'Missing API key'
+      };
+    }
+
     // Call Claude via Anthropic API (requires ANTHROPIC_API_KEY)
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
