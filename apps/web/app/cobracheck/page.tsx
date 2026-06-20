@@ -1,64 +1,60 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
-import { Modal, SkeletonCard, ErrorBoundary } from '../../components'
-import { CobraClient, CobraInvoice } from '@gastocheck/shared'
+import { createClient } from '@supabase/supabase-js'
+import { DashboardConsolidado } from '@/components/DashboardConsolidado'
 
-function CobraCheckDashboard() {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+)
+
+function CobraCheckDashboard({ empresaId }: { empresaId: string }) {
   const [kpis, setKpis] = useState({ totalCartera: 0, vencidos: 0, enRiesgo: 0, avgScore: 0 })
-  const [activeTab, setActiveTab] = useState<'clientes' | 'vencidas' | 'actividad'>('clientes')
-  const [clientes, setClientes] = useState<CobraClient[]>([])
-  const [invoices, setInvoices] = useState<CobraInvoice[]>([])
+  const [activeTab, setActiveTab] = useState<'clientes' | 'vencidas' | 'pagos'>('clientes')
+  const [clientes, setClientes] = useState<any[]>([])
+  const [facturas, setFacturas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewClient, setShowNewClient] = useState(false)
+  const [showNewFactura, setShowNewFactura] = useState(false)
+  const [showRegistrarPago, setShowRegistrarPago] = useState(false)
   const [newClientError, setNewClientError] = useState<string | null>(null)
+  const [selectedFactura, setSelectedFactura] = useState<any>(null)
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [empresaId])
 
   const loadData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return
-
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', session.user.id)
-        .single()
-
-      if (!member) return
-
       // Clientes
       const { data: clientsData } = await supabase
-        .from('cobra_clients')
+        .from('clientes')
         .select('*')
-        .eq('company_id', member.company_id)
-        .order('risk_score', { ascending: false })
+        .eq('empresa_id', empresaId)
 
       setClientes(clientsData || [])
 
-      // Invoices vencidas
-      const { data: invoicesData } = await supabase
-        .from('cobra_invoices')
-        .select('*')
-        .eq('company_id', member.company_id)
-        .in('status', ['pending', 'partial', 'overdue'])
-        .order('due_date', { ascending: true })
+      // Facturas
+      const { data: facturasData } = await supabase
+        .from('facturas')
+        .select('*, movimientos_financieros(estado_pago)')
+        .eq('empresa_id', empresaId)
 
-      setInvoices(invoicesData || [])
+      setFacturas(facturasData || [])
 
       // KPIs
-      const totalCartera = (clientsData || []).reduce((s, c) => s + c.current_balance, 0)
-      const vencidos = (invoicesData || []).filter(i => i.status === 'overdue').length
-      const enRiesgo = (clientsData || []).filter(c => c.risk_score >= 70).length
-      const avgScore = (clientsData || []).length > 0
-        ? Math.round((clientsData || []).reduce((s, c) => s + c.risk_score, 0) / (clientsData || []).length)
-        : 0
+      const totalCartera = (facturasData || [])
+        .filter(f => f.movimientos_financieros?.[0]?.estado_pago !== 'PAGADO')
+        .reduce((s, f) => s + f.monto, 0)
 
-      setKpis({ totalCartera, vencidos, enRiesgo, avgScore })
+      const vencidos = (facturasData || []).filter(
+        f => f.fecha_vencimiento && new Date(f.fecha_vencimiento) < new Date() && f.movimientos_financieros?.[0]?.estado_pago !== 'PAGADO'
+      ).length
+
+      const avgScore = 0 // Implementar risk scoring después
+
+      setKpis({ totalCartera, vencidos, enRiesgo: 0, avgScore })
     } finally {
       setLoading(false)
     }
