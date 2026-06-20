@@ -8,7 +8,11 @@
 ## 🎯 Prioridades
 
 1. **🔴 CRÍTICA:** GastoCheck 100% funcional (OTA 1.0)
-2. **🟠 ALTA:** CobraCheck sólido (OTA 1.1)
+   └─ ESPECIALMENTE: Pólizas automáticas (diferencial)
+   
+2. **🔴 CRÍTICA:** CobraCheck + Pólizas de cobro (OTA 1.1)
+   └─ ESPECIALMENTE: Integración WEB (consolidación)
+   
 3. **🟡 MEDIA:** Iniciar refactor arquitectura (paralelo)
 4. **🟢 BAJA:** Documentación (continuidad)
 
@@ -29,11 +33,18 @@
   - 5 tickets claros (monto, fecha, RFC)
   - 5 tickets sin RFC (validar manejo)
   - 5 tickets duplicados (validar detección)
-- [ ] Validar exportación (Excel + CSV)
+- [ ] ⭐ CRÍTICO: Pólizas automáticas
+  - [ ] Cada gasto crea póliza automática
+  - [ ] Debit = Credit (validado)
+  - [ ] RFC correcto en póliza
+  - [ ] Monto exacto
+  - [ ] Exportación CONTPAQi funciona
+- [ ] Validar exportación (Excel + CSV + SAT)
 - [ ] Probar multi-empresa (cambio rápido)
 - [ ] Performance: Todas las screens < 3 segundos
 - [ ] Mobile vs Web (responsive)
 - [ ] Búsqueda y filtros (todos funcionan)
+- [ ] Dashboard WEB: Ve todos los gastos + pólizas
 
 #### Preparación Deploy (DevOps/Daniel)
 - [ ] Verificar ANTHROPIC_API_KEY en secrets
@@ -324,18 +335,26 @@
 
 **GASTOCHECK:**
 - ✅ OTA 1.0 en producción (Sábado 21)
-- ✅ 3+ usuarios reales usando diariamente
+- ✅ 3+ operarios usando diariamente
 - ✅ 0 bugs CRÍTICOS (máximo 2 ALTOS en log)
 - ✅ OCR accuracy > 90%
 - ✅ Exportación funcionando (Excel + CSV)
-- ✅ NPS > 50
+- ✅ ⭐ **Pólizas automáticas 100% funcionales**
+  - Cada gasto genera póliza automáticamente
+  - Debit = Credit validado
+  - Exportación SAT correcta
+- ✅ Dashboard WEB: Supervisor/contador ve consolidación
+- ✅ NPS > 50 (operarios satisfechos)
 
 **COBRACHECK:**
 - ✅ OTA 1.1 deployado (Martes 24)
-- ✅ 1-2 usuarios reales usando
+- ✅ 1-2 administradores usando
 - ✅ 0 bugs CRÍTICOS
 - ✅ Integración con GastoCheck funcionando
-- ✅ Pólizas creadas automáticamente
+- ✅ ⭐ **Pólizas de cobro automáticas**
+  - Al registrar pago → Póliza generada
+  - Debit banco = Credit cliente
+- ✅ Dashboard WEB: Consolidación gasto + ingreso
 
 **ARQUITECTURA:**
 - ✅ Schema movimientos_financieros diseñado
