@@ -1,13 +1,13 @@
 import { Tabs } from "expo-router"
-import { Users, Navigation, CreditCard, RotateCcw } from "lucide-react-native"
+import { MapPin, TrendingUp, Building2, FileText, BarChart3, Settings } from "lucide-react-native"
 import { View, Text } from "react-native"
 import { VERSION_STRING } from "../../lib/version"
 
 export default function TabsLayout() {
   const headerRight = () => (
     <View style={{ paddingRight: 16 }}>
-      <Text style={{ color: "#36BF6A", fontSize: 10, fontWeight: "bold" }}>
-        {VERSION_STRING}
+      <Text style={{ color: "#10b981", fontSize: 10, fontWeight: "bold" }}>
+        CHECK SUITE v{VERSION_STRING}
       </Text>
     </View>
   )
@@ -17,47 +17,86 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: "#182535",
+          backgroundColor: "#ffffff",
         },
-        headerTintColor: "#fff",
+        headerTintColor: "#10b981",
         headerTitleStyle: {
           fontWeight: "bold",
+          color: "#1e293b",
         },
         headerRight,
         tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopColor: "#e0e0e0",
+          backgroundColor: "#ffffff",
+          borderTopColor: "#e2e8f0",
+          borderTopWidth: 1,
+          paddingBottom: 5,
         },
-        tabBarActiveTintColor: "#36BF6A",
-        tabBarInactiveTintColor: "#999",
+        tabBarActiveTintColor: "#10b981",
+        tabBarInactiveTintColor: "#94a3b8",
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "500",
+          marginTop: 4,
+        },
       }}
     >
-      <Tabs.Screen
-        name="clientes"
-        options={{
-          title: "Clientes",
-          tabBarIcon: ({ color }) => <Users size={24} color={color} />,
-        }}
-      />
+      {/* Mi Ruta - GastoCheck + CobraCheck unificados */}
       <Tabs.Screen
         name="ruta"
         options={{
-          title: "Mi Ruta",
-          tabBarIcon: ({ color }) => <Navigation size={24} color={color} />,
+          title: "📍 Mi Ruta",
+          tabBarIcon: ({ color }) => <MapPin size={24} color={color} />,
+          tabBarLabel: "Ruta",
         }}
       />
+
+      {/* FlujoCheck - Proyección de cash flow */}
       <Tabs.Screen
-        name="pagos"
+        name="flujo"
         options={{
-          title: "Pagos",
-          tabBarIcon: ({ color }) => <CreditCard size={24} color={color} />,
+          title: "💰 FlujoCheck",
+          tabBarIcon: ({ color }) => <TrendingUp size={24} color={color} />,
+          tabBarLabel: "Flujo",
         }}
       />
+
+      {/* BancoCheck - Importar y clasificar movimientos */}
       <Tabs.Screen
-        name="historial"
+        name="banco"
         options={{
-          title: "Historial",
-          tabBarIcon: ({ color }) => <RotateCcw size={24} color={color} />,
+          title: "🏦 BancoCheck",
+          tabBarIcon: ({ color }) => <Building2 size={24} color={color} />,
+          tabBarLabel: "Banco",
+        }}
+      />
+
+      {/* FacturaCheck - Timbrado CFDI (futuro) */}
+      <Tabs.Screen
+        name="factura"
+        options={{
+          title: "📋 FacturaCheck",
+          tabBarIcon: ({ color }) => <FileText size={24} color={color} />,
+          tabBarLabel: "Factura",
+        }}
+      />
+
+      {/* Dashboard - KPIs unificados */}
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: "📊 Dashboard",
+          tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
+          tabBarLabel: "Panel",
+        }}
+      />
+
+      {/* Configuración */}
+      <Tabs.Screen
+        name="config"
+        options={{
+          title: "⚙️ Configuración",
+          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          tabBarLabel: "Config",
         }}
       />
     </Tabs>
