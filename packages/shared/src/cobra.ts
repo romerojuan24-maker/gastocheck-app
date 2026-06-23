@@ -89,6 +89,25 @@ export interface CobraPromise {
   created_at:      string
 }
 
+export interface CobraMovement {
+  id:              string
+  company_id:      string
+  user_id:         string             // Cobrador que registra
+  route_point_ts:  string             // ISO timestamp del punto de ruta
+  client_id:       string
+  invoice_id?:     string
+  folio?:          string             // Folio de factura
+  amount_original: number             // Monto original de la factura
+  movement_type:   'collected' | 'promise' | 'not_paid'  // Tipo de movimiento
+  collected_amount?: number           // Si collected: monto cobrado
+  promise_date?:   string             // Si promise: fecha comprometida
+  reason_not_paid?: string            // Si not_paid: motivo
+  photo_uri?:      string             // Comprobante opcional
+  notes?:          string
+  created_at:      string
+  updated_at:      string
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 export const COBRA_STATUS_META = {
@@ -112,3 +131,18 @@ export const COBRA_PAYMENT_METHODS = {
   credit_card: 'Tarjeta',
   other:       'Otro',
 } as const
+
+export const COBRA_MOVEMENT_TYPE_META = {
+  collected: { label: 'Cobrado',  icon: '✓', color: '#00A650' },
+  promise:   { label: 'Promesa',  icon: '⏰', color: '#FF9800' },
+  not_paid:  { label: 'No Pagó',  icon: '✗', color: '#E53935' },
+} as const
+
+export const COBRA_NO_PAY_REASONS = [
+  'Sin fondos',
+  'Disputa',
+  'Rechazó',
+  'Cerrado',
+  'No localizados',
+  'Otro',
+] as const
