@@ -1,104 +1,141 @@
-import { Tabs } from "expo-router"
-import { MapPin, TrendingUp, Building2, FileText, BarChart3, Settings } from "lucide-react-native"
-import { View, Text } from "react-native"
+import React, { useState } from "react"
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs"
+import { useAuth } from "@gastocheck/shared"
+import { View, Text, ScrollView } from "react-native"
 import { VERSION_STRING } from "../../lib/version"
 
-export default function TabsLayout() {
-  const headerRight = () => (
-    <View style={{ paddingRight: 16 }}>
-      <Text style={{ color: "#10b981", fontSize: 10, fontWeight: "bold" }}>
-        CHECK SUITE v{VERSION_STRING}
-      </Text>
+// Importar pantallas
+import RutaScreen from "./ruta"
+import FlujoScreen from "./flujo"
+import BancoScreen from "./banco"
+import FacturaScreen from "./factura"
+import DashboardScreen from "./dashboard"
+import ConfigScreen from "./config"
+
+const Tab = createMaterialTopTabNavigator()
+
+// CHECK SUITE - Módulo principal
+function CheckSuiteModule() {
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: "#f8fafc" }}>
+      <View style={{ padding: 16 }}>
+        <Text style={{ fontSize: 20, fontWeight: "bold", color: "#1e293b", marginBottom: 16 }}>
+          CHECK SUITE
+        </Text>
+
+        {/* Tab secondary para módulos */}
+        <Tab.Navigator
+          screenOptions={{
+            tabBarScrollEnabled: true,
+            tabBarStyle: {
+              backgroundColor: "#ffffff",
+              borderBottomColor: "#e2e8f0",
+            },
+            tabBarActiveTintColor: "#10b981",
+            tabBarInactiveTintColor: "#94a3b8",
+            tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+          }}
+        >
+          <Tab.Screen name="ruta" component={RutaScreen} options={{ title: "Mi Ruta" }} />
+          <Tab.Screen name="flujo" component={FlujoScreen} options={{ title: "Flujo" }} />
+          <Tab.Screen name="banco" component={BancoScreen} options={{ title: "Banco" }} />
+          <Tab.Screen name="factura" component={FacturaScreen} options={{ title: "Factura" }} />
+          <Tab.Screen name="dashboard" component={DashboardScreen} options={{ title: "Panel" }} />
+        </Tab.Navigator>
+      </View>
+    </ScrollView>
+  )
+}
+
+// GastoCheck - Módulo de gastos
+function GastoCheckModule() {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#f8fafc", justifyContent: "center", alignItems: "center" }}>
+      <Text style={{ fontSize: 18, fontWeight: "bold", color: "#1e293b" }}>GastoCheck</Text>
+      <Text style={{ color: "#64748b", marginTop: 8 }}>Módulo de Gastos y Anticipos</Text>
     </View>
   )
+}
+
+// CobraCheck - Módulo de cobranza
+function CobraCheckModule() {
+  return (
+    <View style={{ flex: 1, backgroundColor: "#f8fafc", justifyContent: "center", alignItems: "center" }}>
+      <Text style={{ fontSize: 18, fontWeight: "bold", color: "#1e293b" }}>CobraCheck</Text>
+      <Text style={{ color: "#64748b", marginTop: 8 }}>Módulo de Cobranza</Text>
+    </View>
+  )
+}
+
+export default function TabsLayout() {
+  const { user } = useAuth()
+
+  // Control de acceso por módulo (puedes cambiar según permisos del usuario)
+  const hasCheckSuite = true // user?.role === "admin" || user?.role === "supervisor"
+  const hasGastoCheck = true // user?.permissions?.includes("gasto_check")
+  const hasCobraCheck = true // user?.permissions?.includes("cobra_check")
 
   return (
-    <Tabs
+    <Tab.Navigator
       screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: "#ffffff",
-        },
-        headerTintColor: "#10b981",
-        headerTitleStyle: {
-          fontWeight: "bold",
-          color: "#1e293b",
-        },
-        headerRight,
+        tabBarScrollEnabled: true,
         tabBarStyle: {
           backgroundColor: "#ffffff",
-          borderTopColor: "#e2e8f0",
-          borderTopWidth: 1,
-          paddingBottom: 5,
+          borderBottomColor: "#e2e8f0",
+          borderBottomWidth: 2,
+          elevation: 0,
         },
         tabBarActiveTintColor: "#10b981",
         tabBarInactiveTintColor: "#94a3b8",
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "500",
-          marginTop: 4,
+          fontSize: 13,
+          fontWeight: "700",
+          textTransform: "uppercase",
+        },
+        tabBarIndicatorStyle: {
+          backgroundColor: "#10b981",
+          height: 3,
         },
       }}
     >
-      {/* Mi Ruta - GastoCheck + CobraCheck unificados */}
-      <Tabs.Screen
-        name="ruta"
-        options={{
-          title: "📍 Mi Ruta",
-          tabBarIcon: ({ color }) => <MapPin size={24} color={color} />,
-          tabBarLabel: "Ruta",
-        }}
-      />
+      {hasCheckSuite && (
+        <Tab.Screen
+          name="checksuite"
+          component={CheckSuiteModule}
+          options={{
+            title: "CHECK SUITE",
+          }}
+        />
+      )}
 
-      {/* FlujoCheck - Proyección de cash flow */}
-      <Tabs.Screen
-        name="flujo"
-        options={{
-          title: "💰 FlujoCheck",
-          tabBarIcon: ({ color }) => <TrendingUp size={24} color={color} />,
-          tabBarLabel: "Flujo",
-        }}
-      />
+      {hasGastoCheck && (
+        <Tab.Screen
+          name="gastocheck"
+          component={GastoCheckModule}
+          options={{
+            title: "GASTOCHECK",
+          }}
+        />
+      )}
 
-      {/* BancoCheck - Importar y clasificar movimientos */}
-      <Tabs.Screen
-        name="banco"
-        options={{
-          title: "🏦 BancoCheck",
-          tabBarIcon: ({ color }) => <Building2 size={24} color={color} />,
-          tabBarLabel: "Banco",
-        }}
-      />
+      {hasCobraCheck && (
+        <Tab.Screen
+          name="cobracheck"
+          component={CobraCheckModule}
+          options={{
+            title: "COBRACHECK",
+          }}
+        />
+      )}
 
-      {/* FacturaCheck - Timbrado CFDI (futuro) */}
-      <Tabs.Screen
-        name="factura"
-        options={{
-          title: "📋 FacturaCheck",
-          tabBarIcon: ({ color }) => <FileText size={24} color={color} />,
-          tabBarLabel: "Factura",
-        }}
-      />
-
-      {/* Dashboard - KPIs unificados */}
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: "📊 Dashboard",
-          tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
-          tabBarLabel: "Panel",
-        }}
-      />
-
-      {/* Configuración */}
-      <Tabs.Screen
+      {/* Config siempre disponible */}
+      <Tab.Screen
         name="config"
+        component={ConfigScreen}
         options={{
-          title: "⚙️ Configuración",
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
-          tabBarLabel: "Config",
+          title: "⚙️ CONFIG",
         }}
       />
-    </Tabs>
+    </Tab.Navigator>
   )
 }
