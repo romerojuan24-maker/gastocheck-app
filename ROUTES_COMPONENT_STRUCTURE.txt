@@ -1,0 +1,431 @@
+================================================================================
+ROUTES DASHBOARD — COMPONENTES & ESTRUCTURA VISUAL
+================================================================================
+
+PÁGINA COMPLETA: /dashboard/cobracheck/routes
+────────────────────────────────────────────
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🚗 CobraCheck — Rutas                                                       │
+│ Generador, monitor y reportes de rutas de cobro                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📍 GENERADOR DE RUTAS                                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Cobrador/Comprador*           Fecha*                    [⚡ Generar Ruta]  │
+│  ┌──────────────────────┐   ┌─────────────────┐                            │
+│  │ Seleccionar... ▼    │   │ 📅 2026-06-23  │                            │
+│  └──────────────────────┘   └─────────────────┘                            │
+│                                                                              │
+│  Clientes                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ ☑ Cliente A               ☐ Cliente D        ☐ Cliente G            │   │
+│  │ ☑ Cliente B               ☑ Cliente E        ☐ Cliente H            │   │
+│  │ ☑ Cliente C               ☐ Cliente F        ☐ Cliente I            │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  TABLA GENERADA:                                                            │
+│  ┌─────┬──────────┬──────────┬──────────┬───────────────────────────────┐  │
+│  │Orden│ Cliente  │Distancia │Duración  │Dirección                      │  │
+│  ├─────┼──────────┼──────────┼──────────┼───────────────────────────────┤  │
+│  │  1  │Cliente A │  2.5 km  │  15 min  │Calle A, 123                   │  │
+│  │  2  │Cliente B │  3.1 km  │  20 min  │Calle B, 456                   │  │
+│  │  3  │Cliente C │  1.8 km  │  10 min  │Calle C, 789                   │  │
+│  └─────┴──────────┴──────────┴──────────┴───────────────────────────────┘  │
+│                                                                              │
+│  Total distancia: 7.4 km | Duración estimada: 45 min                       │
+│                                      [✉️ Enviar al Cobrador]                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📊 MONITOR EN TIEMPO REAL                                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │ Cobrado Hoy     │    │ Promesas        │    │ Movimientos     │         │
+│  │  $45,300.00     │    │     7           │    │ Procesados      │         │
+│  │   (verde)       │    │ (amarillo)      │    │     15          │         │
+│  └─────────────────┘    └─────────────────┘    │   (azul)        │         │
+│                                                  │                 │         │
+│                                                  └─────────────────┘         │
+│                                                                              │
+│  Progreso de Ruta:                                                          │
+│  3 de 5 clientes visitados                                                  │
+│  ├──────████████────────┤ 60% completado                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📋 TABLA DE MOVIMIENTOS (con Filtros)                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Filtros:                                                                   │
+│  [Cobrador...▼] [Estado...▼] [Desde: 2026-06-20] [Hasta: 2026-06-23]      │
+│  [🔄 Refrescar]                                                             │
+│                                                                              │
+│  ┌──────┬──────────┬─────────┬──────────┬────────────┬──────────┬──────────┐│
+│  │Activo│ Cliente  │  Tipo   │  Monto   │  Estado    │  Motivo  │Próx Fecha││
+│  ├──────┼──────────┼─────────┼──────────┼────────────┼──────────┼──────────┤│
+│  │  ✓   │ClienteA  │ █ Pagó  │$3,200.00 │Pagada      │   —      │    —     ││
+│  │  ✓   │ClienteB  │ █Prom.  │$2,500.00 │Promesa     │   —      │2026-06-25││
+│  │  ✓   │ClienteC  │ █NoPagó │$1,800.00 │No Pagó     │Sin fondos│ 2026-07-01││
+│  │  ✓   │ClienteD  │ █ Pagó  │$5,100.00 │Pagada      │   —      │    —     ││
+│  │  ✓   │ClienteE  │ █Prom.  │$800.00   │Promesa     │   —      │2026-06-28││
+│  └──────┴──────────┴─────────┴──────────┴────────────┴──────────┴──────────┘│
+│                                                                              │
+│  Códigos de Color:                                                          │
+│  █ Verde    = Pagó (collected)                                              │
+│  █ Amarillo = Promesa (promise)                                             │
+│  █ Rojo     = No Pagó (not_paid)                                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📝 REPORTES DIARIOS                                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────┬──────────┬───────────┬──────┬────────┬──────┬────────┬────────┐ │
+│  │Cobrador│  Fecha   │ Cobrado   │Prom. │NoPagó  │Movs. │ Estado │Acciones│ │
+│  ├────────┼──────────┼───────────┼──────┼────────┼──────┼────────┼────────┤ │
+│  │Juan G. │2026-06-23│$15,600.00 │ [3]  │ [2]    │  7   │Pendient│✓ | ✗  │ │
+│  │María R.│2026-06-23│$22,100.00 │ [1]  │ [1]    │  5   │Aprobado│✓ | ✗  │ │
+│  │Carlos L│2026-06-22│$18,900.00 │ [2]  │ [0]    │  6   │Pendient│✓ | ✗  │ │
+│  └────────┴──────────┴───────────┴──────┴────────┴──────┴────────┴────────┘ │
+│                                                                              │
+│  Estado: [Pendiente] [Aprobado] [Rechazado]                                 │
+│  Los botones se deshabilitan si ya está aprobado/rechazado                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+RESPONSIVE LAYOUT
+════════════════════════════════════════════════════════════════════════════
+
+Mobile (< 768px):
+┌──────────────────────┐
+│  Generador           │ ← Stack vertical
+│  (inputs en columna) │
+│  Tabla Route         │ ← Scroll horizontal
+│  KPIs                │ ← Stack vertical
+│  Tabla Movimientos   │ ← Scroll horizontal
+│  Tabla Reportes      │ ← Scroll horizontal
+└──────────────────────┘
+
+Tablet (768px - 1024px):
+┌──────────────────────────────────────┐
+│  Generador (2 col)     │  (1 col)     │
+│  ─────────────────────────────────── │
+│  KPI 1   │  KPI 2   │  KPI 3         │
+│  ─────────────────────────────────── │
+│  Tabla Movimientos (scroll)           │
+│  Tabla Reportes (scroll)              │
+└──────────────────────────────────────┘
+
+Desktop (> 1024px):
+┌────────────────────────────────────────────┐
+│  Generador (3 col)    │  Tabla Route (3 col)│
+│  ─────────────────────────────────────────  │
+│  KPI 1 │  KPI 2 │  KPI 3                   │
+│  Progreso Ruta                              │
+│  ─────────────────────────────────────────  │
+│  Tabla Movimientos (full width)             │
+│  ─────────────────────────────────────────  │
+│  Tabla Reportes (full width)                │
+└────────────────────────────────────────────┘
+
+
+COMPONENTES & PROPS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. RouteGenerator
+   ├─ companyId: string
+   ├─ collectors: Collector[]
+   ├─ onGenerateRoute: (route: OptimizedRoute[]) => void
+   └─ isLoading?: boolean
+
+   State interno:
+   ├─ selectedCollector: string
+   ├─ selectedDate: string
+   ├─ clients: CobraClient[]
+   ├─ selectedClients: Set<string>
+   ├─ generatedRoute: OptimizedRoute[]
+   └─ routeLoading: boolean
+
+   Outputs (child components):
+   └─ <Table> con OptimizedRoute[] + botón Enviar
+
+
+2. MovementsTable
+   ├─ companyId: string
+   └─ collectors: Collector[]
+
+   Filtros (state):
+   ├─ filterCollector: string
+   ├─ filterClient: string
+   ├─ filterStatus: 'collected'|'promise'|'not_paid'|''
+   ├─ filterDateFrom: string
+   ├─ filterDateTo: string
+   └─ Auto-refresh cada 5s
+
+   Outputs:
+   └─ <Table> con CobraMovement[] filtrados
+
+
+3. RealtimeMonitor
+   ├─ companyId: string
+   └─ selectedDate: string
+
+   State:
+   ├─ totalCollected: number
+   ├─ promiseCount: number
+   ├─ movementsProcessed: number
+   ├─ routeProgress: { current, total }
+   └─ Auto-refresh cada 3s
+
+   Outputs:
+   ├─ KPI Cards (3)
+   └─ Progress Bar
+
+
+4. ReportsList
+   └─ companyId: string
+
+   State:
+   ├─ reports: DailyReportRow[]
+   ├─ loading: boolean
+   └─ Métodos: approve(), reject()
+
+   Outputs:
+   └─ <Table> con DailyReportRow[] + botones Aprobar/Rechazar
+
+
+HOOKS (Custom Hooks)
+═══════════════════════════════════════════════════════════════════════════════
+
+useCompanies(companyId)
+├─ Retorna: { members: CompanyMember[], loading, error }
+├─ CompanyMember: { id, email, fullName, role }
+└─ Auto-fetch en useEffect
+
+useClients(companyId, collectorId?)
+├─ Retorna: { clients: CobraClient[], loading, error }
+└─ Auto-fetch en useEffect
+
+useOptimizeRoute(clientIds, clients)
+├─ Retorna: { route: OptimizedRoutePoint[], loading, error, optimize() }
+├─ optimize(): async Promise<void>
+└─ Mock TSP (ordena por nombre + distancias aleatorias)
+
+useMovementsList(companyId, filters?)
+├─ Retorna: { movements: CobraMovement[], loading, error, refetch() }
+├─ filters: { collectorId?, clientId?, status?, dateFrom?, dateTo? }
+├─ Auto-fetch en useEffect
+└─ refetch(): async Promise<void> (manual)
+
+useDailyReports(companyId, filters?)
+├─ Retorna: { reports: DailyReportRow[], loading, error, refetch(), approve(), reject() }
+├─ filters: { collectorId?, dateFrom?, dateTo?, status? }
+├─ Auto-fetch en useEffect
+├─ approve(reportId): async Promise<void>
+└─ reject(reportId): async Promise<void>
+
+
+TIPOS (TypeScript Interfaces)
+═══════════════════════════════════════════════════════════════════════════════
+
+Collector
+├─ id: string
+├─ email: string
+├─ full_name: string | null
+└─ role: 'collector' | 'operator'
+
+OptimizedRoute
+├─ order: number
+├─ clientId: string
+├─ clientName: string
+├─ distance?: number (km)
+├─ duration?: number (minutos)
+└─ address?: string
+
+RealtimeStats
+├─ totalCollected: number
+├─ promiseCount: number
+├─ movementsProcessed: number
+└─ routeProgress: { current: number, total: number }
+
+DailyReport
+├─ id: string
+├─ collectorId: string
+├─ collectorName: string
+├─ date: string
+├─ totalCollected: number
+├─ promiseCount: number
+├─ notPaidCount: number
+├─ movementsCount: number
+├─ status: 'pending' | 'approved' | 'rejected'
+├─ notes?: string
+└─ createdAt: string
+
+
+COLORES & BADGING
+════════════════════════════════════════════════════════════════════════════════
+
+Movimiento Types:
+  ✓ Pagó       → Verde (#00A650) con icono ✓
+  ⏰ Promesa    → Amarillo (#FF9800) con icono ⏰
+  ✗ No Pagó    → Rojo (#E53935) con icono ✗
+
+Status Badges:
+  Pendiente    → Gris (secondary badge)
+  Aprobado     → Verde (default badge)
+  Rechazado    → Rojo (destructive badge)
+  Pagada       → Verde
+  Vencida      → Rojo
+  Parcial      → Azul
+
+KPI Cards:
+  Cobrado Hoy  → bg-green-50 border-green-200
+  Promesas     → bg-yellow-50 border-yellow-200
+  Movimientos  → bg-blue-50 border-blue-200
+
+Progress Bar:
+  bg-gradient-to-r from-blue-500 to-blue-600
+
+
+FLUJOS DE USUARIO (User Journeys)
+═════════════════════════════════════════════════════════════════════════════════
+
+FLUJO 1: Generar Ruta
+──────────────────────
+1. Supervisor abre /dashboard/cobracheck/routes
+2. Selecciona cobrador (dropdown)
+3. Selecciona fecha (date input)
+4. Checkea 3-5 clientes
+5. Click "Generar ruta optimizada"
+   → useOptimizeRoute() → TSP backend
+   → Aparece tabla ordenada
+6. Revisa tabla (orden, distancia, duración)
+7. Click "Enviar al cobrador"
+   → INSERT cobra_routes
+   → SMS/push al cobrador
+   → Confirmación
+
+FLUJO 2: Monitorear Movimientos
+────────────────────────────────
+1. MovementsTable auto-carga movimientos
+2. Cada 5 segundos: refresh de DB
+3. Cobrador registra movimiento (mobile app)
+4. Movimiento aparece en tabla (inmediato)
+5. Color según tipo (verde/amarillo/rojo)
+6. Supervisor puede filtrar:
+   - Por cobrador
+   - Por estado
+   - Por rango de fechas
+   - Por cliente
+
+FLUJO 3: KPIs en Vivo
+─────────────────────
+1. RealtimeMonitor carga al montar componente
+2. Cada 3 segundos: recalcula estadísticas
+3. Suma movimientos 'collected' del día
+4. Cuenta promesas y movimientos totales
+5. Actualiza barra de progreso
+6. Muestra valores en tiempo real
+
+FLUJO 4: Aprobar Reportes
+─────────────────────────
+1. ReportsList agrupa movimientos por cobrador/fecha
+2. Muestra totales: cobrado, promesas, no pagó
+3. Estado inicial: "Pendiente"
+4. Supervisor revisa y da click en "✓ Aprobar"
+5. Status pasa a "Aprobado"
+6. Botones se deshabilitan
+7. Opcional: guardar en cobra_daily_reports
+
+
+ACCIONES & EVENTOS
+═══════════════════════════════════════════════════════════════════════════════
+
+RouteGenerator:
+  onClick "Generar ruta"       → handleGenerateRoute()
+  onClick "Enviar al cobrador" → handleSendRoute()
+  onChange select collector    → loadClients()
+  onChange checkbox client     → toggleClient()
+  onChange date                → setSelectedDate()
+
+MovementsTable:
+  onChange select collector    → reload()
+  onChange select status       → reload()
+  onChange date from           → reload()
+  onChange date to             → reload()
+  onClick "Refrescar"          → loadMovements()
+  Auto: setInterval(load, 5000)
+
+RealtimeMonitor:
+  Auto: setInterval(load, 3000)
+
+ReportsList:
+  onClick "✓ Aprobar"           → handleApprove(reportId)
+  onClick "✗ Rechazar"          → handleReject(reportId)
+  Auto: useEffect(() => load())
+
+
+DATABASE QUERIES
+═════════════════════════════════════════════════════════════════════════════════
+
+RouteGenerator:
+  SELECT * FROM cobra_clients
+    WHERE company_id = ? AND status = 'active'
+  INSERT INTO cobra_routes (...)
+
+MovementsTable:
+  SELECT cobra_movements.*, cobra_clients.name, company_members.profiles.full_name
+    FROM cobra_movements
+    WHERE company_id = ? AND [filtros]
+    ORDER BY created_at DESC
+    LIMIT 100
+
+RealtimeMonitor:
+  SELECT movement_type, collected_amount
+    FROM cobra_movements
+    WHERE company_id = ? AND created_at >= DATE_START
+
+ReportsList:
+  SELECT cobra_movements.*, company_members.profiles.full_name
+    FROM cobra_movements
+    WHERE company_id = ?
+    ORDER BY created_at DESC
+
+
+PERFORMANCE METRICS
+═════════════════════════════════════════════════════════════════════════════════
+
+Initial Load:
+  ├─ getSessionUser()        ~50ms
+  ├─ Cargar cobradores       ~100ms (query)
+  └─ Total: ~200ms
+
+Render Time:
+  ├─ RouteGenerator:    ~50ms (50 clientes)
+  ├─ MovementsTable:    ~100ms (100 movimientos)
+  ├─ RealtimeMonitor:   ~20ms (3 KPIs)
+  └─ ReportsList:       ~50ms (20 reportes)
+
+Auto-Refresh:
+  ├─ MovementsTable:    cada 5 segundos
+  ├─ RealtimeMonitor:   cada 3 segundos
+  └─ Total: ~3-8 queries/min
+
+Optimization:
+  ├─ useCallback para loadMovements
+  ├─ useMemo para filtrados
+  ├─ Lazy loading si > 100 items
+  └─ Pagination ready
+
+
+================================================================================
+END OF VISUAL STRUCTURE
+================================================================================
