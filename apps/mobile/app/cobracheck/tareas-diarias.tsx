@@ -1,6 +1,6 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native'
-import { useCobraClients } from '../hooks/cobra'
-import { useCobrador } from '../hooks/cobra'
+import { useCobraClients } from '../../hooks/cobra'
+import { useCobrador } from '../../hooks/cobra'
 
 export default function TareasDiarias() {
   const { user } = useCobrador()

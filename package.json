@@ -13,26 +13,27 @@
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
-    "supabase": "^2.105.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
+    "@types/react": "^19.1.0",
     "@types/react-dom": "^18.2.0",
-    "@types/react-beautiful-dnd": "^13.1.0",
+    "supabase": "^2.105.0",
     "typescript": "^5.2.0"
   },
   "dependencies": {
     "@react-native-community/netinfo": "^12.0.1",
+    "@supabase/supabase-js": "^2.39.0",
+    "clsx": "^2.0.0",
+    "date-fns": "^2.30.0",
     "expo-sharing": "^56.0.18",
     "expo-updates": "~29.0.18",
     "expo-web-browser": "^56.0.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-native-web": "^0.21.2",
-    "@supabase/supabase-js": "^2.39.0",
-    "react-beautiful-dnd": "^13.1.1",
-    "recharts": "^2.10.0",
     "react-hot-toast": "^2.4.1",
-    "date-fns": "^2.30.0",
-    "clsx": "^2.0.0"
+    "react-native-web": "^0.21.2",
+    "recharts": "^2.10.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
   }
 }

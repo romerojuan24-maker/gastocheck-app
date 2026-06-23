@@ -28,7 +28,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const { data: member } = await supabase
     .from('company_members')
-    .select('company_id, role, profiles:user_id(full_name)')
+    .select('company_id, role')
     .eq('user_id', session.user.id)
     .eq('status', 'active')
     .limit(1)
@@ -36,10 +36,18 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   if (!member) return null;
 
+  // Perfil en query separada: no existe FK declarada company_members.user_id → profiles,
+  // por lo que el embedded join de PostgREST devuelve 400 PGRST200.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
   return {
     id:         session.user.id,
     email:      session.user.email ?? '',
-    full_name:  (member.profiles as any)?.full_name ?? null,
+    full_name:  profile?.full_name ?? null,
     company_id: member.company_id,
     role:       member.role as UserRole,
   };

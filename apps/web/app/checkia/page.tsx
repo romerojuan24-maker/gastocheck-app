@@ -1,48 +1,43 @@
-import { createClient } from '@supabase/supabase-js';
-import { CheckIADetector } from '@/components/CheckIADetector';
-import { DashboardConsolidado } from '@/components/DashboardConsolidado';
+'use client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getSessionUser } from '@/lib/supabase'
+import { CheckIADetector } from '@/components/CheckIADetector'
+import { DashboardConsolidado } from '@/components/DashboardConsolidado'
 
-export default async function CheckIAPage() {
-  const { data: { user } } = await supabase.auth.getUser();
+export default function CheckIAPage() {
+  const router = useRouter()
+  const [companyId, setCompanyId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!user) {
-    return <div>No autorizado</div>;
-  }
+  useEffect(() => {
+    getSessionUser().then(user => {
+      if (!user) { router.push('/login'); return }
+      setCompanyId(user.company_id)
+      setLoading(false)
+    })
+  }, [router])
 
-  const { data: empresa } = await supabase
-    .from('empresa_usuarios')
-    .select('empresa_id')
-    .eq('usuario_id', user.id)
-    .single();
-
-  if (!empresa) {
-    return <div>No tienes empresa asignada</div>;
-  }
+  if (loading) return <div className="p-8 text-center">Cargando...</div>
+  if (!companyId) return null
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <h1 className="text-4xl font-bold mb-2">🤖 CheckIA - Inteligencia en Gastos</h1>
       <p className="text-gray-600 mb-8">
-        Detección automática de anomalías, clustering inteligente y patrones de fraude usando Machine Learning
+        Detección automática de anomalías, clustering inteligente y patrones de fraude
       </p>
 
-      {/* Dashboard consolidado */}
       <div className="mb-8">
-        <DashboardConsolidado empresaId={empresa.empresa_id} />
+        <DashboardConsolidado empresaId={companyId} />
       </div>
 
-      {/* Detector de anomalías */}
       <div className="p-4 bg-white border border-gray-200 rounded-lg mb-8">
         <h2 className="text-2xl font-bold mb-4">🔍 Análisis de Anomalías</h2>
-        <CheckIADetector empresaId={empresa.empresa_id} />
+        <CheckIADetector empresaId={companyId} />
       </div>
 
-      {/* Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="font-bold text-blue-900 mb-2">💡 Cómo Funciona</h3>
@@ -67,30 +62,23 @@ export default async function CheckIAPage() {
         </div>
       </div>
 
-      {/* Técnica ML */}
       <div className="mt-8 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-        <h3 className="font-bold text-purple-900 mb-2">🧠 Técnicas Machine Learning</h3>
+        <h3 className="font-bold text-purple-900 mb-2">🧠 Técnicas ML</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <div className="font-semibold text-purple-900">Isolation Forest</div>
-            <p className="text-purple-800 text-xs mt-1">
-              Detecta anomalías calculando z-score. Gastos > 2.5 desviaciones estándar son anómalos.
-            </p>
+            <p className="text-purple-800 text-xs mt-1">Gastos &gt; 2.5σ son anómalos.</p>
           </div>
           <div>
             <div className="font-semibold text-purple-900">K-Means Clustering</div>
-            <p className="text-purple-800 text-xs mt-1">
-              Agrupa gastos por categoría. Encuentra patrones similares automáticamente.
-            </p>
+            <p className="text-purple-800 text-xs mt-1">Agrupa gastos por categoría automáticamente.</p>
           </div>
           <div>
             <div className="font-semibold text-purple-900">Pattern Detection</div>
-            <p className="text-purple-800 text-xs mt-1">
-              Identifica patrones de fraude, gastos duplicados, actividad anormal.
-            </p>
+            <p className="text-purple-800 text-xs mt-1">Detecta duplicados y actividad anormal.</p>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

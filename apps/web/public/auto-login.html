@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Login - CheckSuite</title>
+    <script>
+        window.addEventListener('load', () => {
+            console.log('Página cargada, rellenando formulario automáticamente...');
+
+            // Buscar inputs
+            const emailInput = document.querySelector('input[type="email"]') ||
+                             document.querySelector('input[name="email"]') ||
+                             document.querySelector('input[placeholder*="empresa"]');
+
+            const passwordInput = document.querySelector('input[type="password"]') ||
+                                document.querySelector('input[name="password"]');
+
+            const submitButton = document.querySelector('button[type="submit"]') ||
+                               Array.from(document.querySelectorAll('button'))
+                                   .find(btn => btn.textContent.includes('Entrar'));
+
+            if (emailInput && passwordInput) {
+                console.log('✓ Inputs encontrados');
+
+                // Rellenar campos
+                emailInput.value = 'demo@gastocheck.app';
+                passwordInput.value = 'DemoGastoCheck2026!';
+
+                // Trigger change events para que React se entere
+                emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                console.log('✓ Campos rellenados');
+
+                // Hacer click en el botón después de 500ms
+                setTimeout(() => {
+                    if (submitButton) {
+                        console.log('✓ Haciendo click en Entrar...');
+                        submitButton.click();
+                    }
+                }, 500);
+            } else {
+                console.log('✗ No se encontraron los inputs del formulario');
+                console.log('Email input:', emailInput);
+                console.log('Password input:', passwordInput);
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>Iniciando sesión automáticamente...</h1>
+    <p>Si no redirige en 5 segundos, <a href="/login">haz click aquí</a></p>
+</body>
+</html>

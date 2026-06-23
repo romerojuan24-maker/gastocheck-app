@@ -34,17 +34,23 @@ export function CheckIADetector({ empresaId }: { empresaId: string }) {
   useEffect(() => {
     async function fetchAnomalias() {
       try {
-        const response = await fetch('/api/checkia/detectar?empresa_id=' + empresaId);
-        const result = await response.json();
-        setData(result);
+        const response = await fetch('/api/checkia/detectar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ empresa_id: empresaId }),
+          credentials: 'include',
+        })
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const result = await response.json()
+        setData(result)
       } catch (error) {
-        console.error('Error:', error);
+        console.error('CheckIA error:', error)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
-    fetchAnomalias();
+    if (empresaId) fetchAnomalias()
   }, [empresaId]);
 
   if (loading) return <div className="p-4 text-center text-gray-500">Analizando patrones...</div>;

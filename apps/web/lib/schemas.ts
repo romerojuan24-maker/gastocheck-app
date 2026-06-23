@@ -19,7 +19,7 @@ export const cobraClientSchema = z.object({
 export const bankTransactionSchema = z.object({
   description: z.string().min(3, 'Descripción requerida'),
   amount: z.number().gt(0, 'Monto debe ser mayor a 0'),
-  transaction_date: z.string().refine(v => !isNaN(Date.parse(v)), 'Fecha inválida'),
+  transaction_date: z.string().refine((v: string) => !isNaN(Date.parse(v)), 'Fecha inválida'),
   category: z.enum(['gasto', 'cobranza', 'anticipo', 'proveedor', 'cliente', 'transferencia', 'personal', 'ignorar']),
 });
 

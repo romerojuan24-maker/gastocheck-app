@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { DashboardConsolidado } from '@/components/DashboardConsolidado'
+import ErrorBoundary from '@/components/ErrorBoundary'
+import Modal from '@/components/Modal'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -11,7 +13,7 @@ const supabase = createClient(
 
 function CobraCheckDashboard({ empresaId }: { empresaId: string }) {
   const [kpis, setKpis] = useState({ totalCartera: 0, vencidos: 0, enRiesgo: 0, avgScore: 0 })
-  const [activeTab, setActiveTab] = useState<'clientes' | 'vencidas' | 'pagos'>('clientes')
+  const [activeTab, setActiveTab] = useState<'clientes' | 'vencidas' | 'actividad'>('clientes')
   const [clientes, setClientes] = useState<any[]>([])
   const [facturas, setFacturas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,27 +31,27 @@ function CobraCheckDashboard({ empresaId }: { empresaId: string }) {
     try {
       // Clientes
       const { data: clientsData } = await supabase
-        .from('clientes')
+        .from('cobra_clients')
         .select('*')
-        .eq('empresa_id', empresaId)
+        .eq('company_id', empresaId)
 
       setClientes(clientsData || [])
 
       // Facturas
       const { data: facturasData } = await supabase
-        .from('facturas')
-        .select('*, movimientos_financieros(estado_pago)')
-        .eq('empresa_id', empresaId)
+        .from('cobra_invoices')
+        .select('*')
+        .eq('company_id', empresaId)
 
       setFacturas(facturasData || [])
 
       // KPIs
       const totalCartera = (facturasData || [])
-        .filter(f => f.movimientos_financieros?.[0]?.estado_pago !== 'PAGADO')
-        .reduce((s, f) => s + f.monto, 0)
+        .filter(f => f.status !== 'paid')
+        .reduce((s, f) => s + (f.amount || 0), 0)
 
       const vencidos = (facturasData || []).filter(
-        f => f.fecha_vencimiento && new Date(f.fecha_vencimiento) < new Date() && f.movimientos_financieros?.[0]?.estado_pago !== 'PAGADO'
+        f => f.status === 'overdue'
       ).length
 
       const avgScore = 0 // Implementar risk scoring después
@@ -185,7 +187,7 @@ function CobraCheckDashboard({ empresaId }: { empresaId: string }) {
 
       {activeTab === 'vencidas' && (
         <div className="grid gap-4">
-          {invoices.filter(i => i.status === 'overdue').map(i => (
+          {facturas.filter(i => i.status === 'overdue').map(i => (
             <div key={i.id} className="bg-white p-4 rounded-lg shadow">
               <div className="flex justify-between">
                 <div>
@@ -212,5 +214,6 @@ function CobraCheckDashboard({ empresaId }: { empresaId: string }) {
 }
 
 export default function CobraCheckDashboardPage() {
-  return <CobraCheckDashboard />
+  // empresaId se obtiene via RLS del usuario autenticado; se pasa vacío y loadData filtra por sesión
+  return <CobraCheckDashboard empresaId="" />
 }

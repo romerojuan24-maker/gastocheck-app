@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase, getSessionUser } from '../../../lib/supabase'
+import { supabase, getSessionUser } from '../../../../lib/supabase'
 import { CobraClient, CobraInvoice } from '@gastocheck/shared'
 
 export default function ClientDetailPage() {
@@ -39,7 +39,7 @@ export default function ClientDetailPage() {
         </div>
         <div className="bg-white p-4 rounded shadow">
           <div className="text-sm text-gray-600">Límite</div>
-          <div className="font-semibold">${client.credit_limit.toLocaleString('es-MX')}</div>
+          <div className="font-semibold">${(client.credit_limit ?? 0).toLocaleString('es-MX')}</div>
         </div>
         <div className="bg-white p-4 rounded shadow">
           <div className="text-sm text-gray-600">Risk Score</div>

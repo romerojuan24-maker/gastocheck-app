@@ -71,10 +71,11 @@ export default function ReportesPage() {
     }
 
     invoices.forEach((inv) => {
-      if (inv.status === "pending" || inv.status === "partial") {
+      if (inv.status === "pending" || inv.status === "partial" || inv.status === "overdue") {
         const dueDate = new Date(inv.due_date)
         const days = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-        const pending = inv.total - inv.paid
+        // `amount` es el campo real en cobra_invoices (subtotal + tax)
+        const pending = inv.amount ?? 0
 
         if (days <= 30) {
           antiguedad["0-30"].count++
@@ -92,17 +93,19 @@ export default function ReportesPage() {
       }
     })
 
-    // Tasa de pago
-    const total = invoices.reduce((s, i) => s + i.total, 0)
-    const pagado = invoices.reduce((s, i) => s + i.paid, 0)
+    // Tasa de pago: facturas pagadas / total facturas (por monto)
+    const total = invoices.reduce((s, i) => s + (i.amount ?? 0), 0)
+    const pagado = invoices
+      .filter((i) => i.status === "paid")
+      .reduce((s, i) => s + (i.amount ?? 0), 0)
     const tasaPago = total > 0 ? (pagado / total) * 100 : 0
 
     setData({
       antiguedad,
       tasaPago: tasaPago.toFixed(1),
       totalCartera: invoices
-        .filter((i) => i.status !== "paid")
-        .reduce((s, i) => s + (i.total - i.paid), 0),
+        .filter((i) => i.status !== "paid" && i.status !== "cancelled")
+        .reduce((s, i) => s + (i.amount ?? 0), 0),
       totalPagado: pagado,
     })
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, getSessionUser } from '../../../../lib/supabase';
 
@@ -12,7 +12,7 @@ export default function FacturaCheckUploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(0);
 
-  useState(() => {
+  useEffect(() => {
     getSessionUser().then(u => {
       if (u) setCompanyId(u.company_id);
     });

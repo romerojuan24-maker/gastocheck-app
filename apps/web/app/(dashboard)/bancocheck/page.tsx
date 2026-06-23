@@ -42,7 +42,7 @@ export default function BancoCheckPage() {
     if (selectedAccountId && t.bank_account_id !== selectedAccountId) return false;
     if (tab === 'new') return t.status === 'new';
     if (tab === 'explained') return t.status === 'explained';
-    if (tab === 'pending') return t.status === 'pending';
+    if (tab === 'pending') return t.status === 'pending_document' || t.status === 'pending_invoice';
     return true;
   });
 

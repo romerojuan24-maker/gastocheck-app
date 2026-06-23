@@ -5,10 +5,13 @@
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "extra": {
-      "eas": {
-        "projectId": "cobra-check-mobile"
+      "OTA_VERSION": "1",
+      "router": {
+        "origin": false
       },
-      "OTA_VERSION": "1"
+      "eas": {
+        "projectId": "d722de8e-a8f0-48bc-bcbf-8ca78e8fd9cb"
+      }
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,13 +22,21 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTabletMode": true
+      "supportsTabletMode": true,
+      "bundleIdentifier": "com.cobracheck.app"
     },
     "android": {
+      "package": "com.cobracheck.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -50,6 +61,7 @@
         }
       ]
     ],
-    "scheme": "cobracheck"
+    "scheme": "cobracheck",
+    "owner": "juan.romero"
   }
 }

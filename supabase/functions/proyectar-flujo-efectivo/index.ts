@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       .select('monto, fecha_evento')
       .eq('empresa_id', empresa_id)
       .eq('tipo_movimiento', 'INGRESO')
-      .eq('estado_pago', 'PENDIENTE')
+      .eq('status', 'PENDIENTE')
       .lte('fecha_evento', new Date(Date.now() + dias_proyeccion * 86400000).toISOString());
 
     // 4. Proyectar 30 días

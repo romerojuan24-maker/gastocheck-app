@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase, getSessionUser } from '../../../lib/supabase'
 
 export default function BitacoraPage() {
-  const [entries, setEntries] = useState([])
+  const [entries, setEntries] = useState<any[]>([])
 
   useEffect(() => {
     const load = async () => {

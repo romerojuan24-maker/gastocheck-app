@@ -1,5 +1,5 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native'
-import { useCobraClients, useCobrador } from '../hooks/cobra'
+import { useCobraClients, useCobrador } from '../../hooks/cobra'
 
 export default function CobraClientes() {
   const { user } = useCobrador()

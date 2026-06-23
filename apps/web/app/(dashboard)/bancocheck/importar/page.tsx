@@ -65,7 +65,7 @@ export default function BancoCheckImportPage() {
         rows.push({
           transaction_date: parsed.transaction_date,
           description:      parsed.description ?? 'Sin descripción',
-          amount:           parsed.amount,
+          amount:           parsed.amount ?? 0,
           reference:        parsed.reference ?? undefined,
           balance_after:    parsed.balance_after ?? undefined,
         });
