@@ -1,0 +1,444 @@
+================================================================================
+CHECK SUITE — SUPERVISOR ROUTES DASHBOARD
+Complete Implementation Summary (2026-06-23)
+================================================================================
+
+PROJECT LOCATION
+================================================================================
+Repository: C:\Users\admin\Documents\gastocheck-app
+Web App: apps/web
+Main File: apps/web/app/(dashboard)/cobracheck/routes/page.tsx
+Hooks: apps/web/hooks/useCobraRoutes.ts
+Route: /dashboard/cobracheck/routes
+
+
+FILE LOCATIONS
+================================================================================
+✓ apps/web/app/(dashboard)/cobracheck/routes/page.tsx (850 líneas)
+✓ apps/web/hooks/useCobraRoutes.ts (350 líneas)
+✓ ROUTES_PAGE_IMPLEMENTATION.md (documentación completa)
+✓ Commit: 92883ca "feat(cobracheck): supervisor routes dashboard"
+
+
+COMPONENT STRUCTURE
+================================================================================
+
+PAGE: /dashboard/cobracheck/routes
+
+Sección 1: RouteGenerator (Generador de Rutas)
+─────────────────────────────────────────────
+  Inputs:
+    • Dropdown: Cobrador/Comprador (select)
+    • Calendario: Fecha (date input)
+    • Multi-select: Clientes activos (checkboxes)
+    • Botón: "Generar ruta optimizada"
+
+  Output:
+    • Tabla: orden, cliente, distancia (km), duración (min), dirección
+    • Info: Total distancia + duración estimada
+    • Botón: "Enviar al cobrador"
+
+  Backend:
+    • Carga clientes de tabla cobra_clients
+    • Mock TSP (ordena por nombre + distancias aleatorias)
+    • Guarda en tabla cobra_routes
+    • Notificación al cobrador (TODO: SMS/push)
+
+
+Sección 2: MovementsTable (Tabla de Movimientos)
+────────────────────────────────────────────────
+  Filtros:
+    • Cobrador (dropdown)
+    • Estado: Pagó / Promesa / No Pagó (select)
+    • Rango fechas (desde/hasta)
+    • Cliente (multi-select/filtro cliente-side)
+
+  Columnas:
+    • Activo (✓)
+    • Cliente
+    • Tipo (badge: Pagó=verde, Promesa=amarillo, No Pagó=rojo)
+    • Monto (right-aligned)
+    • Estado (Badge)
+    • Motivo/Nota
+    • Siguiente fecha (para promesas)
+
+  Features:
+    • Auto-refresh cada 5 segundos
+    • Colores por tipo movimiento
+    • Max 100 registros + scroll
+    • Filtrado dinámico
+
+
+Sección 3: RealtimeMonitor (Monitor en Tiempo Real)
+────────────────────────────────────────────────────
+  KPIs (refresh cada 3s):
+    1. Total Cobrado Hoy (verde) — suma collected_amount
+    2. Promesas (amarillo) — count movimientos type='promise'
+    3. Movimientos Procesados (azul) — count total
+
+  Progreso Ruta:
+    • Barra: "X de Y clientes visitados"
+    • Porcentaje completado
+    • Indicador visual
+
+
+Sección 4: ReportsList (Reportes Diarios)
+──────────────────────────────────────────
+  Tabla:
+    • Cobrador
+    • Fecha
+    • Total Cobrado (verde, suma)
+    • Promesas (badge)
+    • No Pagó (badge rojo)
+    • Movimientos (count)
+    • Estado (Pendiente/Aprobado/Rechazado)
+    • Acciones: ✓ Aprobar | ✗ Rechazar
+
+  Features:
+    • Genera automáticamente de movimientos
+    • Agrupa por user_id + date
+    • Botones deshabilitados si status ≠ pending
+    • Max 20 reportes
+
+
+CUSTOM HOOKS
+================================================================================
+
+1. useCompanies(companyId)
+   ├─ Returns: CompanyMember[]
+   └─ Fields: id, email, fullName, role ('collector'|'operator')
+
+2. useClients(companyId, collectorId?)
+   ├─ Returns: CobraClient[]
+   └─ Filtra: status='active', order by name
+
+3. useOptimizeRoute(clientIds, clients)
+   ├─ Returns: { route, loading, error, optimize }
+   └─ route: OptimizedRoutePoint[] (order, clientId, distance, duration)
+
+4. useMovementsList(companyId, filters)
+   ├─ Returns: { movements, loading, error, refetch }
+   └─ filters: { collectorId, clientId, status, dateFrom, dateTo }
+
+5. useDailyReports(companyId, filters)
+   ├─ Returns: { reports, loading, error, refetch, approve, reject }
+   └─ reports: DailyReportRow[] (agrupado por user + date)
+
+
+UI COMPONENTS USED
+================================================================================
+✓ Shadcn/ui (pre-installed en proyecto)
+  • Select / SelectTrigger / SelectValue / SelectContent / SelectItem
+  • Checkbox
+  • Button
+  • Input
+  • Card / CardContent / CardHeader / CardTitle
+  • Badge
+  • Table / TableBody / TableCell / TableHead / TableHeader / TableRow
+  • Calendar (lucide-react icon)
+
+✓ Responsive: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+✓ Dark/Light mode: CSS variables Shadcn
+
+
+TECHNICAL SPECS
+================================================================================
+
+Language: TypeScript + React 18
+Framework: Next.js 14 (App Router, Client Component)
+Styling: Tailwind CSS + Shadcn/ui
+Database: Supabase/PostgreSQL
+Auth: Supabase Auth (SessionUser)
+Real-time: Polling (3-5 segundos) — ready para Supabase Realtime
+
+No external TSP library — backend endpoint /api/routes/optimize
+
+
+DATA FLOW
+================================================================================
+
+Flujo 1: Generar Ruta
+─────────────────────
+Supervisor selecciona cobrador → Selecciona clientes → Click generar
+   ↓
+useOptimizeRoute() → Mock TSP (o backend real)
+   ↓
+Tabla con orden optimizada aparece
+   ↓
+Click "Enviar cobrador" → INSERT cobra_routes → SMS/push
+
+
+Flujo 2: Monitorear en Vivo
+────────────────────────────
+MovementsTable.load() cada 5s
+   ↓
+Cobrador registra movimiento (mobile app)
+   ↓
+Movimiento aparece en tabla (verde/amarillo/rojo)
+   ↓
+RealtimeMonitor actualiza KPIs
+
+
+Flujo 3: Aprobar Reportes
+──────────────────────────
+Fin de día → ReportsList agrupa movimientos
+   ↓
+Muestra totales por cobrador
+   ↓
+Supervisor: ✓ Aprobar (status → 'approved')
+   ↓
+Reporte bloqueado
+
+
+DATABASE REQUIREMENTS
+================================================================================
+
+Existing Tables:
+  ✓ cobra_clients (CobraClient)
+  ✓ cobra_movements (CobraMovement)
+  ✓ company_members + profiles (SessionUser, Collectors)
+
+New Tables Required:
+  □ cobra_routes
+    - id (UUID PK)
+    - company_id (FK)
+    - collector_id (FK profiles)
+    - date (DATE)
+    - clients_order (TEXT[] — array de client IDs)
+    - status ('pending'|'in_progress'|'completed')
+    - total_distance (FLOAT)
+    - estimated_duration (INT)
+    - created_at, updated_at (TIMESTAMP)
+    - Indexes: (company_id, date), (collector_id)
+
+  □ cobra_daily_reports (optional, si quieren persistencia)
+    - id (UUID PK)
+    - company_id (FK)
+    - collector_id (FK)
+    - date (DATE)
+    - total_collected (NUMERIC)
+    - promise_count, not_paid_count, movements_count (INT)
+    - status ('pending'|'approved'|'rejected')
+    - created_at, updated_at (TIMESTAMP)
+    - Unique: (company_id, collector_id, date)
+
+
+INTEGRATION STEPS
+================================================================================
+
+1. Tablas BD
+   mkdir -p supabase/migrations
+   cat > supabase/migrations/cobra_routes.sql
+   # Crear tabla cobra_routes (ver doc)
+   supabase migration up
+
+2. Dependencias (si faltan)
+   npm install @supabase/supabase-js lucide-react
+
+3. Copiar archivos
+   ✓ apps/web/app/(dashboard)/cobracheck/routes/page.tsx (850 líneas)
+   ✓ apps/web/hooks/useCobraRoutes.ts (350 líneas)
+
+4. Importar en navbar/menu
+   {
+     label: "Rutas",
+     href: "/dashboard/cobracheck/routes",
+     icon: "🚗",
+     role: "supervisor"
+   }
+
+5. Probar
+   npm run dev
+   Visit: http://localhost:3000/dashboard/cobracheck/routes
+
+
+CODE SNIPPETS
+================================================================================
+
+Usar RouteGenerator:
+──────────────────
+<RouteGenerator
+  companyId={user.company_id}
+  collectors={collectors}
+  onGenerateRoute={(route) => {}}
+/>
+
+
+Usar MovementsTable:
+───────────────────
+<MovementsTable
+  companyId={user.company_id}
+  collectors={collectors}
+/>
+
+
+Usar RealtimeMonitor:
+────────────────────
+<RealtimeMonitor
+  companyId={user.company_id}
+  selectedDate={selectedDate}
+/>
+
+
+Usar Hooks:
+──────────
+const { members } = useCompanies(companyId);
+const { clients } = useClients(companyId);
+const { route } = useOptimizeRoute(clientIds, clients);
+const { movements, refetch } = useMovementsList(companyId, { status: 'collected' });
+const { reports, approve, reject } = useDailyReports(companyId);
+
+
+FEATURES & HIGHLIGHTS
+================================================================================
+
+✓ 4 Secciones independientes (plug & play)
+✓ Componentes reutilizables (RouteGenerator, MovementsTable, etc.)
+✓ Auto-refresh en tiempo real (3-5 segundos)
+✓ Filtros dinámicos y responsivos
+✓ Codificación por color (verde/amarillo/rojo)
+✓ Mobile-friendly (responsive grid)
+✓ Dark/light mode soporte
+✓ TypeScript 100%
+✓ Cero dependencias externas (excepto shadcn/ui)
+✓ Backend-ready (mock TSP + endpoint placeholder)
+
+
+PRÓXIMOS PASOS (TODO)
+================================================================================
+
+Priority 1 (Backend):
+  □ Crear endpoint POST /api/routes/optimize
+    - Algoritmo TSP real (p.ej. or-tools)
+    - Google Maps API para distancias
+  □ Notificaciones: SMS/push/email al cobrador
+  □ Tabla cobra_daily_reports persistencia
+
+Priority 2 (Frontend):
+  □ Google Maps integration (mostrar ruta visual)
+  □ Live location tracking del cobrador
+  □ Photo/proof of payment en movimientos
+  □ Exportar reportes (CSV/PDF)
+
+Priority 3 (Features):
+  □ Offline sync (service worker)
+  □ Integration con GastoCheck (actualizar saldos)
+  □ Bulk actions (aprobar múltiples reportes)
+  □ Analytics dashboard (reportes por período)
+
+
+TESTING
+================================================================================
+
+Unit Tests (hooks):
+  npm test -- useCobraRoutes.test.ts
+
+E2E Tests (Cypress):
+  npm run cypress -- e2e/routes.spec.ts
+
+Manual QA:
+  1. Visit /dashboard/cobracheck/routes
+  2. Generar ruta con 3+ clientes
+  3. Revisar tabla movimientos (filtros)
+  4. Monitorear KPIs en tiempo real
+  5. Aprobar reporte diario
+
+
+PERFORMANCE
+================================================================================
+
+Query Optimization:
+  • Indexes: (company_id, date), (company_id, created_at)
+  • Limit 100 movimientos, 20 reportes
+  • useCallback para evitar loops
+
+Frontend Optimization:
+  • useMemo para filtrados cliente-side
+  • Auto-refresh cada 3-5s (no constantemente)
+  • Lazy load si necesario
+
+Pagination (future):
+  • Agregar offset/limit + "Load more"
+
+
+TROUBLESHOOTING
+================================================================================
+
+"Cannot find module useCobraRoutes"
+  → Verifica: apps/web/hooks/useCobraRoutes.ts existe
+  → Import: import { useCompanies } from '../../../hooks/useCobraRoutes'
+
+"supabase is not defined"
+  → Conf: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+"Tabla no carga"
+  → DevTools → Network → resp query
+  → RLS policies: verifica permisos supervisor
+  → Auth: getSessionUser() retorna user
+
+"Auto-refresh no funciona"
+  → Check cleanup en useEffect
+  → Browser console: errores red
+
+
+GIT HISTORY
+================================================================================
+
+Commit: 92883ca
+Date: 2026-06-23
+Author: Juan Romero
+Message: feat(cobracheck): supervisor routes dashboard — complete implementation
+
+Files:
+  + apps/web/app/(dashboard)/cobracheck/routes/page.tsx (850 líneas)
+  + apps/web/hooks/useCobraRoutes.ts (350 líneas)
+  + ROUTES_PAGE_IMPLEMENTATION.md (documentación)
+  = 33 files changed (múltiples componentes relacionados)
+
+
+DEPENDENCIES
+================================================================================
+
+Core (ya instalado):
+  • react 18+
+  • next 14+
+  • typescript
+  • tailwindcss
+  • @supabase/supabase-js
+  • shadcn/ui (select, checkbox, button, input, card, badge, table)
+  • lucide-react (iconos)
+
+Optional (futuro):
+  • google-maps-react (maps)
+  • @react-pdf/renderer (PDF export)
+  • chart.js (analytics)
+
+
+DOCUMENTATION
+================================================================================
+
+Main Docs: ROUTES_PAGE_IMPLEMENTATION.md
+  → Arquitectura completa
+  → API reference
+  → Guía de integración
+  → Troubleshooting
+
+This Summary: ROUTES_PAGE_SUMMARY.txt
+  → Quick reference
+  → File locations
+  → Code snippets
+
+
+CONTACT & SUPPORT
+================================================================================
+
+Developed for: CHECK SUITE v1.0 (Jun 2026)
+Integration: GastoCheck + CobraCheck
+Repository: github.com/statix-io/check-suite
+Author: Juan Romero <romero.juan24@gmail.com>
+Date: 2026-06-23
+
+
+================================================================================
+END OF SUMMARY
+================================================================================
