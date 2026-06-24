@@ -67,6 +67,7 @@ export default function CobraCheckPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-slate-900">🎯 CobraCheck</h1>
         <p className="text-slate-500 text-sm mt-1">Gestión de cobranza y clientes</p>
+        <a href="/cobracheck/desempeno" className="inline-block mt-2 text-sm font-semibold text-emerald-600 hover:text-emerald-800">📊 Ver reporte de desempeño →</a>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">

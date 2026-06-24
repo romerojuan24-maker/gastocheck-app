@@ -1,0 +1,182 @@
+// Edge Function: timbrar-cfdi
+// Timbrado CFDI 4.0 multi-proveedor (NO único): Facturama y FacturaPía.
+// Lee credenciales de cfdi_provider_configs, timbra una cfdi_issue_requests.
+// Deploy: supabase functions deploy timbrar-cfdi
+//
+// Body: { request_id: uuid }  (la solicitud debe existir en cfdi_issue_requests)
+// Auth: requiere JWT del usuario (Authorization: Bearer ...)
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+}
+
+interface IssueRequest {
+  id: string
+  company_id: string
+  cfdi_type: string
+  receptor_rfc: string
+  receptor_razon_social: string | null
+  receptor_uso_cfdi: string
+  receptor_codigo_postal: string | null
+  receptor_regimen: string | null
+  items: any[]
+  subtotal: number | null
+  iva: number | null
+  total: number | null
+  provider: string
+  status: string
+}
+
+interface ProviderConfig {
+  provider: string
+  rfc: string
+  razon_social: string | null
+  regimen_fiscal: string | null
+  codigo_postal_fiscal: string | null
+  pac_user_enc: string | null
+  pac_pass_enc: string | null
+  mode: string
+  is_active: boolean
+}
+
+interface TimbreResult {
+  uuid: string
+  xml: string | null
+  pdf_url: string | null
+  provider_id: string | null
+}
+
+// ---------------------------------------------------------------------------
+// ADAPTADOR: Facturama  (https://facturama.mx — apisandbox/api)
+// ---------------------------------------------------------------------------
+async function timbrarFacturama(cfg: ProviderConfig, req: IssueRequest): Promise<TimbreResult> {
+  const base = cfg.mode === 'production' ? 'https://api.facturama.mx' : 'https://apisandbox.facturama.mx'
+  const auth = btoa(`${cfg.pac_user_enc ?? ''}:${cfg.pac_pass_enc ?? ''}`)
+
+  const payload = {
+    Serie: 'A',
+    Currency: 'MXN',
+    ExpeditionPlace: cfg.codigo_postal_fiscal ?? '00000',
+    CfdiType: req.cfdi_type === 'egreso' ? 'E' : 'I',
+    PaymentForm: '03',
+    PaymentMethod: 'PUE',
+    Receiver: {
+      Rfc: req.receptor_rfc,
+      Name: req.receptor_razon_social ?? 'PUBLICO EN GENERAL',
+      CfdiUse: req.receptor_uso_cfdi ?? 'G03',
+      FiscalRegime: req.receptor_regimen ?? '601',
+      TaxZipCode: req.receptor_codigo_postal ?? cfg.codigo_postal_fiscal ?? '00000',
+    },
+    Items: (req.items ?? []).map((it: any) => ({
+      ProductCode: it.clave_prod ?? '01010101',
+      UnitCode: it.clave_unidad ?? 'H87',
+      Description: it.descripcion ?? it.description ?? 'Concepto',
+      Quantity: Number(it.cantidad ?? it.quantity ?? 1),
+      UnitPrice: Number(it.precio ?? it.unit_price ?? 0),
+      Subtotal: Number(it.subtotal ?? (Number(it.cantidad ?? 1) * Number(it.precio ?? 0))),
+      TaxObject: '02',
+      Taxes: [{ Total: Number(it.iva ?? 0), Name: 'IVA', Base: Number(it.subtotal ?? 0), Rate: 0.16, IsRetention: false }],
+      Total: Number(it.total ?? 0),
+    })),
+  }
+
+  const resp = await fetch(`${base}/3/cfdis`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await resp.json()
+  if (!resp.ok) throw new Error(`Facturama ${resp.status}: ${JSON.stringify(data).slice(0, 300)}`)
+  return { uuid: data.Complement?.TaxStamp?.Uuid ?? data.Id, xml: null, pdf_url: null, provider_id: data.Id ?? null }
+}
+
+// ---------------------------------------------------------------------------
+// ADAPTADOR: FacturaPía  (https://facturapi.io style / facturapia)
+// ---------------------------------------------------------------------------
+async function timbrarFacturapia(cfg: ProviderConfig, req: IssueRequest): Promise<TimbreResult> {
+  const base = cfg.mode === 'production' ? 'https://www.facturapi.io/v2' : 'https://www.facturapi.io/v2'
+  const key = cfg.pac_pass_enc ?? '' // FacturAPI usa API key (secret) como Bearer
+
+  const payload = {
+    type: req.cfdi_type === 'egreso' ? 'E' : 'I',
+    customer: {
+      legal_name: req.receptor_razon_social ?? 'PUBLICO EN GENERAL',
+      tax_id: req.receptor_rfc,
+      tax_system: req.receptor_regimen ?? '601',
+      address: { zip: req.receptor_codigo_postal ?? cfg.codigo_postal_fiscal ?? '00000' },
+    },
+    use: req.receptor_uso_cfdi ?? 'G03',
+    items: (req.items ?? []).map((it: any) => ({
+      quantity: Number(it.cantidad ?? it.quantity ?? 1),
+      product: {
+        description: it.descripcion ?? it.description ?? 'Concepto',
+        product_key: it.clave_prod ?? '01010101',
+        price: Number(it.precio ?? it.unit_price ?? 0),
+      },
+    })),
+    payment_form: '03',
+  }
+
+  const resp = await fetch(`${base}/invoices`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await resp.json()
+  if (!resp.ok) throw new Error(`FacturAPI ${resp.status}: ${JSON.stringify(data).slice(0, 300)}`)
+  return { uuid: data.uuid ?? data.id, xml: null, pdf_url: null, provider_id: data.id ?? null }
+}
+
+const ADAPTERS: Record<string, (cfg: ProviderConfig, req: IssueRequest) => Promise<TimbreResult>> = {
+  facturama: timbrarFacturama,
+  facturapia: timbrarFacturapia,
+  facturapi: timbrarFacturapia,
+}
+
+Deno.serve(async (httpReq) => {
+  if (httpReq.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (httpReq.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS })
+
+  try {
+    const { request_id } = await httpReq.json()
+    if (!request_id) return Response.json({ error: 'request_id requerido' }, { status: 400, headers: CORS })
+
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+    const { data: req, error: e1 } = await admin.from('cfdi_issue_requests').select('*').eq('id', request_id).single()
+    if (e1 || !req) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404, headers: CORS })
+    if (req.status === 'timbrado') return Response.json({ error: 'Ya está timbrada', uuid: req.uuid_cfdi }, { status: 409, headers: CORS })
+
+    const { data: cfg } = await admin
+      .from('cfdi_provider_configs')
+      .select('*')
+      .eq('company_id', req.company_id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!cfg) {
+      await admin.from('cfdi_issue_requests').update({ status: 'error', error_message: 'No hay proveedor PAC activo configurado' }).eq('id', request_id)
+      return Response.json({ error: 'No hay proveedor PAC activo. Configura Facturama o FacturAPI en Ajustes.' }, { status: 412, headers: CORS })
+    }
+
+    const adapter = ADAPTERS[(cfg.provider || '').toLowerCase()]
+    if (!adapter) return Response.json({ error: `Proveedor no soportado: ${cfg.provider}` }, { status: 400, headers: CORS })
+
+    try {
+      const result = await adapter(cfg as ProviderConfig, req as IssueRequest)
+      await admin.from('cfdi_issue_requests').update({
+        status: 'timbrado', uuid_cfdi: result.uuid, provider: cfg.provider,
+        provider_id: result.provider_id, pdf_storage_path: result.pdf_url, timbrado_at: new Date().toISOString(),
+      }).eq('id', request_id)
+      return Response.json({ ok: true, uuid: result.uuid, provider: cfg.provider }, { headers: CORS })
+    } catch (err) {
+      await admin.from('cfdi_issue_requests').update({ status: 'error', error_message: String(err) }).eq('id', request_id)
+      return Response.json({ error: String(err) }, { status: 502, headers: CORS })
+    }
+  } catch (err) {
+    return Response.json({ error: String(err) }, { status: 500, headers: CORS })
+  }
+})

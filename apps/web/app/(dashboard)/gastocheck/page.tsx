@@ -57,6 +57,9 @@ export default function GastoCheckHome() {
   const cards = [
     { href: '/gastocheck/comprobantes', icon: '🧾', title: 'Comprobantes', desc: 'Vigentes, en revisión e históricos con trazabilidad a póliza' },
     { href: '/gastocheck/polizas', icon: '📒', title: 'Plataforma del Contador', desc: 'Catálogo, clasificación, validación SAT y exportación de pólizas' },
+    { href: '/gastocheck/cuentas-por-pagar', icon: '💳', title: 'Cuentas por Pagar', desc: 'Control de pendientes a proveedores: agregar, editar, pagar' },
+    { href: '/gastocheck/cajas-chicas', icon: '🪙', title: 'Cajas Chicas', desc: 'Saldos por responsable: anticipos menos gastos comprobados' },
+    { href: '/gastocheck/escanear', icon: '📷', title: 'Escanear Comprobante', desc: 'IA lee el ticket/factura y extrae monto, fecha, proveedor, RFC' },
   ]
 
   return (
