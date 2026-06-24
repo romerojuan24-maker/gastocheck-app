@@ -41,6 +41,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 30000,
+      "url": "https://u.expo.dev/d722de8e-a8f0-48bc-bcbf-8ca78e8fd9cb"
+    },
     "plugins": [
       [
         "expo-router",
