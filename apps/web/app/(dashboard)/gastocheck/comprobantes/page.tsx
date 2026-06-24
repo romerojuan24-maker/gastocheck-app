@@ -29,11 +29,12 @@ export default function ComprobantesPage() {
     fetchComprobantes()
   }, [])
 
-  const vigentes = comprobantes.filter((c) => c.comprobante_status === 'captured')
-  const enRevision = comprobantes.filter((c) => c.comprobante_status === 'pending_auth')
-  const historicos = comprobantes.filter((c) =>
-    ['invoice_applied', 'closed_in_policy'].includes(c.comprobante_status)
-  )
+  // FIX: Filtrar por policy_status (no expense_status)
+  // Vigentes = en póliza abierta
+  // Históricos = en póliza cerrada
+  const vigentes = comprobantes.filter((c) => c.policy_status === 'open')
+  const enRevision = comprobantes.filter((c) => c.policy_status === 'open' && c.comprobante_status === 'pending_auth')
+  const historicos = comprobantes.filter((c) => c.policy_status === 'closed')
 
   const statusColor = (status: string) => {
     switch (status) {

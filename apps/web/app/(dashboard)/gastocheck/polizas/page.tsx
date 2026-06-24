@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '../../../lib/supabase'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,14 @@ export default function ContabilidadIntegration() {
   const [tab, setTab] = useState<'upload' | 'clasificacion' | 'sat' | 'export'>('upload')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [companyId, setCompanyId] = useState<string | null>(null)
+
+  // Obtener company_id de la sesión del usuario
+  useEffect(() => {
+    getSessionUser().then((user) => {
+      if (user) setCompanyId(user.company_id)
+    })
+  }, [])
 
   // ============================================================================
   // 1. UPLOAD CATÁLOGO DE CUENTAS
@@ -35,10 +44,15 @@ export default function ContabilidadIntegration() {
         })
 
       // Insertar en Supabase
+      if (!companyId) {
+        setMessage('❌ No se pudo obtener el ID de la empresa')
+        setLoading(false)
+        return
+      }
       const { error } = await supabase.from('accounting_accounts_v2').insert(
         accounts.map((a) => ({
           ...a,
-          company_id: 'YOUR_COMPANY_ID', // Obtener del contexto
+          company_id: companyId,
           active: true,
         }))
       )
