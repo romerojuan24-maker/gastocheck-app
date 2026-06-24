@@ -35,19 +35,18 @@ export default function GastoCheckHome() {
         if (!member?.company_id) return
 
         const { data: rows } = await supabase
-          .from('v_expenses_with_traceability')
-          .select('comprobante_status, monto, policy_id')
+          .from('expenses')
+          .select('total, policy_id, policies(status)')
           .eq('company_id', member.company_id)
 
-        const list = rows ?? []
+        const list = (rows ?? []) as any[]
+        const isOpen = (r: any) => r.policies?.status === 'open'
+        const isClosed = (r: any) => r.policies?.status === 'closed'
         setKpis({
-          vigentes: list.filter((r: any) => r.comprobante_status === 'captured').length,
-          historicos: list.filter((r: any) =>
-            ['invoice_applied', 'closed_in_policy'].includes(r.comprobante_status)).length,
-          sinAsignar: list.filter((r: any) => !r.policy_id).length,
-          montoVigente: list
-            .filter((r: any) => r.comprobante_status === 'captured')
-            .reduce((s: number, r: any) => s + (Number(r.monto) || 0), 0),
+          vigentes: list.filter(isOpen).length,
+          historicos: list.filter(isClosed).length,
+          sinAsignar: list.filter((r) => !r.policy_id || !r.policies).length,
+          montoVigente: list.filter(isOpen).reduce((s, r) => s + (Number(r.total) || 0), 0),
         })
       } finally {
         setLoading(false)

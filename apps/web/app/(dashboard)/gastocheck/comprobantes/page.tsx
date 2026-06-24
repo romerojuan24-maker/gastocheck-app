@@ -1,222 +1,163 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '@/lib/supabase'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+interface Poliza { id: string; name: string | null; status: string; closed_at: string | null }
+interface Expense {
+  id: string
+  provider_name: string | null
+  total: number | null
+  expense_date: string | null
+  status: string
+  policy_id: string | null
+  accounting_account_code: string | null
+  is_viatico: boolean | null
+  policies: Poliza | null
+}
+
 export default function ComprobantesPage() {
-  const [comprobantes, setComprobantes] = useState<any[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('vigentes')
+  const [activeTab, setActiveTab] = useState<'vigentes' | 'revision' | 'historicos' | 'sinasignar'>('vigentes')
 
   useEffect(() => {
-    const fetchComprobantes = async () => {
+    (async () => {
+      const u = await getSessionUser()
+      if (!u?.company_id) { setLoading(false); return }
+
+      // Tablas base + embed de la póliza (estado real). Sin dependencia de vistas.
       const { data, error } = await supabase
-        .from('v_expenses_with_traceability')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from('expenses')
+        .select('id, provider_name, total, expense_date, status, policy_id, accounting_account_code, is_viatico, policies(id, name, status, closed_at)')
+        .eq('company_id', u.company_id)
+        .order('expense_date', { ascending: false })
 
-      if (error) console.error('Error:', error)
-      else setComprobantes(data || [])
+      if (error) console.error('Error cargando gastos:', error.message)
+      else setExpenses((data as any) ?? [])
       setLoading(false)
-    }
-
-    fetchComprobantes()
+    })()
   }, [])
 
-  // FIX: Filtrar por policy_status (no expense_status)
-  // Vigentes = en póliza abierta
-  // Históricos = en póliza cerrada
-  const vigentes = comprobantes.filter((c) => c.policy_status === 'open')
-  const enRevision = comprobantes.filter((c) => c.policy_status === 'open' && c.comprobante_status === 'pending_auth')
-  const historicos = comprobantes.filter((c) => c.policy_status === 'closed')
+  // Agrupación por ESTADO DE LA PÓLIZA (modelo correcto):
+  const vigentes    = expenses.filter((e) => e.policies?.status === 'open')
+  const historicos  = expenses.filter((e) => e.policies?.status === 'closed')
+  const sinAsignar  = expenses.filter((e) => !e.policy_id || !e.policies)
+  const enRevision  = expenses.filter((e) => e.status === 'pending_auth')
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'captured':
-        return 'bg-blue-50 border-blue-200'
-      case 'pending_auth':
-        return 'bg-yellow-50 border-yellow-200'
-      case 'invoice_applied':
-        return 'bg-green-50 border-green-200'
-      case 'closed_in_policy':
-        return 'bg-gray-50 border-gray-200'
-      default:
-        return 'bg-slate-50 border-slate-200'
-    }
+  const statusLabel: Record<string, string> = {
+    captured: 'Capturado',
+    pending_auth: 'En revisión',
+    authorized: 'Autorizado',
+    invoice_applied: 'Facturado',
+    closed_in_policy: 'Cerrado',
+    rejected: 'Rechazado',
+  }
+  const statusBadge: Record<string, string> = {
+    pending_auth: 'bg-amber-100 text-amber-800',
+    authorized: 'bg-emerald-100 text-emerald-800',
+    invoice_applied: 'bg-green-100 text-green-800',
+    closed_in_policy: 'bg-slate-200 text-slate-700',
+    rejected: 'bg-red-100 text-red-700',
+    captured: 'bg-blue-100 text-blue-800',
   }
 
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case 'captured':
-        return 'Capturado'
-      case 'pending_auth':
-        return 'En revisión'
-      case 'invoice_applied':
-        return 'Facturado'
-      case 'closed_in_policy':
-        return 'Cerrado'
-      default:
-        return status
-    }
-  }
-
-  const ComprobantesCard = ({ items, empty }: { items: any[]; empty: string }) => {
+  const List = ({ items, empty }: { items: Expense[]; empty: string }) => {
     if (items.length === 0) {
       return (
         <div className="p-12 text-center text-slate-500 border border-dashed border-slate-200 rounded-lg">
-          <p className="text-lg">{empty}</p>
+          {empty}
         </div>
       )
     }
-
     return (
       <div className="space-y-3">
-        {items.map((item) => (
-          <Link
-            key={item.comprobante_id}
-            href={`/gastocheck/comprobantes/${item.comprobante_id}`}
-          >
-            <div className={`border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow ${statusColor(item.comprobante_status)}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900">
-                    {item.provider_name || 'Sin proveedor'}
-                  </h3>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Fecha: {new Date(item.fecha_gasto || Date.now()).toLocaleDateString('es-MX')}
+        {items.map((e) => (
+          <div key={e.id} className="border border-slate-200 bg-white rounded-lg p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">{e.provider_name || 'Sin proveedor'}</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {e.expense_date ? new Date(e.expense_date).toLocaleDateString('es-MX') : 'Sin fecha'}
+                  {e.accounting_account_code && <> · Cuenta {e.accounting_account_code}</>}
+                  {e.is_viatico && <> · 🧳 Viático</>}
+                </p>
+                {e.policies ? (
+                  <p className="text-sm text-slate-700 mt-1">
+                    📋 {e.policies.name || 'Póliza'}{' '}
+                    <span className={`text-xs ${e.policies.status === 'closed' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                      ({e.policies.status === 'closed' ? 'cerrada' : 'abierta'})
+                    </span>
                   </p>
-                  {item.poliza_name && (
-                    <p className="text-sm text-slate-700 mt-1">
-                      📋 Póliza: <span className="font-medium">{item.poliza_name}</span>
-                    </p>
-                  )}
-                  {!item.poliza_name && (
-                    <p className="text-sm text-orange-600 mt-1">
-                      ⚠ Sin póliza asignada
-                    </p>
-                  )}
-                  {item.cfdi_uuid && (
-                    <p className="text-sm text-green-700 mt-1">
-                      ✓ Con CFDI ({item.cfdi_uuid.slice(0, 8)}...)
-                    </p>
-                  )}
-                  {!item.cfdi_uuid && (
-                    <p className="text-sm text-orange-600 mt-1">
-                      ⚠ Sin CFDI timbrado
-                    </p>
-                  )}
-                </div>
-
-                <div className="text-right whitespace-nowrap">
-                  <p className="text-lg font-bold text-slate-900">
-                    ${item.monto?.toLocaleString('es-MX', { maximumFractionDigits: 2 }) || '0.00'}
-                  </p>
-                  <span className="inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full bg-white border">
-                    {statusLabel(item.comprobante_status)}
-                  </span>
-                </div>
+                ) : (
+                  <p className="text-sm text-amber-600 mt-1">⚠ Sin póliza asignada</p>
+                )}
+              </div>
+              <div className="text-right whitespace-nowrap">
+                <p className="text-lg font-bold text-slate-900">
+                  ${(Number(e.total) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </p>
+                <span className={`inline-block mt-2 px-2.5 py-1 text-xs font-semibold rounded-full ${statusBadge[e.status] ?? 'bg-slate-100 text-slate-700'}`}>
+                  {statusLabel[e.status] ?? e.status}
+                </span>
               </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     )
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-slate-600">Cargando comprobantes...</div>
-      </div>
-    )
+    return <div className="flex items-center justify-center h-96 text-slate-600">Cargando comprobantes...</div>
   }
 
+  const tabs = [
+    { id: 'vigentes' as const, label: 'Vigentes', icon: '⏱️', count: vigentes.length, items: vigentes, empty: 'No hay comprobantes en pólizas abiertas.' },
+    { id: 'revision' as const, label: 'En revisión', icon: '⚠️', count: enRevision.length, items: enRevision, empty: 'No hay comprobantes pendientes de autorización.' },
+    { id: 'historicos' as const, label: 'Históricos', icon: '✓', count: historicos.length, items: historicos, empty: 'No hay comprobantes en pólizas cerradas.' },
+    { id: 'sinasignar' as const, label: 'Sin asignar', icon: '🔌', count: sinAsignar.length, items: sinAsignar, empty: 'Todos los comprobantes están asignados a una póliza.' },
+  ]
+  const current = tabs.find((t) => t.id === activeTab)!
+
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Mis Comprobantes</h1>
-        <p className="text-slate-600 mt-2">
-          Visualiza, gestiona y da seguimiento a tus gastos y comprobantes
-        </p>
+        <h1 className="text-3xl font-bold text-slate-900">Comprobantes</h1>
+        <p className="text-slate-500 mt-1">Vigentes, en revisión, históricos y sin asignar — por estado de póliza</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <p className="text-sm font-medium text-slate-600">Vigentes</p>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{vigentes.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Capturados y sin autorizar</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <p className="text-sm font-medium text-slate-600">En revisión</p>
-          <p className="text-3xl font-bold text-yellow-600 mt-2">{enRevision.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Pendiente de autorización</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <p className="text-sm font-medium text-slate-600">Históricos</p>
-          <p className="text-3xl font-bold text-green-600 mt-2">{historicos.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Facturados o cerrados</p>
-        </div>
+      <div className="grid grid-cols-4 gap-3">
+        {tabs.map((t) => (
+          <div key={t.id} className="bg-white border border-slate-200 rounded-lg p-4">
+            <p className="text-xs font-medium text-slate-500 uppercase">{t.label}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{t.count}</p>
+          </div>
+        ))}
       </div>
 
       <div>
-        <div className="flex gap-2 border-b border-slate-200">
-          {[
-            { id: 'vigentes', label: `Vigentes (${vigentes.length})`, icon: '⏱️' },
-            { id: 'revision', label: `En revisión (${enRevision.length})`, icon: '⚠️' },
-            { id: 'historicos', label: `Históricos (${historicos.length})`, icon: '✓' },
-          ].map((tab) => (
+        <div className="flex gap-1 border-b border-slate-200 flex-wrap">
+          {tabs.map((t) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'text-slate-900 border-b-2 border-blue-600'
-                  : 'text-slate-600 hover:text-slate-900'
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`px-4 py-3 font-medium text-sm transition-colors ${
+                activeTab === t.id ? 'text-slate-900 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {tab.icon} {tab.label}
+              {t.icon} {t.label} ({t.count})
             </button>
           ))}
         </div>
-
         <div className="mt-6">
-          {activeTab === 'vigentes' && (
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Comprobantes Vigentes</h2>
-              <ComprobantesCard
-                items={vigentes}
-                empty="No hay comprobantes vigentes. ¡Captura uno nuevo!"
-              />
-            </div>
-          )}
-
-          {activeTab === 'revision' && (
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">En Revisión</h2>
-              <ComprobantesCard
-                items={enRevision}
-                empty="No hay comprobantes en revisión"
-              />
-            </div>
-          )}
-
-          {activeTab === 'historicos' && (
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Históricos</h2>
-              <ComprobantesCard
-                items={historicos}
-                empty="No hay comprobantes históricos"
-              />
-            </div>
-          )}
+          <List items={current.items} empty={current.empty} />
         </div>
       </div>
     </div>
