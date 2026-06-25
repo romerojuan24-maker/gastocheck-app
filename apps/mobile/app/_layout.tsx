@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { ActivityIndicator, Alert, AppState, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
 import { supabase } from '../lib/supabase';
@@ -37,6 +37,8 @@ export default function Layout() {
       .catch(() => { /* silencioso en dev/sin red */ });
   }, []);
 
+  const sessionAlertShown = useRef(false);
+
   useEffect(() => {
     // Sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -44,13 +46,23 @@ export default function Layout() {
     // Escuchar cambios de auth — solo reaccionar a eventos reales
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+        sessionAlertShown.current = false;
         setSession(session);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Refrescar token cuando la app vuelve al foreground
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) setSession(session);
+        });
+      }
+    });
+
+    return () => { subscription.unsubscribe(); appStateSub.remove(); };
   }, []);
 
   useEffect(() => {
@@ -61,9 +73,19 @@ export default function Layout() {
     if (!session && !inLogin) {
       // Delay generoso para que autoRefreshToken renueve antes de redirigir
       const timer = setTimeout(async () => {
-        // getSession() usa caché local — no falla por red ni token expirado temporalmente
         const { data: { session: fresh } } = await supabase.auth.getSession();
-        if (!fresh) router.replace('/login');
+        if (!fresh) {
+          if (!sessionAlertShown.current) {
+            sessionAlertShown.current = true;
+            Alert.alert(
+              'Sesión expirada',
+              'Tu sesión ha terminado. Vuelve a iniciar sesión para continuar.',
+              [{ text: 'Iniciar sesión', onPress: () => router.replace('/login') }],
+            );
+          } else {
+            router.replace('/login');
+          }
+        }
       }, 3000);
       return () => clearTimeout(timer);
     } else if (session && inLogin) {
@@ -129,6 +151,14 @@ export default function Layout() {
       <Stack.Screen name="facturacheck"      options={{ title: 'FacturaCheck' }} />
       <Stack.Screen name="flujocheck"        options={{ title: 'FlujoCheck' }} />
       <Stack.Screen name="inventariocheck"   options={{ title: 'Inventario' }} />
+      <Stack.Screen name="polizas"           options={{ title: 'Mis Pólizas' }} />
+      <Stack.Screen name="depositos"         options={{ title: 'Mis Depósitos' }} />
+      <Stack.Screen name="reembolso"         options={{ title: 'Reembolso' }} />
+      <Stack.Screen name="cobracheck/mi-ruta"       options={{ title: 'Mi Ruta' }} />
+      <Stack.Screen name="cobracheck/tareas-diarias" options={{ title: 'Tareas Diarias' }} />
+      <Stack.Screen name="cobracheck/clientes"       options={{ title: 'Clientes' }} />
+      <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
+      <Stack.Screen name="cobracheck/page"           options={{ title: 'CobraCheck' }} />
     </Stack>
   );
 }

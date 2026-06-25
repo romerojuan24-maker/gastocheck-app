@@ -533,11 +533,26 @@ export default function SupervisorScreen() {
           renderItem={({ item: e }) => (
             <View style={styles.empCard}>
               <Text style={styles.empIcon}>
-                {e.role === 'admin' ? '👑' : e.role === 'supervisor' ? '🧑‍💼' : '👤'}
+                {e.role === 'owner' ? '👑'
+                  : e.role === 'admin' ? '👑'
+                  : e.role === 'supervisor' ? '🧑‍💼'
+                  : e.role === 'accountant' ? '🧮'
+                  : e.role === 'collector' ? '🚶'
+                  : '👤'}
               </Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.empId} numberOfLines={1}>{e.full_name ?? e.user_id}</Text>
-                <Text style={styles.empRole}>{e.role}</Text>
+                <Text style={styles.empRole}>
+                  {e.role === 'owner'      ? 'Dueño'
+                    : e.role === 'admin'   ? 'Administrador'
+                    : e.role === 'supervisor' ? 'Supervisor'
+                    : e.role === 'accountant' ? 'Contador'
+                    : e.role === 'spender' ? 'Comprador'
+                    : e.role === 'employee'? 'Empleado'
+                    : e.role === 'collector'? 'Cobrador'
+                    : e.role === 'operator'? 'Operador'
+                    : e.role}
+                </Text>
               </View>
             </View>
           )}

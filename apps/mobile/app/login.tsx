@@ -242,9 +242,10 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity
-            style={[styles.btn, !canSubmit && styles.btnDisabled]}
+            style={styles.btn}
             onPress={tab === 'login' ? handleLogin : handleRegister}
-            disabled={!canSubmit}
+            disabled={loading}
+            activeOpacity={0.8}
           >
             {loading
               ? <ActivityIndicator color="#fff" />
@@ -255,14 +256,9 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {tab === 'register' && (
-            <>
-              <Text style={styles.trialNote}>
-                ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 comprador
-              </Text>
-              <TouchableOpacity style={styles.demoLinkBtn} onPress={handleDemo} disabled={loading}>
-                <Text style={styles.demoLinkText}>🧪 Solo quiero ver el demo</Text>
-              </TouchableOpacity>
-            </>
+            <Text style={styles.trialNote}>
+              ✓ 30 días de prueba gratuita · Sin tarjeta · 1 usuario dueño + 1 comprador
+            </Text>
           )}
         </View>
 
@@ -284,8 +280,8 @@ export default function LoginScreen() {
 
         <Text style={styles.footer}>
           {tab === 'login'
-            ? '¿No tienes cuenta? Usa "Crear cuenta" o pide acceso a tu supervisor.'
-            : 'Al registrarte serás el administrador y podrás invitar a un colaborador durante la prueba.'}
+            ? '¿No tienes cuenta? Toca "Crear cuenta" arriba, o pide al administrador de tu empresa que te invite.'
+            : 'Al registrarte serás el administrador. Podrás invitar colaboradores desde la app.'}
         </Text>
 
       </ScrollView>

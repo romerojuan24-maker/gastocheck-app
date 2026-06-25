@@ -110,9 +110,16 @@ export default function ViaticosScreen() {
                   <Text style={[
                     styles.viaticStatus,
                     v.status === 'exported' && { color: BRAND.green },
+                    v.status === 'approved' && { color: BRAND.green },
+                    v.status === 'submitted' && { color: BRAND.orange },
                   ]}>
-                    {v.status === 'captured' ? '⏳ Capturado'
-                      : v.status === 'exported' ? '✅ En póliza'
+                    {v.status === 'captured'          ? '⏳ Capturado'
+                      : v.status === 'submitted'      ? '📋 En revisión'
+                      : v.status === 'approved'       ? '✅ Aprobado'
+                      : v.status === 'included_in_batch' ? '📁 En relación'
+                      : v.status === 'exported'       ? '✅ En póliza'
+                      : v.status === 'rejected'       ? '❌ Rechazado'
+                      : v.status === 'cancelled'      ? '🚫 Cancelado'
                       : v.status}
                   </Text>
                 </View>

@@ -148,16 +148,19 @@ export default function ReceiptsScreen() {
     } catch { /* silencioso */ }
   }
 
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
   // pageOverride evita el problema de closure stale: onEndReached pasa el next page explícitamente
   const loadReceipts = useCallback(async (reset = false, pageOverride?: number) => {
     const targetPage = pageOverride !== undefined ? pageOverride : (reset ? 0 : page);
     if (reset) setPage(0);
-    setLoading(true);
+    if (mountedRef.current) setLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) return;
+      if (!user || !mountedRef.current) return;
 
       // Obtener rol del usuario
       const { data: member } = await supabase
@@ -217,6 +220,7 @@ export default function ReceiptsScreen() {
       if (error) { console.error(error); return; }
 
       const rows = (data as unknown as ReceiptRow[]) ?? [];
+      if (!mountedRef.current) return;
       if (reset || targetPage === 0) {
         setReceipts(rows);
       } else {
@@ -226,12 +230,17 @@ export default function ReceiptsScreen() {
           return [...prev, ...rows.filter((r) => !seen.has(r.id))];
         });
       }
+    } catch (err) {
+      console.warn('loadReceipts error:', err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [statusFilter, search, periodFilter]);
 
+  // Cuando cambian filtros, recargar — pero useFocusEffect ya maneja el mount inicial
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
     loadReceipts(true);
   }, [statusFilter, search]);
 
@@ -239,11 +248,13 @@ export default function ReceiptsScreen() {
   useEffect(() => {
     const hasProcessing = receipts.some(r => r.is_processing);
     if (!hasProcessing) return;
-    const interval = setInterval(() => loadReceipts(true), 4000);
+    const interval = setInterval(() => {
+      if (mountedRef.current) loadReceipts(true);
+    }, 4000);
     return () => clearInterval(interval);
   }, [receipts]);
 
-  // Refrescar al volver de receipt-detail (ej. tras cancelar un comprobante)
+  // Carga inicial + refrescar al volver de receipt-detail
   useFocusEffect(
     useCallback(() => {
       loadReceipts(true);

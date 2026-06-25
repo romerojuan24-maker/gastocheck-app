@@ -258,20 +258,22 @@ export default function SettingsScreen() {
         </View>
       )}
 
-      {/* Conexión Supabase */}
+      {/* Conexión — solo admins/supervisores ven la URL técnica */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Conexión a base de datos</Text>
-        <View style={styles.menuItem}>
-          <Text style={styles.menuIcon}>🔗</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuLabel}>Supabase URL</Text>
-            <Text style={styles.connUrl} numberOfLines={1} ellipsizeMode="middle">
-              {SUPABASE_URL || '(no configurada)'}
-            </Text>
+        <Text style={styles.sectionTitle}>Conexión</Text>
+        {isSupervisor && (
+          <View style={styles.menuItem}>
+            <Text style={styles.menuIcon}>🔗</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Base de datos</Text>
+              <Text style={styles.connUrl} numberOfLines={1} ellipsizeMode="middle">
+                {SUPABASE_URL || '(no configurada)'}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
         <TouchableOpacity
-          style={[styles.menuItem, { borderTopWidth: 1, borderTopColor: '#F5F5F5' }]}
+          style={[styles.menuItem, isSupervisor && { borderTopWidth: 1, borderTopColor: '#F5F5F5' }]}
           onPress={checkConnection}
           disabled={connChecking}
         >
