@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { href: '/pendientes',    label: 'Pendientes',     icon: '📋', roles: ['owner', 'admin', 'accountant', 'supervisor'] },
   { href: '/gastocheck',    label: 'GastoCheck',     icon: '🧾', roles: ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'viewer'] },
   { href: '/cobracheck',    label: 'CobraCheck',     icon: '💰', roles: ['owner', 'admin', 'accountant', 'supervisor', 'collector', 'viewer'] },
+  { href: '/clientes',      label: 'Clientes',       icon: '👥', roles: ['owner', 'admin', 'accountant', 'supervisor', 'collector'] },
   { href: '/bancocheck',    label: 'BancoCheck',     icon: '🏦', roles: ['owner', 'admin', 'accountant'] },
   { href: '/flujocheck',    label: 'FlujoCheck',     icon: '📈', roles: ['owner', 'admin', 'accountant'] },
   { href: '/facturacheck',  label: 'FacturaCheck',   icon: '📄', roles: ['owner', 'admin', 'accountant'] },

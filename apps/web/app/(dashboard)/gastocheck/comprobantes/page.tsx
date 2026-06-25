@@ -128,9 +128,15 @@ export default function ComprobantesPage() {
 
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Comprobantes</h1>
-        <p className="text-slate-500 mt-1">Vigentes, en revisión, históricos y sin asignar — por estado de póliza</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Comprobantes</h1>
+          <p className="text-slate-500 mt-1">Vigentes, en revisión, históricos y sin asignar — por estado de póliza</p>
+        </div>
+        <a href="/gastocheck/nuevo-comprobante"
+          className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
+          + Nuevo comprobante
+        </a>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
