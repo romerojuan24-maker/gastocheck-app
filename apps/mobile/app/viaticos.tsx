@@ -98,7 +98,10 @@ export default function ViaticosScreen() {
             data={viaticos}
             keyExtractor={v => v.id}
             renderItem={({ item: v }) => (
-              <View style={styles.viaticCard}>
+              <TouchableOpacity
+                style={styles.viaticCard}
+                onPress={() => router.push(`/receipt-detail?id=${v.id}` as any)}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.viaticProvider}>{v.provider_name || 'Sin proveedor'}</Text>
                   <Text style={styles.viaticMeta}>
@@ -123,7 +126,7 @@ export default function ViaticosScreen() {
                       : v.status}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}

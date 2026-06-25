@@ -280,6 +280,52 @@ export default function PolizasScreen() {
     setShowExportModal(true);
   }
 
+  // ── Eliminar póliza ─────────────────────────────────────────────────────────
+
+  async function handleDeletePolicy(policy: Policy) {
+    if (!member) return;
+
+    // Validar que no tenga comprobantes
+    const { data: expenses } = await supabase
+      .from('policy_expenses_view')
+      .select('expense_id')
+      .eq('policy_id', policy.id)
+      .limit(1);
+
+    if ((expenses ?? []).length > 0) {
+      Alert.alert(
+        'No se puede eliminar',
+        'Esta póliza tiene comprobantes asociados. Elimina los comprobantes primero.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar póliza',
+      `¿Estás seguro que deseas eliminar "${policy.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('policies')
+              .delete()
+              .eq('id', policy.id)
+              .eq('company_id', member.company_id);
+
+            if (error) Alert.alert('Error', error.message);
+            else {
+              setSelectedPolicy(null);
+              await loadPolicies();
+            }
+          },
+        },
+      ],
+    );
+  }
+
   // ── Cerrar póliza ────────────────────────────────────────────────────────────
 
   async function handleClosePolicy() {
@@ -625,24 +671,43 @@ export default function PolizasScreen() {
           ListEmptyComponent={
             <Text style={styles.empty}>No tienes pólizas. Crea una para integrar comprobantes.</Text>
           }
-          renderItem={({ item: p }) => (
-            <TouchableOpacity style={styles.policyCard} onPress={() => openPolicy(p)}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.policyName}>{p.name}</Text>
-                {p.gc_folio && <Text style={styles.policyFolio}>{p.gc_folio}</Text>}
-                <Text style={styles.policyDate}>
-                  {new Date(p.created_at).toLocaleDateString('es-MX')}
-                </Text>
+          renderItem={({ item: p }) => {
+            const isClosed = p.status === 'closed';
+            return (
+              <View style={styles.policyCard}>
+                <TouchableOpacity style={{ flex: 1 }} onPress={() => openPolicy(p)}>
+                  <Text style={styles.policyName}>{p.name}</Text>
+                  {p.gc_folio && <Text style={styles.policyFolio}>{p.gc_folio}</Text>}
+                  <Text style={styles.policyDate}>
+                    {new Date(p.created_at).toLocaleDateString('es-MX')}
+                  </Text>
+                </TouchableOpacity>
+                <View style={[styles.statusBadge,
+                  { backgroundColor: p.status === 'open' ? '#E8F5E9' : '#ECEFF1' }]}>
+                  <Text style={[styles.statusText,
+                    { color: p.status === 'open' ? '#2E7D32' : '#607D8B' }]}>
+                    {p.status === 'open' ? 'Abierta' : 'Cerrada'}
+                  </Text>
+                </View>
+                <View style={styles.policyActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, isClosed && styles.actionBtnDisabled]}
+                    onPress={() => !isClosed && Alert.alert('Editar póliza', 'Función próximamente')}
+                    disabled={isClosed}
+                  >
+                    <Text style={[styles.actionBtnText, isClosed && { opacity: 0.5 }]}>✎</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.actionBtnDelete, isClosed && styles.actionBtnDisabled]}
+                    onPress={() => !isClosed && handleDeletePolicy(p)}
+                    disabled={isClosed}
+                  >
+                    <Text style={[styles.actionBtnText, isClosed && { opacity: 0.5 }]}>🗑</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={[styles.statusBadge,
-                { backgroundColor: p.status === 'open' ? '#E8F5E9' : '#ECEFF1' }]}>
-                <Text style={[styles.statusText,
-                  { color: p.status === 'open' ? '#2E7D32' : '#607D8B' }]}>
-                  {p.status === 'open' ? 'Abierta' : 'Cerrada'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+            );
+          }}
         />
       )}
 
@@ -715,6 +780,11 @@ const styles = StyleSheet.create({
   policyDate:   { fontSize: 12, color: '#90A4AE', marginTop: 2 },
   statusBadge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText:   { fontSize: 12, fontWeight: '700' },
+  policyActions:{ flexDirection: 'row', gap: 8, marginLeft: 8 },
+  actionBtn:    { width: 36, height: 36, borderRadius: 18, backgroundColor: BRAND.blue, justifyContent: 'center', alignItems: 'center' },
+  actionBtnDelete: { backgroundColor: BRAND.red },
+  actionBtnDisabled: { opacity: 0.4 },
+  actionBtnText: { fontSize: 16, color: '#fff' },
   // ── Tarjeta de gasto (detalle de póliza) ─────────────────────────────────
   expenseCard:  {
     backgroundColor: '#fff', borderRadius: 14, marginBottom: 10, overflow: 'hidden',
