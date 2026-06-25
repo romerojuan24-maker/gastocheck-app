@@ -166,10 +166,10 @@ export default function LoginScreen() {
         {/* Logo */}
         <View style={styles.logoArea}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoIcon}>💼</Text>
+            <Text style={styles.logoIcon}>✓</Text>
           </View>
-          <Text style={styles.logoText}>GastoCheck</Text>
-          <Text style={styles.logoSub}>Control de anticipos y gastos</Text>
+          <Text style={styles.logoText}>CHECK SUITE</Text>
+          <Text style={styles.logoSub}>Control total de tu negocio</Text>
         </View>
 
         {/* Tabs */}
@@ -299,11 +299,11 @@ const styles = StyleSheet.create({
   logoArea:       { alignItems: 'center', marginBottom: 24 },
   logoBox:        {
     width: 68, height: 68, borderRadius: 18,
-    backgroundColor: BRAND.blue, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: BRAND.csblue, justifyContent: 'center', alignItems: 'center',
     marginBottom: 10, elevation: 6,
-    shadowColor: BRAND.blue, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8,
+    shadowColor: BRAND.csblue, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8,
   },
-  logoIcon:       { fontSize: 30 },
+  logoIcon:       { fontSize: 34, fontWeight: '900', color: '#fff' },
   logoText:       { fontSize: 26, fontWeight: '800', color: BRAND.navy },
   logoSub:        { fontSize: 13, color: '#90A4AE', marginTop: 4 },
   tabs:           {

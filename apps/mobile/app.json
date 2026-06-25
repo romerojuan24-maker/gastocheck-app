@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "GastoCheck",
+    "name": "CHECK SUITE",
     "slug": "gastocheck",
     "scheme": "gastocheck",
     "version": "0.1.0",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#009B48"
+      "backgroundColor": "#003DA5"
     },
     "ios": {
       "supportsTablet": false,
@@ -32,14 +32,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "GastoCheck necesita acceso a tus fotos para adjuntar comprobantes."
+          "photosPermission": "CHECK SUITE necesita acceso a tus fotos para adjuntar comprobantes."
         }
       ],
       "expo-document-picker",
       [
         "expo-camera",
         {
-          "cameraPermission": "GastoCheck necesita la cámara para escanear códigos QR y capturar comprobantes."
+          "cameraPermission": "CHECK SUITE necesita la cámara para escanear códigos QR y capturar comprobantes."
         }
       ],
       [

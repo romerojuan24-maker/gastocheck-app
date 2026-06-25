@@ -77,7 +77,7 @@ export default function Layout() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.navy }}>
         <ActivityIndicator size="large" color="#fff" />
         <Text style={{ color: '#fff', marginTop: 16, fontSize: 14, fontWeight: '600' }}>
-          Actualizando GastoCheck…
+          Actualizando CHECK SUITE…
         </Text>
       </View>
     );
@@ -93,8 +93,10 @@ export default function Layout() {
         headerTitleStyle:{ fontWeight: '700' },
       }}
     >
-      <Stack.Screen name="login"         options={{ headerShown: false }} />
-      <Stack.Screen name="index"         options={{ title: 'Mi saldo',             headerRight: () => null }} />
+      <Stack.Screen name="login"            options={{ headerShown: false }} />
+      <Stack.Screen name="index"            options={{ headerShown: false }} />
+      <Stack.Screen name="gastocheck/index" options={{ headerShown: false }} />
+      <Stack.Screen name="cobracheck/index" options={{ headerShown: false }} />
       <Stack.Screen name="capture"       options={{ title: 'Capturar ticket',      presentation: 'modal' }} />
       <Stack.Screen name="camera-screen" options={{ title: 'Cámara',               presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="receipts"      options={{ title: 'Mis comprobantes' }} />
