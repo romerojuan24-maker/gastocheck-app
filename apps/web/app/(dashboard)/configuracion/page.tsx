@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
-import { getSessionUser, type SessionUser } from '@/lib/supabase'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase, getSessionUser, type SessionUser } from '@/lib/supabase'
 
 const ROLES = [
   { value: 'accountant', label: 'Contador' },
@@ -18,7 +12,7 @@ const ROLES = [
   { value: 'viewer', label: 'Visor' },
 ]
 
-type Member = { user_id: string; role: string; status: string; profiles: { full_name: string; email: string } | { full_name: string; email: string }[] | null }
+type Member = { user_id: string; role: string; status: string; profiles: { full_name: string | null } | null }
 
 export default function ConfiguracionPage() {
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -42,20 +36,27 @@ export default function ConfiguracionPage() {
 
   useEffect(() => {
     ;(async () => {
-      const u = await getSessionUser()
-      setUser(u)
-      if (u?.company_id) {
-        const [compRes, memRes] = await Promise.all([
-          supabase.from('companies').select('name').eq('id', u.company_id).maybeSingle(),
-          supabase
-            .from('company_members')
-            .select('user_id, role, status, profiles(full_name, email)')
-            .eq('company_id', u.company_id),
-        ])
-        setCompanyName(compRes.data?.name ?? '')
-        setMembers((memRes.data ?? []) as unknown as Member[])
+      try {
+        const u = await getSessionUser()
+        setUser(u)
+        if (u?.company_id) {
+          const [compRes, memRes] = await Promise.all([
+            supabase.from('companies').select('name').eq('id', u.company_id).maybeSingle(),
+            supabase.from('company_members').select('user_id, role, status').eq('company_id', u.company_id),
+          ])
+          setCompanyName(compRes.data?.name ?? '')
+          // Fetch profiles separately (no FK declared company_members.user_id → profiles)
+          const rawMembers = memRes.data ?? []
+          const userIds = rawMembers.map(m => m.user_id)
+          const { data: profilesData } = userIds.length
+            ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
+            : { data: [] }
+          const profileMap = Object.fromEntries((profilesData ?? []).map(p => [p.id, p]))
+          setMembers(rawMembers.map(m => ({ ...m, profiles: profileMap[m.user_id] ?? null })) as Member[])
+        }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })()
   }, [])
 
@@ -83,12 +84,17 @@ export default function ConfiguracionPage() {
     if (!res.ok) { setInvMsg({ ok: false, text: json.error ?? 'Error al invitar.' }); return }
     setInvMsg({ ok: true, text: `✅ Invitación enviada a ${invEmail}.` })
     setInvEmail('')
-    // refrescar lista
-    const { data } = await supabase
+    // refrescar lista sin join embebido (no hay FK declarada)
+    const { data: rawData } = await supabase
       .from('company_members')
-      .select('user_id, role, status, profiles(full_name, email)')
+      .select('user_id, role, status')
       .eq('company_id', user!.company_id)
-    setMembers((data ?? []) as Member[])
+    const ids = (rawData ?? []).map(m => m.user_id)
+    const { data: profs } = ids.length
+      ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
+      : { data: [] }
+    const pmap = Object.fromEntries((profs ?? []).map(p => [p.id, p]))
+    setMembers((rawData ?? []).map(m => ({ ...m, profiles: pmap[m.user_id] ?? null })) as Member[])
   }
 
   async function removeMember(uid: string) {
@@ -165,12 +171,12 @@ export default function ConfiguracionPage() {
           <div className="space-y-2">
             {members.length === 0 && <p className="text-sm text-slate-400">Sin miembros aún.</p>}
             {members.map(m => {
-              const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+              const name = m.profiles?.full_name ?? m.user_id.slice(0, 8) + '…'
               return (
               <div key={m.user_id} className="flex items-center justify-between border border-slate-100 rounded-lg px-4 py-2">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{p?.full_name ?? p?.email ?? m.user_id}</p>
-                  <p className="text-xs text-slate-500">{p?.email} · <span className="capitalize">{m.role}</span> · <span className={m.status === 'active' ? 'text-emerald-600' : 'text-amber-500'}>{m.status}</span></p>
+                  <p className="text-sm font-semibold text-slate-900">{name}</p>
+                  <p className="text-xs text-slate-500"><span className="capitalize">{m.role}</span> · <span className={m.status === 'active' ? 'text-emerald-600' : 'text-amber-500'}>{m.status}</span></p>
                 </div>
                 {m.user_id !== user?.id && (
                   <button onClick={() => removeMember(m.user_id)} className="text-xs text-red-500 hover:text-red-700 font-semibold px-2">Eliminar</button>
