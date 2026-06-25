@@ -41,7 +41,7 @@ export default function MisTareasPage() {
   const load = useCallback(async (uid: string, cid: string, r: UserRole) => {
     setLoading(true);
     try {
-      if (r === 'employee' || r === 'operator') {
+      if (r === 'buyer') {
         const [advRes, recRes] = await Promise.all([
           supabase.from('advances')
             .select('id, folio, amount, status, concept')
