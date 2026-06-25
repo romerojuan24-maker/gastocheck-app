@@ -10,9 +10,9 @@ export type UserRole =
   | 'admin'
   | 'accountant'
   | 'supervisor'
-  | 'employee'
+  | 'buyer'
   | 'collector'
-  | 'operator';
+  | 'viewer';
 
 export interface SessionUser {
   id:         string;
@@ -63,7 +63,8 @@ export function isManager(role: UserRole) {
   return MANAGER_ROLES.includes(role);
 }
 export function getHomeRoute(role: UserRole): string {
-  if (role === 'owner' || role === 'admin')  return '/hoy';
-  if (MANAGER_ROLES.includes(role))          return '/pendientes';
-  return '/gastocheck';                      // buyer/collector/viewer → módulo base
+  if (role === 'owner' || role === 'admin') return '/hoy';
+  if (role === 'accountant' || role === 'supervisor') return '/pendientes';
+  if (role === 'collector') return '/cobracheck';
+  return '/gastocheck';
 }
