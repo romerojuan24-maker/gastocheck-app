@@ -63,7 +63,7 @@ export function isManager(role: UserRole) {
   return MANAGER_ROLES.includes(role);
 }
 export function getHomeRoute(role: UserRole): string {
-  if (role === 'owner')                           return '/hoy';
-  if (MANAGER_ROLES.includes(role))               return '/pendientes';
-  return '/mis-tareas';
+  if (role === 'owner' || role === 'admin')  return '/hoy';
+  if (MANAGER_ROLES.includes(role))          return '/pendientes';
+  return '/gastocheck';                      // buyer/collector/viewer → módulo base
 }

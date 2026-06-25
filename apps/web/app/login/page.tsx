@@ -25,13 +25,21 @@ export default function LoginPage() {
 
       const { data: member } = await supabase
         .from('company_members')
-        .select('role')
+        .select('role, status')
         .eq('user_id', session.user.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'invited'])
         .limit(1)
         .maybeSingle();
 
-      const role = (member?.role ?? 'employee') as UserRole;
+      // Activar membresía si era invitado y ya inició sesión
+      if (member?.status === 'invited') {
+        await supabase
+          .from('company_members')
+          .update({ status: 'active' })
+          .eq('user_id', session.user.id);
+      }
+
+      const role = (member?.role ?? 'owner') as UserRole;
       router.replace(getHomeRoute(role));
     } finally {
       setLoading(false);
