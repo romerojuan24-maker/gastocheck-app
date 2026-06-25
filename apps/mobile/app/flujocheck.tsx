@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert,
 } from 'react-native';
 import { BRAND, CASH_FLOW_RISK_META, projectCashFlow } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
@@ -137,11 +137,12 @@ export default function FlujoCheckScreen() {
           <Text style={styles.emptyText}>Sin movimientos proyectados</Text>
         </View>
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={i => i.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item: i }) => {
+        <>
+          <FlatList
+            data={items}
+            keyExtractor={i => i.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item: i }) => {
             const isIncome = i.direction === 'in';
             const daysFromNow = Math.ceil(
               (new Date(i.expected_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
@@ -178,7 +179,14 @@ export default function FlujoCheckScreen() {
               </View>
             );
           }}
-        />
+          />
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => Alert.alert('Agregar movimiento', 'Función próximamente')}
+          >
+            <Text style={styles.fabIcon}>+</Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
@@ -197,6 +205,8 @@ const styles = StyleSheet.create({
   stat:            { flex: 1 },
   statLabel:       { fontSize: 10, color: '#90A4AE', marginBottom: 2 },
   statValue:       { fontSize: 16, fontWeight: '800', color: BRAND.navy },
+  fab:             { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: BRAND.navy, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6 },
+  fabIcon:         { fontSize: 28, color: '#fff', fontWeight: '700' },
 
   center:          { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty:           { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
