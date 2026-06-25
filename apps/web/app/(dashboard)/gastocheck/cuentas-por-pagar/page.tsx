@@ -119,7 +119,7 @@ export default function CuentasPorPagarPage() {
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900">💳 Cuentas por Pagar</h1>
+          <h1 className="text-3xl font-black text-slate-900">💰 Cuentas por Pagar</h1>
           <p className="text-slate-500 mt-1">Control de pendientes a proveedores</p>
         </div>
         <button onClick={() => setEditing({ ...EMPTY })}

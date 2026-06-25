@@ -65,7 +65,7 @@ export default function CajasChicasPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-900">🪙 Cajas Chicas</h1>
+        <h1 className="text-3xl font-black text-slate-900">🏦 Cajas Chicas</h1>
         <p className="text-slate-500 mt-1">Saldo por responsable: anticipos entregados menos gastos comprobados</p>
       </div>
 

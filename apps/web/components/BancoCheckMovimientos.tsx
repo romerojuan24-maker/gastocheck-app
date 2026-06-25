@@ -73,7 +73,7 @@ export function BancoCheckMovimientos({ empresaId, bancoCuentaId }: { empresaId:
   return (
     <div className="space-y-4">
       <div className="p-4 bg-white border border-gray-200 rounded-lg">
-        <h3 className="text-xl font-bold mb-4">💳 Movimientos Bancarios</h3>
+        <h3 className="text-xl font-bold mb-4">🏦 Movimientos Bancarios</h3>
 
         <button
           onClick={handleSincronizar}
