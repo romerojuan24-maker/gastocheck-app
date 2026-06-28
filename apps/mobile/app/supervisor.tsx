@@ -1,4 +1,4 @@
-// Panel de supervisor: ver gastos pendientes, crear anticipos, crear pólizas, revisar solicitudes
+// Panel de Contador General: ver gastos pendientes, crear anticipos, crear pólizas, revisar solicitudes
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
@@ -50,7 +50,7 @@ const money = (n: number) =>
 
 type Tab = 'expenses' | 'requests' | 'policies' | 'employees';
 
-export default function SupervisorScreen() {
+export default function ContadorGeneralScreen() {
   const router = useRouter();
   const [companyId,  setCompanyId]  = useState<string | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -113,8 +113,8 @@ export default function SupervisorScreen() {
         .eq('user_id', user.id)
         .single();
 
-      if (!member || !['owner', 'admin', 'supervisor'].includes(member.role)) {
-        Alert.alert('Sin acceso', 'Solo supervisores y administradores pueden ver este panel.');
+      if (!member || !['owner', 'admin', 'contador_general'].includes(member.role)) {
+        Alert.alert('Sin acceso', 'Solo Contadores Generales y administradores pueden ver este panel.');
         return;
       }
 
@@ -535,7 +535,7 @@ export default function SupervisorScreen() {
               <Text style={styles.empIcon}>
                 {e.role === 'owner' ? '👑'
                   : e.role === 'admin' ? '👑'
-                  : e.role === 'supervisor' ? '🧑‍💼'
+                  : e.role === 'contador_general' ? '🧑‍💼'
                   : e.role === 'accountant' ? '🧮'
                   : e.role === 'collector' ? '🚶'
                   : '👤'}
