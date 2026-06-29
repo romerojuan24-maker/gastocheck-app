@@ -305,7 +305,7 @@ export default function SettingsScreen() {
 
       {/* Cerrar sesión */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Cerrar sesión</Text>
+        <Text style={styles.logoutText}>Salir</Text>
       </TouchableOpacity>
 
       {/* Modal: Crear empresa */}
