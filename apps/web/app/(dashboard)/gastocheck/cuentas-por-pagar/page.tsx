@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/supabase'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,7 +38,10 @@ const STATUS_BADGE: Record<string, string> = {
 const EMPTY: Partial<AP> = { supplier_name: '', concept: '', amount: 0, due_date: '', status: 'pending' }
 
 export default function CuentasPorPagarPage() {
+  const router = useRouter()
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
   const [rows, setRows] = useState<AP[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'pendientes' | 'pagadas' | 'todas'>('pendientes')
@@ -55,10 +60,17 @@ export default function CuentasPorPagarPage() {
   useEffect(() => {
     (async () => {
       const u = await getSessionUser()
+      if (u?.role) setRole(u.role as UserRole)
       if (u?.company_id) { setCompanyId(u.company_id); await load(u.company_id) }
       setLoading(false)
     })()
   }, [load])
+
+  useEffect(() => {
+    if (!loading && role && !canI('cuentas_por_pagar', 'view')) {
+      router.replace('/gastocheck')
+    }
+  }, [loading, role, canI, router])
 
   async function save() {
     if (!companyId || !editing) return
@@ -125,10 +137,12 @@ export default function CuentasPorPagarPage() {
           <h1 className="text-3xl font-black text-slate-900">💰 Cuentas por Pagar</h1>
           <p className="text-slate-500 mt-1">Control de pendientes a proveedores</p>
         </div>
-        <button onClick={() => setEditing({ ...EMPTY })}
-          className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
-          + Nueva cuenta
-        </button>
+        {canI('cuentas_por_pagar', 'create') && (
+          <button onClick={() => setEditing({ ...EMPTY })}
+            className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
+            + Nueva cuenta
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -181,11 +195,15 @@ export default function CuentasPorPagarPage() {
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_BADGE[r.status]}`}>{STATUS_LABEL[r.status]}</span>
                     </td>
                     <td className="p-3 text-right whitespace-nowrap">
-                      {r.status !== 'paid' && (
+                      {r.status !== 'paid' && canI('cuentas_por_pagar', 'approve') && (
                         <button onClick={() => markPaid(r)} className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold mr-3">Pagar</button>
                       )}
-                      <button onClick={() => setEditing(r)} className="text-blue-600 hover:text-blue-800 text-xs font-semibold mr-3">Editar</button>
-                      <button onClick={() => remove(r.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Borrar</button>
+                      {canI('cuentas_por_pagar', 'edit') && (
+                        <button onClick={() => setEditing(r)} className="text-blue-600 hover:text-blue-800 text-xs font-semibold mr-3">Editar</button>
+                      )}
+                      {canI('cuentas_por_pagar', 'delete') && (
+                        <button onClick={() => remove(r.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Borrar</button>
+                      )}
                     </td>
                   </tr>
                 )

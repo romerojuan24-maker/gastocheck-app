@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,10 +26,27 @@ interface OcrResult {
 }
 
 export default function EscanearPage() {
+  const router = useRouter()
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
+  const [roleLoaded, setRoleLoaded] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<OcrResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getSessionUser().then((u) => {
+      if (u?.role) setRole(u.role as UserRole)
+      setRoleLoaded(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (roleLoaded && role && !canI('escanear', 'use')) {
+      router.replace('/gastocheck')
+    }
+  }, [roleLoaded, role, canI, router])
 
   async function onFile(file: File) {
     setError(null); setResult(null)

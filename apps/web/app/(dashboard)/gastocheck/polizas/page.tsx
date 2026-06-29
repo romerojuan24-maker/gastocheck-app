@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/supabase'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,17 +12,27 @@ const supabase = createClient(
 )
 
 export default function ContabilidadIntegration() {
+  const router = useRouter()
   const [tab, setTab] = useState<'upload' | 'clasificacion' | 'sat' | 'export'>('upload')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [role, setRole] = useState<UserRole | null>(null)
+  const [roleLoaded, setRoleLoaded] = useState(false)
+  const { canI } = usePermissions(role)
 
-  // Obtener company_id de la sesión del usuario
   useEffect(() => {
     getSessionUser().then((user) => {
-      if (user) setCompanyId(user.company_id)
+      if (user) { setCompanyId(user.company_id); if (user.role) setRole(user.role as UserRole) }
+      setRoleLoaded(true)
     })
   }, [])
+
+  useEffect(() => {
+    if (roleLoaded && role && !canI('polizas', 'view')) {
+      router.replace('/gastocheck')
+    }
+  }, [roleLoaded, role, canI, router])
 
   // ============================================================================
   // 1. UPLOAD CATÁLOGO DE CUENTAS
@@ -316,11 +328,11 @@ export default function ContabilidadIntegration() {
 
       <div className="flex gap-2 border-b border-slate-200">
         {[
-          { id: 'upload', label: '📤 Catálogo de Cuentas' },
-          { id: 'clasificacion', label: '📊 Clasificación' },
-          { id: 'sat', label: '🔍 Validación SAT' },
-          { id: 'export', label: '⬇️ Exportar' },
-        ].map((t) => (
+          { id: 'upload',       label: '📤 Catálogo de Cuentas', perm: 'create'       },
+          { id: 'clasificacion', label: '📊 Clasificación',       perm: 'classify'     },
+          { id: 'sat',          label: '🔍 Validación SAT',       perm: 'validate_sat' },
+          { id: 'export',       label: '⬇️ Exportar',            perm: 'export'       },
+        ].filter((t) => canI('polizas', t.perm)).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id as any)}

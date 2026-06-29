@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase, getSessionUser, type UserRole } from '@/lib/supabase';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -50,6 +51,8 @@ const money = (n: number) =>
 export default function ContadorGeneralPanel() {
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const { canI } = usePermissions(role);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<ExecutiveSummary | null>(null);
   const [buyers, setBuyers] = useState<BuyerSummary[]>([]);
@@ -59,32 +62,22 @@ export default function ContadorGeneralPanel() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push('/auth/login');
+        const u = await getSessionUser();
+        if (!u) { router.push('/login'); return; }
+
+        if (u.role) setRole(u.role as UserRole);
+        if (!['owner', 'admin', 'accountant'].includes(u.role ?? '')) {
+          router.replace('/gastocheck');
           return;
         }
 
-        // Obtener company_id del usuario
-        const { data: member } = await supabase
-          .from('company_members')
-          .select('company_id')
-          .eq('user_id', user.id)
-          .eq('role', 'contador_general')
-          .single();
-
-        if (!member) {
-          router.push('/');
-          return;
-        }
-
-        setCompanyId(member.company_id);
+        setCompanyId(u.company_id);
 
         // Cargar resumen ejecutivo
         const { data: summaryData } = await supabase
           .from('executive_summary_daily')
           .select('*')
-          .eq('company_id', member.company_id)
+          .eq('company_id', u.company_id)
           .order('date', { ascending: false })
           .limit(1)
           .single();
@@ -95,7 +88,7 @@ export default function ContadorGeneralPanel() {
         const { data: buyersData } = await supabase
           .from('expenses_by_buyer')
           .select('*')
-          .eq('company_id', member.company_id)
+          .eq('company_id', u.company_id)
           .order('total_amount', { ascending: false });
 
         if (buyersData) setBuyers(buyersData);
@@ -104,7 +97,7 @@ export default function ContadorGeneralPanel() {
         const { data: viaticosData } = await supabase
           .from('viaticos_by_person')
           .select('*')
-          .eq('company_id', member.company_id)
+          .eq('company_id', u.company_id)
           .order('total_amount', { ascending: false });
 
         if (viaticosData) setViaticoPeople(viaticosData);

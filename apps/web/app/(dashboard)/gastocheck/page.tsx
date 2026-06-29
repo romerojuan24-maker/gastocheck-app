@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,19 +21,16 @@ interface Kpis {
 export default function GastoCheckHome() {
   const [kpis, setKpis] = useState<Kpis>({ vigentes: 0, historicos: 0, sinAsignar: 0, montoVigente: 0 })
   const [loading, setLoading] = useState(true)
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
 
   useEffect(() => {
     (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) return
-        const { data: member } = await supabase
-          .from('company_members')
-          .select('company_id')
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .limit(1)
-          .maybeSingle()
+        const u = await getSessionUser()
+        if (!u?.company_id) return
+        if (u.role) setRole(u.role as UserRole)
+        const member = { company_id: u.company_id }
         if (!member?.company_id) return
 
         const { data: rows } = await supabase
@@ -54,13 +53,15 @@ export default function GastoCheckHome() {
     })()
   }, [])
 
-  const cards = [
-    { href: '/gastocheck/comprobantes', icon: '🧾', title: 'Comprobantes', desc: 'Vigentes, en revisión e históricos con trazabilidad a póliza' },
-    { href: '/gastocheck/polizas', icon: '📒', title: 'Plataforma del Contador', desc: 'Catálogo, clasificación, validación SAT y exportación de pólizas' },
-    { href: '/gastocheck/cuentas-por-pagar', icon: '💰', title: 'Cuentas por Pagar', desc: 'Control de pendientes a proveedores: agregar, editar, pagar' },
-    { href: '/gastocheck/cajas-chicas', icon: '🏦', title: 'Cajas Chicas', desc: 'Saldos por responsable: anticipos menos gastos comprobados' },
-    { href: '/gastocheck/escanear', icon: '📷', title: 'Escanear Comprobante', desc: 'IA lee el ticket/factura y extrae monto, fecha, proveedor, RFC' },
+  const ALL_CARDS = [
+    { href: '/gastocheck/comprobantes',    icon: '🧾', title: 'Comprobantes',          desc: 'Vigentes, en revisión e históricos con trazabilidad a póliza',        perm: 'ver_comprobantes'  },
+    { href: '/gastocheck/polizas',         icon: '📒', title: 'Plataforma del Contador', desc: 'Catálogo, clasificación, validación SAT y exportación de pólizas',  perm: 'ver_polizas'       },
+    { href: '/gastocheck/cuentas-por-pagar', icon: '💰', title: 'Cuentas por Pagar',   desc: 'Control de pendientes a proveedores: agregar, editar, pagar',          perm: 'ver_cuentas_pagar' },
+    { href: '/gastocheck/cajas-chicas',    icon: '🏦', title: 'Cajas Chicas',           desc: 'Saldos por responsable: anticipos menos gastos comprobados',          perm: 'ver_cajas_chicas'  },
+    { href: '/gastocheck/escanear',        icon: '📷', title: 'Escanear Comprobante',   desc: 'IA lee el ticket/factura y extrae monto, fecha, proveedor, RFC',      perm: 'ver_escanear'      },
+    { href: '/gastocheck/contador-general', icon: '📊', title: 'Contador General',      desc: 'Dashboard ejecutivo: resumen de compradores, viáticos y saldos',     perm: 'ver_contador'      },
   ]
+  const cards = ALL_CARDS.filter((c) => canI('gastocheck_home', c.perm))
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">

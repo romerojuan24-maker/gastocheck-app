@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/supabase'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,11 +27,14 @@ export default function ComprobantesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'vigentes' | 'revision' | 'historicos' | 'sinasignar'>('vigentes')
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
 
   useEffect(() => {
     (async () => {
       const u = await getSessionUser()
       if (!u?.company_id) { setLoading(false); return }
+      if (u.role) setRole(u.role as UserRole)
 
       // Tablas base + embed de la póliza (estado real). Sin dependencia de vistas.
       const { data, error } = await supabase
@@ -133,10 +137,12 @@ export default function ComprobantesPage() {
           <h1 className="text-3xl font-bold text-slate-900">Comprobantes</h1>
           <p className="text-slate-500 mt-1">Vigentes, en revisión, históricos y sin asignar — por estado de póliza</p>
         </div>
-        <a href="/gastocheck/nuevo-comprobante"
-          className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
-          + Nuevo comprobante
-        </a>
+        {canI('comprobantes', 'create') && (
+          <a href="/gastocheck/nuevo-comprobante"
+            className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
+            + Nuevo comprobante
+          </a>
+        )}
       </div>
 
       <div className="grid grid-cols-4 gap-3">

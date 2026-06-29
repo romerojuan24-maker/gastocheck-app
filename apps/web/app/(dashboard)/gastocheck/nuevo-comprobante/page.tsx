@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, getSessionUser } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { supabase, getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Receipt {
   id: string
@@ -26,8 +28,11 @@ type Editable = Partial<Receipt>
 const EMPTY: Editable = { provider_name: '', receipt_date: today(), total_amount: 0, payment_method: 'Efectivo' }
 
 export default function NuevoComprobantePage() {
+  const router = useRouter()
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
   const [rows, setRows] = useState<Receipt[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Editable | null>({ ...EMPTY })
@@ -48,6 +53,7 @@ export default function NuevoComprobantePage() {
   useEffect(() => {
     (async () => {
       const u = await getSessionUser()
+      if (u?.role) setRole(u.role as UserRole)
       if (u?.company_id) { setCompanyId(u.company_id); setUserId(u.id); await load(u.company_id) }
       setLoading(false)
     })()
@@ -161,8 +167,12 @@ export default function NuevoComprobantePage() {
                   <div className="text-right whitespace-nowrap">
                     <p className="font-bold text-slate-900">{money(r.total_amount)}</p>
                     <div className="mt-1">
-                      <button onClick={() => setEditing(r)} className="text-blue-600 hover:text-blue-800 text-xs font-semibold mr-2">Editar</button>
-                      <button onClick={() => cancel(r.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Cancelar</button>
+                      {canI('nuevo_comprobante', 'edit') && (
+                        <button onClick={() => setEditing(r)} className="text-blue-600 hover:text-blue-800 text-xs font-semibold mr-2">Editar</button>
+                      )}
+                      {canI('nuevo_comprobante', 'cancel') && (
+                        <button onClick={() => cancel(r.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Cancelar</button>
+                      )}
                     </div>
                   </div>
                 </div>

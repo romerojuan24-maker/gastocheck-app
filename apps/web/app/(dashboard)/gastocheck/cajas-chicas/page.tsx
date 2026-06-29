@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { getSessionUser } from '@/lib/supabase'
+import { getSessionUser, type UserRole } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,12 +21,16 @@ interface Caja {
 }
 
 export default function CajasChicasPage() {
+  const router = useRouter()
   const [cajas, setCajas] = useState<Caja[]>([])
   const [loading, setLoading] = useState(true)
+  const [role, setRole] = useState<UserRole | null>(null)
+  const { canI } = usePermissions(role)
 
   useEffect(() => {
     (async () => {
       const u = await getSessionUser()
+      if (u?.role) setRole(u.role as UserRole)
       if (!u?.company_id) { setLoading(false); return }
       const cid = u.company_id
 
@@ -55,6 +61,12 @@ export default function CajasChicasPage() {
       setLoading(false)
     })()
   }, [])
+
+  useEffect(() => {
+    if (!loading && role && !canI('cajas_chicas', 'view')) {
+      router.replace('/gastocheck')
+    }
+  }, [loading, role, canI, router])
 
   if (loading) return <div className="flex items-center justify-center h-96 text-slate-600">Cargando…</div>
 
