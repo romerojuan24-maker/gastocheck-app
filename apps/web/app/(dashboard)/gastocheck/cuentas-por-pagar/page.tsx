@@ -65,6 +65,9 @@ export default function CuentasPorPagarPage() {
     if (!editing.supplier_name || !editing.concept || !editing.due_date || !editing.amount) {
       alert('Proveedor, concepto, monto y fecha de vencimiento son obligatorios'); return
     }
+    if (Number(editing.amount) <= 0) {
+      alert('El monto debe ser mayor a $0.00'); return
+    }
     setSaving(true)
     const payload = {
       company_id: companyId,
@@ -204,7 +207,7 @@ export default function CuentasPorPagarPage() {
             </div>
             <Field label="Concepto *"><input className="inp" value={editing.concept ?? ''} onChange={(e) => setEditing({ ...editing, concept: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Monto *"><input type="number" step="0.01" className="inp" value={editing.amount ?? ''} onChange={(e) => setEditing({ ...editing, amount: Number(e.target.value) })} /></Field>
+              <Field label="Monto *"><input type="number" step="0.01" min="0.01" className="inp" value={editing.amount ?? ''} onChange={(e) => setEditing({ ...editing, amount: Number(e.target.value) })} /></Field>
               <Field label="Cuenta contable"><input className="inp" value={editing.accounting_account_code ?? ''} onChange={(e) => setEditing({ ...editing, accounting_account_code: e.target.value })} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">

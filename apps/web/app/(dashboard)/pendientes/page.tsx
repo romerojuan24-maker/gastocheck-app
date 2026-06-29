@@ -220,8 +220,8 @@ export default function PendientesPage() {
                     <p className="text-xs text-red-600">{o.days_overdue} días vencido</p>
                   </div>
                   <p className="text-base font-black text-red-700 shrink-0">{money(o.amount)}</p>
-                  <button onClick={() => router.push(`/cobracheck/clientes`)}
-                    className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 shrink-0">
+                  <button onClick={() => router.push(`/cobracheck/facturas?resaltar=${o.id}`)}
+                    className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 shrink-0">
                     Cobrar
                   </button>
                 </div>

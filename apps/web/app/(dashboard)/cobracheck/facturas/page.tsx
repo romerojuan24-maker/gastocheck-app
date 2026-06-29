@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase, getSessionUser } from '@/lib/supabase'
 
 interface Cliente { id: string; name: string }
@@ -45,6 +46,10 @@ const today = () => new Date().toISOString().slice(0, 10)
 const EMPTY: Partial<Factura> = { folio: '', amount: 0, issue_date: today(), due_date: today(), status: 'pending' }
 
 export default function CobraFacturasPage() {
+  const searchParams = useSearchParams()
+  const resaltarId = searchParams.get('resaltar')
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [rows, setRows] = useState<Factura[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -74,6 +79,19 @@ export default function CobraFacturasPage() {
       setLoading(false)
     })()
   }, [load])
+
+  // Si llegamos desde Pendientes con ?resaltar=id, forzar tab pendientes, scroll y abrir modal de pago
+  useEffect(() => {
+    if (!resaltarId || loading || rows.length === 0) return
+    const factura = rows.find((r) => r.id === resaltarId)
+    if (!factura) return
+    setFilter('pendientes')
+    setTimeout(() => {
+      rowRefs.current[resaltarId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      openPay(factura)
+    }, 200)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resaltarId, loading, rows])
 
   const clientName = useCallback((id: string) => clientes.find((c) => c.id === id)?.name ?? '—', [clientes])
   const paidFor = useCallback((invId: string) => pagos.filter((p) => p.invoice_id === invId).reduce((s, p) => s + Number(p.amount), 0), [pagos])
@@ -208,8 +226,10 @@ export default function CobraFacturasPage() {
               {visible.map((r) => {
                 const paid = paidFor(r.id)
                 const overdue = !['paid', 'cancelled'].includes(r.status) && r.due_date < today()
+                const isResaltada = r.id === resaltarId
                 return (
-                  <tr key={r.id} className="border-t border-slate-100">
+                  <tr key={r.id} ref={(el) => { rowRefs.current[r.id] = el }}
+                    className={`border-t border-slate-100 transition-colors ${isResaltada ? 'bg-red-50 ring-2 ring-inset ring-red-300' : ''}`}>
                     <td className="p-3">
                       <div className="font-medium text-slate-900">{r.folio}</div>
                       <div className="text-xs text-slate-400">{clientName(r.client_id)}</div>
