@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar role={user.role} userName={user.full_name} onLogout={handleLogout} />
+      <Sidebar role={user.role} userName={user.full_name} userEmail={user.email} onLogout={handleLogout} />
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>

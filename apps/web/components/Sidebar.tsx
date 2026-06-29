@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { UserRole } from '../lib/supabase';
 
+// Acceso completo solo para este email durante el desarrollo
+const DEV_EMAIL = 'danielbenco1@gmail.com';
+// Rutas visibles para todos los demás usuarios (solo GastoCheck)
+const GASTOCHECK_ONLY_HREFS = ['/hoy', '/pendientes', '/gastocheck'];
+
 interface NavItem {
   href:   string;
   label:  string;
@@ -47,12 +52,17 @@ const ROLE_LABELS: Record<UserRole, string> = {
 interface Props {
   role:      UserRole;
   userName:  string | null;
+  userEmail: string;
   onLogout:  () => void;
 }
 
-export default function Sidebar({ role, userName, onLogout }: Props) {
+export default function Sidebar({ role, userName, userEmail, onLogout }: Props) {
   const path = usePathname();
-  const visible = NAV.filter(n => n.roles.includes(role));
+  const isDevUser = userEmail === DEV_EMAIL;
+  const visible = NAV.filter(n =>
+    n.roles.includes(role) &&
+    (isDevUser || GASTOCHECK_ONLY_HREFS.includes(n.href))
+  );
   const initial = (userName ?? 'U').charAt(0).toUpperCase();
   const avatarColor = ROLE_COLORS[role] ?? 'bg-slate-500';
 

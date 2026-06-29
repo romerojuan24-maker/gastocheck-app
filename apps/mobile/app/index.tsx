@@ -10,12 +10,14 @@ import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant'];
+const DEV_EMAIL = 'danielbenco1@gmail.com';
 
 export default function CheckSuiteHome() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const [loading,  setLoading]  = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [userRole,  setUserRole]  = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -27,6 +29,7 @@ export default function CheckSuiteHome() {
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
         if (!user) { setLoading(false); return; }
+        setUserEmail(user.email ?? null);
         const { data: member } = await supabase
           .from('company_members')
           .select('role')
@@ -48,10 +51,13 @@ export default function CheckSuiteHome() {
     );
   }
 
+  const isDevUser   = userEmail === DEV_EMAIL;
   const isCollector = userRole === 'collector';
   const isManager   = userRole ? MANAGER_ROLES.includes(userRole) : false;
-  const showGasto   = !isCollector;                 // los cobradores no capturan gastos
-  const showCobra   = isCollector || isManager;     // cobradores + mandos
+  // Dev: lógica completa por rol. Resto: solo GastoCheck
+  const showGasto   = isDevUser ? !isCollector : true;
+  const showCobra   = isDevUser && (isCollector || isManager);
+  const showMore    = isDevUser && isManager;
 
   return (
     <ScrollView
@@ -108,8 +114,8 @@ export default function CheckSuiteHome() {
           />
         )}
 
-        {/* ── Módulos complementarios (mandos) ── */}
-        {isManager && (
+        {/* ── Módulos complementarios (mandos / dev) ── */}
+        {showMore && (
           <>
             <Text style={styles.sectionLabel}>MÁS HERRAMIENTAS</Text>
             <View style={styles.miniGrid}>
