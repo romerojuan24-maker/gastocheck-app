@@ -89,14 +89,13 @@ export default function ReembolsoScreen() {
         .select('receipt_id');
       const linkedIds = (linked ?? []).map((l: any) => l.receipt_id).filter(Boolean);
 
-      // Recibos del empleado disponibles para reembolsar (pago propio, no en otro reembolso)
+      // Recibos capturados del empleado aún no procesados
       let availQ = supabase
         .from('receipts')
-        .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status')
+        .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status, is_credit')
         .eq('employee_id', reb.employee_id)
         .eq('company_id', reb.company_id)
-        .eq('is_credit', false)
-        .not('status', 'in', '(deleted,rejected,cancelled)')
+        .eq('status', 'captured')
         .order('receipt_date', { ascending: false })
         .limit(100);
 
@@ -323,6 +322,7 @@ export default function ReembolsoScreen() {
                     </Text>
                     <Text style={styles.receiptDate}>
                       {item.receipt_date ?? '—'}
+                      {(item as any).is_credit ? '  ·  💳 Corporativo' : '  ·  💵 Propio'}
                     </Text>
                   </View>
                   <Text style={styles.receiptAmount}>{money(item.total_amount ?? 0)}</Text>
