@@ -271,11 +271,19 @@ export default function GastoCheckHome() {
         />
         {isAdmin && (
           <MenuBtn
-            icon="🏢"
-            label="Alta Empresa"
-            hint="Empresa, compradores y definir perfil"
+            icon="🛡️"
+            label="Panel Administrador"
+            hint="Anticipos, compradores, balances y control general"
             bg={BRAND.navy}
             textColor="#fff"
+            onPress={() => router.push('/admin-panel' as any)}
+          />
+        )}
+        {isAdmin && (
+          <MenuBtn
+            icon="🏢"
+            label="Alta Empresa"
+            hint="Empresa, compradores, cuentas bancarias y perfil"
             onPress={() => router.push('/administracion' as any)}
           />
         )}

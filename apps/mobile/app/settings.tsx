@@ -202,10 +202,10 @@ export default function SettingsScreen() {
       {/* Acceso supervisor */}
       {isSupervisor && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Panel de supervisor</Text>
+          <Text style={styles.sectionTitle}>Panel Contador</Text>
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/supervisor')}>
-            <Text style={styles.menuIcon}>🧑‍💼</Text>
-            <Text style={styles.menuLabel}>Panel de supervisión</Text>
+            <Text style={styles.menuIcon}>🧮</Text>
+            <Text style={styles.menuLabel}>Panel Contador</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
         </View>

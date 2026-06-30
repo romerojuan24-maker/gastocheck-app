@@ -311,8 +311,8 @@ export default function SupervisorScreen() {
   }
 
   async function createAdvance() {
-    if (!advSpender || !advPolicy || !advAmount || !companyId) {
-      Alert.alert('Faltan datos', 'Selecciona el empleado, la póliza y el monto.');
+    if (!advSpender || !advAmount || !advPurpose.trim() || !companyId) {
+      Alert.alert('Faltan datos', 'Selecciona el empleado, el propósito y el monto.');
       return;
     }
     setSavingAdv(true);
@@ -320,21 +320,46 @@ export default function SupervisorScreen() {
     const u = session?.user;
     if (!u) { setSavingAdv(false); return; }
 
-    const { error } = await supabase.from('advances').insert({
-      company_id: companyId,
-      policy_id:  advPolicy,
-      amount:     parseFloat(advAmount),
-      concept:    advPurpose.trim() || advNote.trim() || null,
-      created_by: u.id,
-    });
-    setSavingAdv(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
+    try {
+      // Si no hay póliza seleccionada, crear una automáticamente
+      let policyId = advPolicy;
+      if (!policyId) {
+        const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const { data: newPol, error: polErr } = await supabase
+          .from('policies')
+          .insert({
+            company_id:      companyId,
+            holder_id:       advSpender.user_id,
+            name:            `Anticipo: ${advPurpose.trim().slice(0, 40)} · ${today}`,
+            status:          'open',
+            opening_balance: 0,
+            policy_type:     'anticipo',
+            created_by:      u.id,
+          })
+          .select('id')
+          .single();
+        if (polErr) throw polErr;
+        policyId = newPol.id;
+      }
+
+      const { error } = await supabase.from('advances').insert({
+        company_id: companyId,
+        policy_id:  policyId,
+        amount:     parseFloat(advAmount),
+        concept:    advPurpose.trim(),
+        created_by: u.id,
+      });
+      if (error) throw error;
+
       setShowAdvance(false);
       setAdvSpender(null); setAdvPolicy(''); setAdvAmount('');
       setAdvNote(''); setAdvPurpose(''); setSpenderPolicies([]);
-      Alert.alert('Anticipo registrado', `Anticipo de ${money(parseFloat(advAmount))} registrado correctamente.`);
+      Alert.alert('✓ Anticipo registrado', `${money(parseFloat(advAmount))} para ${advSpender.full_name ?? 'el comprador'}.`);
       loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo registrar.');
+    } finally {
+      setSavingAdv(false);
     }
   }
 
@@ -350,7 +375,7 @@ export default function SupervisorScreen() {
 
   const pendingExpenses = expenses.filter(e => ['captured', 'pending_auth', 'submitted'].includes(e.status));
   const pendingRequests = advRequests.filter(r => r.status === 'pending');
-  const spenders        = employees.filter(e => e.role === 'spender');
+  const spenders        = employees.filter(e => ['spender', 'comprador'].includes(e.role));
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: 'reembolsos', label: 'Reembolsos' },
@@ -650,25 +675,40 @@ export default function SupervisorScreen() {
               <Text style={{ color: '#90A4AE', fontSize: 13, marginBottom: 8 }}>Sin compradores activos</Text>
             )}
 
-            {/* 2. Póliza del comprador */}
+            {/* 2. Póliza (opcional — se crea automáticamente si no existe) */}
             {advSpender && (
               <>
-                <Text style={styles.fieldLabel}>Póliza *</Text>
+                <Text style={styles.fieldLabel}>
+                  Póliza <Text style={{ color: '#90A4AE', fontWeight: '400' }}>(opcional)</Text>
+                </Text>
                 {spenderPolicies.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                    {spenderPolicies.map(p => (
+                  <>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
                       <TouchableOpacity
-                        key={p.id}
-                        style={[styles.chip, advPolicy === p.id && styles.chipActive]}
-                        onPress={() => setAdvPolicy(p.id)}
+                        style={[styles.chip, !advPolicy && styles.chipActive]}
+                        onPress={() => setAdvPolicy('')}
                       >
-                        <Text style={[styles.chipText, advPolicy === p.id && { color: '#fff' }]}>{p.name}</Text>
+                        <Text style={[styles.chipText, !advPolicy && { color: '#fff' }]}>Nueva automática</Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                      {spenderPolicies.map(p => (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={[styles.chip, advPolicy === p.id && styles.chipActive]}
+                          onPress={() => setAdvPolicy(p.id)}
+                        >
+                          <Text style={[styles.chipText, advPolicy === p.id && { color: '#fff' }]}>{p.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    {!advPolicy && (
+                      <Text style={{ fontSize: 11, color: '#90A4AE', marginBottom: 8 }}>
+                        Se creará una póliza "Anticipo: [propósito]" automáticamente
+                      </Text>
+                    )}
+                  </>
                 ) : (
-                  <Text style={{ color: BRAND.red, fontSize: 13, marginBottom: 8 }}>
-                    {advSpender.full_name ?? 'Este empleado'} no tiene pólizas abiertas. Créale una primero desde Pólizas.
+                  <Text style={{ fontSize: 12, color: BRAND.blue, marginBottom: 8, fontStyle: 'italic' }}>
+                    Se creará una póliza automáticamente para este anticipo
                   </Text>
                 )}
               </>
@@ -708,9 +748,9 @@ export default function SupervisorScreen() {
             />
 
             <TouchableOpacity
-              style={[styles.createBtn, (!advSpender || !advPolicy || !advAmount || !advPurpose || savingAdv) && { opacity: 0.5 }]}
+              style={[styles.createBtn, (!advSpender || !advAmount || !advPurpose || savingAdv) && { opacity: 0.5 }]}
               onPress={createAdvance}
-              disabled={!advSpender || !advPolicy || !advAmount || !advPurpose || savingAdv}
+              disabled={!advSpender || !advAmount || !advPurpose || savingAdv}
             >
               {savingAdv
                 ? <ActivityIndicator color="#fff" />

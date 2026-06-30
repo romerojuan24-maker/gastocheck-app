@@ -135,7 +135,8 @@ export default function Layout() {
       <Stack.Screen name="qr-scanner"        options={{ title: 'Escanear QR CFDI', presentation: 'modal' }} />
       <Stack.Screen name="supplier-detail" options={{ title: 'Historial proveedor' }} />
       <Stack.Screen name="settings"      options={{ title: 'Ajustes' }} />
-      <Stack.Screen name="supervisor"    options={{ title: 'Panel de supervisor' }} />
+      <Stack.Screen name="supervisor"    options={{ title: 'Panel Contador' }} />
+      <Stack.Screen name="admin-panel"   options={{ title: 'Panel Administrador' }} />
       <Stack.Screen name="supervisor/reembolsos"  options={{ title: 'Reembolsos Pendientes' }} />
       <Stack.Screen name="supervisor/viaticos-aprobacion" options={{ title: 'Aprobar Viáticos' }} />
       <Stack.Screen name="gastadores"    options={{ title: 'Mis Compradores' }} />

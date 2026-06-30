@@ -724,7 +724,9 @@ export default function PolizasScreen() {
             <Text style={styles.empty}>No tienes pólizas. Crea una para integrar comprobantes.</Text>
           }
           renderItem={({ item: p }) => {
-            const isClosed = p.status === 'closed';
+            const isClosed   = p.status === 'closed';
+            const canManage  = isAccountant; // owner + admin + accountant pueden actuar en cerradas
+            const editBlocked = isClosed && !canManage;
             return (
               <View style={styles.policyCard}>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => openPolicy(p)}>
@@ -733,6 +735,11 @@ export default function PolizasScreen() {
                   <Text style={styles.policyDate}>
                     {new Date(p.created_at).toLocaleDateString('es-MX')}
                   </Text>
+                  {isClosed && canManage && (
+                    <Text style={{ fontSize: 11, color: BRAND.orange, marginTop: 2 }}>
+                      Toca para reabrir o cancelar
+                    </Text>
+                  )}
                 </TouchableOpacity>
                 <View style={[styles.statusBadge,
                   { backgroundColor: p.status === 'open' ? '#E8F5E9' : '#ECEFF1' }]}>
@@ -743,18 +750,18 @@ export default function PolizasScreen() {
                 </View>
                 <View style={styles.policyActions}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, isClosed && styles.actionBtnDisabled]}
-                    onPress={() => !isClosed && Alert.alert('Editar póliza', 'Función próximamente')}
-                    disabled={isClosed}
+                    style={[styles.actionBtn, editBlocked && styles.actionBtnDisabled]}
+                    onPress={() => !editBlocked && Alert.alert('Editar póliza', 'Función próximamente')}
+                    disabled={editBlocked}
                   >
-                    <Text style={[styles.actionBtnText, isClosed && { opacity: 0.5 }]}>✎</Text>
+                    <Text style={[styles.actionBtnText, editBlocked && { opacity: 0.5 }]}>✎</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.actionBtnDelete, isClosed && styles.actionBtnDisabled]}
-                    onPress={() => !isClosed && handleDeletePolicy(p)}
-                    disabled={isClosed}
+                    style={[styles.actionBtn, styles.actionBtnDelete, editBlocked && styles.actionBtnDisabled]}
+                    onPress={() => !editBlocked && handleDeletePolicy(p)}
+                    disabled={editBlocked}
                   >
-                    <Text style={[styles.actionBtnText, isClosed && { opacity: 0.5 }]}>🗑</Text>
+                    <Text style={[styles.actionBtnText, editBlocked && { opacity: 0.5 }]}>🗑</Text>
                   </TouchableOpacity>
                 </View>
               </View>
