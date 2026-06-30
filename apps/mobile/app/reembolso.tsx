@@ -94,12 +94,14 @@ export default function ReembolsoScreen() {
       const linkedIds = (linked ?? []).map((l: any) => l.receipt_id).filter(Boolean);
 
       // Recibos capturados del empleado aún no procesados
+      // Filtramos por uploaded_by (siempre se guarda) O employee_id para cubrir ambos flujos
+      const currentUserId = session?.user?.id ?? reb.employee_id;
       let availQ = supabase
         .from('receipts')
         .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status, is_credit')
-        .eq('employee_id', reb.employee_id)
         .eq('company_id', reb.company_id)
-        .eq('status', 'captured')
+        .or(`uploaded_by.eq.${currentUserId},employee_id.eq.${currentUserId}`)
+        .in('status', ['captured', 'approved'])
         .order('receipt_date', { ascending: false })
         .limit(100);
 
@@ -174,6 +176,45 @@ export default function ReembolsoScreen() {
     setValidatingSat(false);
     Alert.alert('Validación SAT', `✅ ${ok} vigente(s)   ❌ ${fail} cancelado(s) / no encontrado(s)`);
   }
+
+  // ── Quitar comprobante del reembolso (lo regresa a disponibles) ───────────
+  async function removeReceipt(receiptId: string) {
+    if (!reembolso) return;
+    const { error } = await supabase
+      .from('receipt_reembolsos')
+      .delete()
+      .eq('reembolso_id', reembolso.id)
+      .eq('receipt_id', receiptId);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setAssignedReceipts(prev => prev.filter(r => r.id !== receiptId));
+  }
+
+  // ── Eliminar reembolso completo (solo borrador) ───────────────────────────
+  async function deleteReembolso() {
+    if (!reembolso) return;
+    Alert.alert(
+      'Eliminar Reembolso',
+      assignedReceipts.length > 0
+        ? `Se eliminarán los vínculos con ${assignedReceipts.length} comprobante(s). Los comprobantes quedan disponibles para otros reembolsos.`
+        : '¿Eliminar este reembolso vacío?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            // 1. Desvincular todos los comprobantes
+            await supabase.from('receipt_reembolsos').delete().eq('reembolso_id', reembolso.id);
+            // 2. Eliminar el reembolso
+            const { error } = await supabase.from('reembolsos').delete().eq('id', reembolso.id);
+            if (error) { Alert.alert('Error', error.message); return; }
+            router.replace('/mis-reembolsos' as any);
+          },
+        },
+      ]
+    );
+  }
+
 
   async function handleSubmitReembolso() {
     if (!reembolso) return;
@@ -281,6 +322,15 @@ export default function ReembolsoScreen() {
                     )}
                   </View>
                   <Text style={styles.receiptAmount}>{money(r.total_amount ?? 0)}</Text>
+                  {reembolso.status === 'draft' && (
+                    <TouchableOpacity
+                      onPress={() => removeReceipt(r.id)}
+                      style={{ padding: 6, marginLeft: 4 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={{ fontSize: 18, color: '#B0BEC5' }}>✕</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -348,8 +398,19 @@ export default function ReembolsoScreen() {
         )}
 
         <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>← Volver</Text>
         </TouchableOpacity>
+
+        {reembolso.status === 'draft' && (
+          <TouchableOpacity
+            style={[styles.cancelBtn, { marginTop: 4 }]}
+            onPress={deleteReembolso}
+          >
+            <Text style={[styles.cancelBtnText, { color: BRAND.red }]}>
+              🗑 Eliminar este reembolso
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Modal: agregar recibos */}

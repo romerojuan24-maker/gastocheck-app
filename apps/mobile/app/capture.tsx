@@ -206,7 +206,7 @@ export default function CaptureScreen() {
     }
     setQuickSaving(true);
     try {
-      // 1. Leer base64 solo al guardar (no bloquea la navegación al preview)
+      // 1. Leer base64 al guardar
       const base64 = await FileSystem.readAsStringAsync(photo.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
@@ -219,8 +219,8 @@ export default function CaptureScreen() {
 
       if (storErr) throw new Error('Error al subir foto: ' + storErr.message);
 
-      // 3. Crear receipt con status captured
-      const { error: insertErr } = await supabase
+      // 3. Crear receipt — obtener ID para actualizar con OCR después
+      const { data: saved, error: insertErr } = await supabase
         .from('receipts')
         .insert({
           company_id:        memberCompanyId,
@@ -229,11 +229,28 @@ export default function CaptureScreen() {
           source_type:       'photo',
           file_storage_path: storagePath,
           status:            'captured',
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertErr) throw new Error(insertErr.message);
 
+      // 4. Navegar inmediatamente — no esperar OCR
       router.replace('/receipts');
+
+      // 5. OCR en background (fire and forget) — actualiza receipt con datos extraídos
+      if (saved?.id) {
+        extractFromImage(base64, 'image/jpeg').then(({ data: ocr }) => {
+          if (!ocr) return;
+          supabase.from('receipts').update({
+            provider_name: ocr.providerName ?? null,
+            provider_rfc:  ocr.providerRfc  ?? null,
+            total_amount:  ocr.total        ?? null,
+            receipt_date:  ocr.receiptDate  ?? null,
+            fiscal_uuid:   ocr.fiscalUuid   ?? null,
+          }).eq('id', saved.id);
+        }).catch(() => {});
+      }
     } catch (e: any) {
       Alert.alert('Error al guardar', e.message ?? 'No se pudo guardar el comprobante');
     } finally {
