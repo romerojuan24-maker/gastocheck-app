@@ -1,5 +1,6 @@
 // Mis Reembolsos — comprador ve, crea y gestiona sus propios reembolsos
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Modal, TextInput, Alert,
@@ -112,6 +113,7 @@ export default function MisReembolsosScreen() {
   }, [statusFilter]);
 
   useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // ── Crear nuevo reembolso ────────────────────────────────────────────────────
 
