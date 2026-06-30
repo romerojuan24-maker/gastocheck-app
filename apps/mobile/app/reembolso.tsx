@@ -184,12 +184,12 @@ export default function ReembolsoScreen() {
     }
 
     Alert.alert(
-      'Enviar reembolso',
-      `¿Enviar ${assignedReceipts.length} comprobante(s) por ${money(assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0))} a supervisor para aprobación?`,
+      'Cerrar Reembolso',
+      `¿Cerrar y enviar ${assignedReceipts.length} comprobante(s) por ${money(assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0))} al contador para clasificar?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Enviar',
+          text: 'Cerrar Reembolso',
           onPress: async () => {
             setSubmitting(true);
             try {
@@ -203,8 +203,8 @@ export default function ReembolsoScreen() {
               if (submitErr) throw new Error(submitErr.message);
 
               Alert.alert(
-                '✅ Reembolso enviado',
-                `Tu reembolso fue enviado al contador. Aparecerá en "Pólizas → Reembolsos pendientes".`,
+                '✅ Reembolso cerrado',
+                `Tu reembolso fue enviado al contador. Aparecerá en Pólizas como documento pendiente de clasificar.`,
                 [{ text: 'Listo', onPress: () => router.replace('/mis-reembolsos' as any) }]
               );
             } catch (e: any) {
@@ -330,7 +330,7 @@ export default function ReembolsoScreen() {
           </>
         )}
 
-        {/* Paso 3: Enviar reembolso (solo cuando SAT OK o sin CFDI) */}
+        {/* Paso 3: Cerrar reembolso (solo cuando SAT OK o sin CFDI) */}
         {assignedReceipts.length > 0 && allSatDone && (
           <TouchableOpacity
             style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
@@ -341,7 +341,7 @@ export default function ReembolsoScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.submitBtnText}>
-                📤 Enviar Reembolso · {money(totalAmount)}
+                🔒 Cerrar Reembolso · {money(totalAmount)}
               </Text>
             )}
           </TouchableOpacity>

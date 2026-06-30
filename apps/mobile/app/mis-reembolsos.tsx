@@ -42,26 +42,39 @@ const STATUS_LABEL: Record<string, string> = {
   rejected:     '❌ Rechazado',
 };
 
+interface PendingReceipt {
+  id:            string;
+  gc_folio:      string | null;
+  provider_name: string | null;
+  total_amount:  number | null;
+  receipt_date:  string | null;
+  source_type:   string;
+}
+
 export default function MisReembolsosScreen() {
   const router = useRouter();
-  const [loading,       setLoading]       = useState(true);
-  const [companyId,     setCompanyId]     = useState<string | null>(null);
-  const [reembolsos,    setReembolsos]    = useState<Reembolso[]>([]);
-  const [statusFilter,  setStatusFilter]  = useState<StatusFilter>('all');
-  const [showCreate,    setShowCreate]    = useState(false);
-  const [newName,       setNewName]       = useState('');
-  const [creating,      setCreating]      = useState(false);
+  const [loading,         setLoading]         = useState(true);
+  const [userId,          setUserId]          = useState<string | null>(null);
+  const [companyId,       setCompanyId]       = useState<string | null>(null);
+  const [reembolsos,      setReembolsos]      = useState<Reembolso[]>([]);
+  const [pendingReceipts, setPendingReceipts] = useState<PendingReceipt[]>([]);
+  const [statusFilter,    setStatusFilter]    = useState<StatusFilter>('all');
+  const [showCreate,      setShowCreate]      = useState(false);
+  const [newName,         setNewName]         = useState('');
+  const [creating,        setCreating]        = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
       const { data: m } = await supabase.from('company_members')
         .select('company_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
       if (!m) return;
       setCompanyId(m.company_id);
 
+      // Reembolsos del usuario
       let q = supabase.from('reembolsos')
         .select('id, control_number, name, status, total, notes, created_at')
         .eq('employee_id', user.id)
@@ -69,6 +82,30 @@ export default function MisReembolsosScreen() {
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
       const { data } = await q;
       setReembolsos((data ?? []) as Reembolso[]);
+
+      // Comprobantes capturados que aún NO están en ningún reembolso
+      const { data: receiptsData } = await supabase
+        .from('receipts')
+        .select('id, gc_folio, provider_name, total_amount, receipt_date, source_type')
+        .eq('company_id', m.company_id)
+        .eq('uploaded_by', user.id)
+        .eq('status', 'captured')
+        .order('receipt_date', { ascending: false });
+
+      if (receiptsData && receiptsData.length > 0) {
+        // Filtrar los que ya están en algún reembolso
+        const allIds = (receiptsData as PendingReceipt[]).map(r => r.id);
+        const { data: linked } = await supabase
+          .from('receipt_reembolsos')
+          .select('receipt_id')
+          .in('receipt_id', allIds);
+        const linkedSet = new Set((linked ?? []).map((l: any) => l.receipt_id));
+        setPendingReceipts(
+          (receiptsData as PendingReceipt[]).filter(r => !linkedSet.has(r.id))
+        );
+      } else {
+        setPendingReceipts([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -161,7 +198,35 @@ export default function MisReembolsosScreen() {
         ))}
       </View>
 
-      {/* Lista */}
+      {/* Comprobantes pendientes de incluir */}
+      {!loading && pendingReceipts.length > 0 && (
+        <View style={styles.pendingSection}>
+          <View style={styles.pendingHeader}>
+            <Text style={styles.pendingTitle}>
+              🧾 {pendingReceipts.length} comprobante{pendingReceipts.length !== 1 ? 's' : ''} sin reembolso
+            </Text>
+            <TouchableOpacity style={styles.newBtn} onPress={() => setShowCreate(true)}>
+              <Text style={styles.newBtnText}>+ Crear reembolso</Text>
+            </TouchableOpacity>
+          </View>
+          {pendingReceipts.slice(0, 3).map(r => (
+            <View key={r.id} style={styles.pendingCard}>
+              <Text style={styles.pendingProvider} numberOfLines={1}>
+                {r.provider_name ?? (r.source_type === 'xml' ? '📄 CFDI' : '🧾 Ticket')}
+              </Text>
+              <Text style={styles.pendingMeta}>
+                {r.gc_folio ?? ''}{r.receipt_date ? `  ·  ${r.receipt_date}` : ''}
+                {r.total_amount != null ? `  ·  ${money(r.total_amount)}` : ''}
+              </Text>
+            </View>
+          ))}
+          {pendingReceipts.length > 3 && (
+            <Text style={styles.pendingMore}>+{pendingReceipts.length - 3} más…</Text>
+          )}
+        </View>
+      )}
+
+      {/* Lista de reembolsos */}
       {loading
         ? <ActivityIndicator color={BRAND.blue} style={{ marginTop: 40 }} />
         : (
@@ -175,7 +240,11 @@ export default function MisReembolsosScreen() {
               <View style={styles.empty}>
                 <Text style={styles.emptyIcon}>📋</Text>
                 <Text style={styles.emptyTitle}>Sin reembolsos</Text>
-                <Text style={styles.emptyHint}>Toca "+ Nuevo" para crear uno</Text>
+                <Text style={styles.emptyHint}>
+                  {pendingReceipts.length > 0
+                    ? 'Toca "+ Crear reembolso" arriba para agrupar tus comprobantes'
+                    : 'Captura comprobantes y luego crea un reembolso aquí'}
+                </Text>
               </View>
             }
             renderItem={({ item: r }) => {
@@ -264,6 +333,14 @@ const styles = StyleSheet.create({
   headerSub:   { fontSize: 12, color: BRAND.orange, marginTop: 2, fontWeight: '600' },
   newBtn:     { backgroundColor: BRAND.green, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   newBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+
+  pendingSection: { backgroundColor: '#FFF8E1', borderBottomWidth: 1, borderBottomColor: '#FFE082', padding: 12 },
+  pendingHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  pendingTitle:   { fontSize: 13, fontWeight: '700', color: '#E65100', flex: 1 },
+  pendingCard:    { backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: BRAND.orange },
+  pendingProvider: { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  pendingMeta:    { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  pendingMore:    { fontSize: 11, color: '#E65100', textAlign: 'right', marginTop: 4, fontStyle: 'italic' },
 
   filterRow:      { flexDirection: 'row', padding: 10, gap: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   filterChip:     { flex: 1, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F5F5F5', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0' },

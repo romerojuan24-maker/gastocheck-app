@@ -763,7 +763,18 @@ export default function CaptureScreen() {
   if (step === 'preview' && photo) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <Image source={{ uri: photo.uri }} style={{ flex: 1 }} resizeMode="contain" />
+        {/* Foto con pinch-to-zoom via ScrollView */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flex: 1 }}
+          maximumZoomScale={4}
+          minimumZoomScale={1}
+          centerContent
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={{ uri: photo.uri }} style={{ flex: 1, width: '100%' }} resizeMode="contain" />
+        </ScrollView>
 
         {ocrRunning ? (
           <View style={{ padding: 28, backgroundColor: BRAND.navy, alignItems: 'center' }}>
@@ -791,30 +802,13 @@ export default function CaptureScreen() {
               ) : (
                 <>
                   <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
-                    ⚡ Guardar rápido
+                    ✅ Guardar comprobante
                   </Text>
                   <Text style={{ color: '#CFFAD8', fontSize: 12, marginTop: 3 }}>
-                    La IA llena los datos sola · tú sigues capturando
+                    La IA extrae los datos automáticamente
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                borderColor: 'rgba(255,255,255,0.35)', borderWidth: 1,
-                borderRadius: 12, padding: 14, alignItems: 'center',
-                opacity: quickSaving ? 0.4 : 1,
-              }}
-              onPress={startOcrAndReview}
-              disabled={quickSaving}
-            >
-              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
-                ✏️ Revisar y completar
-              </Text>
-              <Text style={{ color: '#78909C', fontSize: 12, marginTop: 3 }}>
-                Ver y editar los datos antes de guardar
-              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
