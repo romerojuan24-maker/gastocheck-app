@@ -1,260 +1,324 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase, getSessionUser, type UserRole } from '@/lib/supabase';
-import { usePermissions } from '@/hooks/usePermissions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@supabase/supabase-js'
+import { getSessionUser } from '@/lib/supabase'
 
-interface ExecutiveSummary {
-  company_id: string;
-  company_name: string;
-  date: string;
-  total_expenses: number;
-  total_expenses_amount: number;
-  unique_buyers: number;
-  total_viaticos: number;
-  total_viaticos_amount: number;
-  unique_viatico_people: number;
-  pending_reembolsos: number;
-  pending_viaticos: number;
-  money_in_holdover: number;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+const money = (n: number | null | undefined) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n ?? 0)
+
+const fmtDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+
+interface Stats {
+  totalComprobantes: number
+  totalMontoCob: number
+  rebPendientes: number
+  rebMontoP: number
+  polizasCerradas: number
+  polizasMonto: number
+  viaticosActivos: number
+  viaticosEnviados: number
 }
 
-interface BuyerSummary {
-  buyer_id: string;
-  buyer_email: string;
-  total_expenses: number;
-  total_amount: number;
-  captured_count: number;
-  classified_count: number;
-  batch_count: number;
-  paid_count: number;
-  last_expense_date: string;
+interface BuyerRow {
+  employee_id: string
+  employee_email: string
+  count: number
+  total: number
+  captured: number
 }
 
-interface ViaticoPerson {
-  person_id: string;
-  person_email: string;
-  total_viaticos: number;
-  total_amount: number;
-  pending_count: number;
-  approved_count: number;
-  rejected_count: number;
-  last_viatico_date: string;
+interface RebRow {
+  id: string
+  employee_email: string
+  name: string | null
+  total: number
+  status: string
+  created_at: string
 }
 
-const money = (n: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+type Tab = 'resumen' | 'reembolsos' | 'compradores'
 
 export default function ContadorGeneralPanel() {
-  const router = useRouter();
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
-  const { canI } = usePermissions(role);
-  const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<ExecutiveSummary | null>(null);
-  const [buyers, setBuyers] = useState<BuyerSummary[]>([]);
-  const [viaticoPeople, setViaticoPeople] = useState<ViaticoPerson[]>([]);
-  const [tab, setTab] = useState<'resumen' | 'compradores' | 'viaticos'>('resumen');
+  const router = useRouter()
+  const [loading, setLoading]     = useState(true)
+  const [tab, setTab]             = useState<Tab>('resumen')
+  const [stats, setStats]         = useState<Stats | null>(null)
+  const [buyers, setBuyers]       = useState<BuyerRow[]>([])
+  const [reembolsos, setReb]      = useState<RebRow[]>([])
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const u = await getSessionUser();
-        if (!u) { router.push('/login'); return; }
-
-        if (u.role) setRole(u.role as UserRole);
-        if (!['owner', 'admin', 'accountant'].includes(u.role ?? '')) {
-          router.replace('/gastocheck');
-          return;
-        }
-
-        setCompanyId(u.company_id);
-
-        // Cargar resumen ejecutivo
-        const { data: summaryData } = await supabase
-          .from('executive_summary_daily')
-          .select('*')
-          .eq('company_id', u.company_id)
-          .order('date', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (summaryData) setSummary(summaryData);
-
-        // Cargar gastos por comprador
-        const { data: buyersData } = await supabase
-          .from('expenses_by_buyer')
-          .select('*')
-          .eq('company_id', u.company_id)
-          .order('total_amount', { ascending: false });
-
-        if (buyersData) setBuyers(buyersData);
-
-        // Cargar viáticos por persona
-        const { data: viaticosData } = await supabase
-          .from('viaticos_by_person')
-          .select('*')
-          .eq('company_id', u.company_id)
-          .order('total_amount', { ascending: false });
-
-        if (viaticosData) setViaticoPeople(viaticosData);
-      } catch (error) {
-        console.error('Error loading contador data:', error);
-      } finally {
-        setLoading(false);
+    const load = async () => {
+      const u = await getSessionUser()
+      if (!u) { router.push('/login'); return }
+      if (!['owner', 'admin', 'accountant', 'contador_general'].includes(u.role ?? '')) {
+        router.replace('/gastocheck')
+        return
       }
-    };
+      const cid = u.company_id
 
-    fetchData();
-  }, [router]);
+      // Comprobantes capturados
+      const { data: cobData } = await supabase
+        .from('receipts')
+        .select('id, total_amount, status, employee_id, uploaded_by')
+        .eq('company_id', cid)
+        .neq('status', 'deleted')
 
-  if (loading) return <div className="p-8 text-center">Cargando...</div>;
+      const cobs = cobData ?? []
+      const totalMontoCob = cobs.reduce((s: number, r: any) => s + (r.total_amount ?? 0), 0)
+      const captured = cobs.filter((r: any) => r.status === 'captured').length
+
+      // Reembolsos
+      const { data: rebAll } = await supabase
+        .from('reembolsos')
+        .select('id, employee_id, employee_email, name, total, status, created_at')
+        .eq('company_id', cid)
+        .order('created_at', { ascending: false })
+
+      const rebs = (rebAll ?? []) as any[]
+      const rebPendientes = rebs.filter((r: any) => r.status === 'pending_auth')
+      const rebMontoP = rebPendientes.reduce((s: number, r: any) => s + (r.total ?? 0), 0)
+
+      // Pólizas cerradas
+      const { data: polData } = await supabase
+        .from('policies')
+        .select('id, opening_balance')
+        .eq('company_id', cid)
+        .eq('status', 'closed')
+
+      const pols = polData ?? []
+      const polizasMonto = pols.reduce((s: number, p: any) => s + (p.opening_balance ?? 0), 0)
+
+      // Viáticos
+      const { data: viatData } = await supabase
+        .from('viaticos')
+        .select('id, status')
+        .eq('company_id', cid)
+
+      const viats = viatData ?? []
+
+      setStats({
+        totalComprobantes: cobs.length,
+        totalMontoCob,
+        rebPendientes: rebPendientes.length,
+        rebMontoP,
+        polizasCerradas: pols.length,
+        polizasMonto,
+        viaticosActivos: viats.filter((v: any) => v.status === 'draft').length,
+        viaticosEnviados: viats.filter((v: any) => v.status === 'submitted').length,
+      })
+
+      // Reembolsos para tab
+      setReb(rebs as RebRow[])
+
+      // Compradores (agrupar comprobantes por employee_id)
+      const buyerMap: Record<string, BuyerRow> = {}
+      for (const r of cobs as any[]) {
+        const eid = r.employee_id ?? r.uploaded_by ?? 'unknown'
+        if (!buyerMap[eid]) buyerMap[eid] = { employee_id: eid, employee_email: '', count: 0, total: 0, captured: 0 }
+        buyerMap[eid].count++
+        buyerMap[eid].total += r.total_amount ?? 0
+        if (r.status === 'captured') buyerMap[eid].captured++
+      }
+
+      // Enriquecer con email
+      if (Object.keys(buyerMap).length > 0) {
+        const { data: members } = await supabase
+          .from('company_members')
+          .select('user_id, profiles(email)')
+          .eq('company_id', cid)
+          .in('user_id', Object.keys(buyerMap))
+
+        for (const m of (members ?? []) as any[]) {
+          if (buyerMap[m.user_id]) {
+            buyerMap[m.user_id].employee_email = m.profiles?.email ?? m.user_id.slice(0, 8)
+          }
+        }
+      }
+
+      setBuyers(
+        Object.values(buyerMap)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 20)
+      )
+
+      setLoading(false)
+    }
+    load()
+  }, [router])
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-slate-400">Cargando panel...</p>
+    </div>
+  )
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'resumen',     label: '📊 Resumen' },
+    { key: 'reembolsos',  label: `📋 Reembolsos${stats?.rebPendientes ? ` (${stats.rebPendientes} pendientes)` : ''}` },
+    { key: 'compradores', label: '👥 Por comprador' },
+  ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Panel Contador General</h1>
-        <p className="text-gray-600">Resumen ejecutivo de gastos, viáticos y movimientos</p>
+        <h1 className="text-3xl font-bold text-slate-900">Panel Contador General</h1>
+        <p className="text-slate-500 mt-1">Vista ejecutiva de gastos, reembolsos y pólizas</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v: any) => setTab(v)}>
-        <TabsList>
-          <TabsTrigger value="resumen">📊 Resumen Ejecutivo</TabsTrigger>
-          <TabsTrigger value="compradores">👥 Por Comprador</TabsTrigger>
-          <TabsTrigger value="viaticos">✈️ Viáticos</TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-slate-200">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-5 py-3 text-sm font-medium transition-colors border-b-2
+              ${tab === t.key
+                ? 'border-blue-600 text-slate-900 font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* RESUMEN EJECUTIVO */}
-        <TabsContent value="resumen" className="space-y-4">
-          {summary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Gastos */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Total Gastos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{money(summary.total_expenses_amount || 0)}</div>
-                  <p className="text-xs text-gray-500">{summary.total_expenses} comprobantes</p>
-                </CardContent>
-              </Card>
+      {/* ── Tab: Resumen ─────────────────────────────────────────────────────── */}
+      {tab === 'resumen' && stats && (
+        <div className="space-y-6">
+          {/* KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Comprobantes</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalComprobantes}</p>
+              <p className="text-sm text-slate-500 mt-1">{money(stats.totalMontoCob)}</p>
+            </div>
+            <div className={`bg-white rounded-xl border p-5 ${stats.rebPendientes > 0 ? 'border-amber-300 bg-amber-50' : 'border-slate-200'}`}>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Reembolsos pendientes</p>
+              <p className={`text-3xl font-bold mt-1 ${stats.rebPendientes > 0 ? 'text-amber-700' : 'text-slate-900'}`}>
+                {stats.rebPendientes}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">{money(stats.rebMontoP)}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pólizas cerradas</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1">{stats.polizasCerradas}</p>
+              <p className="text-sm text-slate-500 mt-1">{money(stats.polizasMonto)}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Viáticos</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1">{stats.viaticosActivos + stats.viaticosEnviados}</p>
+              <p className="text-sm text-slate-500 mt-1">
+                {stats.viaticosActivos} activos · {stats.viaticosEnviados} enviados
+              </p>
+            </div>
+          </div>
 
-              {/* Compradores activos */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Compradores Activos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{summary.unique_buyers}</div>
-                  <p className="text-xs text-gray-500">personas que gastaron</p>
-                </CardContent>
-              </Card>
-
-              {/* Viáticos */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">Total Viáticos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{money(summary.total_viaticos_amount || 0)}</div>
-                  <p className="text-xs text-gray-500">{summary.total_viaticos} solicitudes</p>
-                </CardContent>
-              </Card>
-
-              {/* Dinero en resguardo */}
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-orange-700">En Resguardo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-900">{money(summary.money_in_holdover || 0)}</div>
-                  <p className="text-xs text-orange-600">pendiente de clasificar</p>
-                </CardContent>
-              </Card>
+          {/* Accesos rápidos */}
+          {stats.rebPendientes > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-amber-900">
+                  ⏳ {stats.rebPendientes} reembolso(s) esperando tu revisión
+                </p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  Total pendiente: {money(stats.rebMontoP)}
+                </p>
+              </div>
+              <button
+                onClick={() => setTab('reembolsos')}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition"
+              >
+                Revisar →
+              </button>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Alertas */}
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-red-900">⚠️ Pendientes de Aprobación</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-red-800">
-                <strong>Reembolsos pendientes:</strong> {summary?.pending_reembolsos || 0}
-              </p>
-              <p className="text-red-800">
-                <strong>Viáticos pendientes:</strong> {summary?.pending_viaticos || 0}
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* ── Tab: Reembolsos ──────────────────────────────────────────────────── */}
+      {tab === 'reembolsos' && (
+        <div className="space-y-3">
+          {reembolsos.length === 0 ? (
+            <div className="text-center py-20 text-slate-400">Sin reembolsos registrados</div>
+          ) : reembolsos.map(r => {
+            const statusColor: Record<string, string> = {
+              draft:        'bg-slate-100 text-slate-600',
+              pending_auth: 'bg-amber-100 text-amber-800',
+              closed:       'bg-green-100 text-green-800',
+              rejected:     'bg-red-100 text-red-800',
+            }
+            const statusLabel: Record<string, string> = {
+              draft:        '✏️ Borrador',
+              pending_auth: '⏳ Pendiente',
+              closed:       '✅ Cerrado',
+              rejected:     '❌ Rechazado',
+            }
+            return (
+              <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">
+                      {r.name ?? r.employee_email}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5">{r.employee_email}</p>
+                    <p className="text-xs text-slate-400 mt-1">{fmtDate(r.created_at)}</p>
+                  </div>
+                  <div className="text-right shrink-0 space-y-1">
+                    <p className="text-xl font-bold text-slate-900">{money(r.total)}</p>
+                    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor[r.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                      {statusLabel[r.status] ?? r.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-        {/* GASTOS POR COMPRADOR */}
-        <TabsContent value="compradores" className="space-y-4">
-          <div className="overflow-x-auto">
+      {/* ── Tab: Compradores ─────────────────────────────────────────────────── */}
+      {tab === 'compradores' && (
+        buyers.length === 0 ? (
+          <div className="text-center py-20 text-slate-400">Sin comprobantes registrados</div>
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="p-2 text-left">Comprador</th>
-                  <th className="p-2 text-right">Comprobantes</th>
-                  <th className="p-2 text-right">Monto Total</th>
-                  <th className="p-2 text-right">Capturados</th>
-                  <th className="p-2 text-right">Clasificados</th>
-                  <th className="p-2 text-right">En Póliza</th>
-                  <th className="p-2 text-right">Pagados</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Comprador</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Comprobantes</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Monto total</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Sin procesar</th>
                 </tr>
               </thead>
               <tbody>
-                {buyers.map((buyer) => (
-                  <tr key={buyer.buyer_id} className="border-b hover:bg-gray-50">
-                    <td className="p-2 font-medium">{buyer.buyer_email}</td>
-                    <td className="p-2 text-right">{buyer.total_expenses}</td>
-                    <td className="p-2 text-right font-bold">{money(buyer.total_amount)}</td>
-                    <td className="p-2 text-right text-orange-600">{buyer.captured_count}</td>
-                    <td className="p-2 text-right text-blue-600">{buyer.classified_count}</td>
-                    <td className="p-2 text-right text-purple-600">{buyer.batch_count}</td>
-                    <td className="p-2 text-right text-green-600">{buyer.paid_count}</td>
+                {buyers.map(b => (
+                  <tr key={b.employee_id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-xs">
+                      {b.employee_email || b.employee_id.slice(0, 8) + '...'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-700">{b.count}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{money(b.total)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {b.captured > 0
+                        ? <span className="text-amber-600 font-semibold">{b.captured}</span>
+                        : <span className="text-green-600">✓</span>
+                      }
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </TabsContent>
-
-        {/* VIÁTICOS POR PERSONA */}
-        <TabsContent value="viaticos" className="space-y-4">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="p-2 text-left">Persona</th>
-                  <th className="p-2 text-right">Solicitudes</th>
-                  <th className="p-2 text-right">Monto Total</th>
-                  <th className="p-2 text-right">Pendientes</th>
-                  <th className="p-2 text-right">Aprobadas</th>
-                  <th className="p-2 text-right">Rechazadas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viaticoPeople.map((person) => (
-                  <tr key={person.person_id} className="border-b hover:bg-gray-50">
-                    <td className="p-2 font-medium">{person.person_email}</td>
-                    <td className="p-2 text-right">{person.total_viaticos}</td>
-                    <td className="p-2 text-right font-bold">{money(person.total_amount)}</td>
-                    <td className="p-2 text-right text-orange-600">{person.pending_count}</td>
-                    <td className="p-2 text-right text-green-600">{person.approved_count}</td>
-                    <td className="p-2 text-right text-red-600">{person.rejected_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
-      </Tabs>
+        )
+      )}
     </div>
-  );
+  )
 }
