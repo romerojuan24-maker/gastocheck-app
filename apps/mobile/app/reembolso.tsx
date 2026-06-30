@@ -83,15 +83,28 @@ export default function ReembolsoScreen() {
       const assignedList = (assigned ?? []).map((item: any) => item.receipts);
       setAssignedReceipts(assignedList.filter(Boolean));
 
-      // Cargar recibos disponibles (sin asignar) de la misma empresa
-      const { data: available } = await supabase
+      // Recibos ya en CUALQUIER reembolso (excluir de disponibles)
+      const { data: linked } = await supabase
+        .from('receipt_reembolsos')
+        .select('receipt_id');
+      const linkedIds = (linked ?? []).map((l: any) => l.receipt_id).filter(Boolean);
+
+      // Recibos del empleado disponibles para reembolsar (pago propio, no en otro reembolso)
+      let availQ = supabase
         .from('receipts')
         .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status')
+        .eq('employee_id', reb.employee_id)
         .eq('company_id', reb.company_id)
-        .eq('status', 'captured')
-        .not('id', 'in', `(${assignedList.map((r: any) => `'${r?.id}'`).join(',') || 'null'})`)
+        .eq('is_credit', false)
+        .not('status', 'in', '(deleted,rejected,cancelled)')
+        .order('receipt_date', { ascending: false })
         .limit(100);
 
+      if (linkedIds.length > 0) {
+        availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
+      }
+
+      const { data: available } = await availQ;
       setAvailableReceipts(available ?? []);
     } finally {
       setLoading(false);
@@ -234,13 +247,13 @@ export default function ReembolsoScreen() {
             style={[styles.addBtn, { flex: 1 }]}
             onPress={() => router.push('/capture')}
           >
-            <Text style={styles.addBtnText}>📷 Capturar</Text>
+            <Text style={styles.addBtnText}>📷 Capturar nuevo</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtn, { flex: 1, backgroundColor: BRAND.orange }]}
-            onPress={() => setShowIntegrateModal(true)}
+            onPress={() => setShowAddReceipts(true)}
           >
-            <Text style={styles.addBtnText}>📥 Integrar</Text>
+            <Text style={styles.addBtnText}>📋 Mis recibos</Text>
           </TouchableOpacity>
         </View>
 

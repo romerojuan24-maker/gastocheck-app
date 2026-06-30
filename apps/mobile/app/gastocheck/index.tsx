@@ -156,7 +156,21 @@ export default function GastoCheckHome() {
               Tus gastos claros.{' '}
               <Text style={{ color: BRAND.green }}>Tus saldos bajo control.</Text>
             </Text>
-            <Text style={styles.versionText}>{APP_VERSION}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <Text style={styles.versionText}>{APP_VERSION}</Text>
+              {userRole && (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 }}>
+                    {userRole === 'owner' ? '👑 Admin' :
+                     userRole === 'admin' ? '🔑 Admin' :
+                     userRole === 'accountant' ? '📊 Contador' :
+                     userRole === 'supervisor' ? '👁 Supervisor' :
+                     userRole === 'spender' ? '🛍 Comprador' :
+                     userRole}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>
