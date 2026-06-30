@@ -974,7 +974,7 @@ export default function CaptureScreen() {
                 style={[styles.pmChip, !isCredit && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
                 onPress={() => setIsCredit(false)}
               >
-                <Text style={[styles.pmChipText, !isCredit && { color: '#fff' }]}>💵 Con anticipo</Text>
+                <Text style={[styles.pmChipText, !isCredit && { color: '#fff' }]}>💵 Pago propio</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pmChip, isCredit && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
@@ -983,11 +983,11 @@ export default function CaptureScreen() {
                 <Text style={[styles.pmChipText, isCredit && { color: '#fff' }]}>🏦 Pago corporativo</Text>
               </TouchableOpacity>
             </View>
-            {isCredit && (
-              <Text style={{ fontSize: 11, color: '#90A4AE', marginTop: 6 }}>
-                Tarjeta corporativa, transferencia o a crédito — no descuenta tu anticipo
-              </Text>
-            )}
+            <Text style={{ fontSize: 11, color: '#90A4AE', marginTop: 6 }}>
+              {isCredit
+                ? 'Tarjeta empresa, transferencia o crédito con proveedor — no descuenta anticipo'
+                : 'Efectivo o tarjeta personal — se descuenta de tu anticipo'}
+            </Text>
           </View>
 
           {/* Categoría de gasto */}
