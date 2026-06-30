@@ -422,16 +422,16 @@ export default function ReceiptDetailScreen() {
       {/* ── Acciones del empleado ── */}
       {canEdit && (
         <View style={styles.actions}>
+          {/* Los comprobantes se agrupan en un Reembolso — no se envían individualmente */}
           {receipt.status === 'captured' && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: BRAND.blue }]}
-              onPress={() => doAction('submit')}
-              disabled={actioning}
-            >
-              <Text style={styles.actionBtnText}>
-                {actioning ? '…' : '📤 Enviar a revisión'}
+            <View style={{ backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginBottom: 8 }}>
+              <Text style={{ color: '#2E7D32', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
+                ✅ Comprobante guardado
               </Text>
-            </TouchableOpacity>
+              <Text style={{ color: '#388E3C', fontSize: 12, marginTop: 4, textAlign: 'center' }}>
+                Ve a Mis Reembolsos para incluirlo en un reembolso
+              </Text>
+            </View>
           )}
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: '#FFEBEE' }]}
