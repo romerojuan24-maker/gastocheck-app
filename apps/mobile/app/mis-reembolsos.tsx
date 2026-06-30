@@ -58,7 +58,7 @@ export default function MisReembolsosScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data: m } = await supabase.from('company_members')
-        .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+        .select('company_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
       if (!m) return;
       setCompanyId(m.company_id);
 

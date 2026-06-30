@@ -11,7 +11,7 @@ import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
 
 const ADMIN_ROLES      = ['owner', 'admin'];
-const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor', 'accountant'];
+const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -161,11 +161,12 @@ export default function GastoCheckHome() {
               {userRole && (
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}>
                   <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 }}>
-                    {userRole === 'owner' ? '👑 Admin' :
-                     userRole === 'admin' ? '🔑 Admin' :
-                     userRole === 'accountant' ? '📊 Contador' :
-                     userRole === 'supervisor' ? '👁 Supervisor' :
-                     userRole === 'spender' ? '🛍 Comprador' :
+                    {userRole === 'owner'            ? '👑 Admin' :
+                     userRole === 'admin'            ? '🔑 Admin' :
+                     userRole === 'accountant'       ? '📊 Contador' :
+                     userRole === 'contador_general' ? '📊 Contador' :
+                     userRole === 'supervisor'       ? '👁 Supervisor' :
+                     userRole === 'spender'          ? '🛍 Comprador' :
                      userRole}
                   </Text>
                 </View>

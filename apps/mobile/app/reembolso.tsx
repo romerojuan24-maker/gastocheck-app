@@ -7,7 +7,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
-import ReembolsoIntegrarModal from './reembolso-integrar-modal';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -42,7 +41,6 @@ export default function ReembolsoScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [validatingSat, setValidatingSat] = useState(false);
   const [showAddReceipts, setShowAddReceipts] = useState(false);
-  const [showIntegrateModal, setShowIntegrateModal] = useState(false);
   const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
 
@@ -432,17 +430,6 @@ export default function ReembolsoScreen() {
         </View>
       </Modal>
 
-      {/* Modal integrar comprobantes existentes */}
-      <ReembolsoIntegrarModal
-        visible={showIntegrateModal}
-        companyId={reembolso?.company_id ?? ''}
-        policyId={reembolso_id ?? ''}
-        onClose={() => setShowIntegrateModal(false)}
-        onSuccess={() => {
-          setShowIntegrateModal(false);
-          loadReembolso();
-        }}
-      />
     </View>
   );
 }
