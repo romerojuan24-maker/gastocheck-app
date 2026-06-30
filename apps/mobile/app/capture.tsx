@@ -968,26 +968,24 @@ export default function CaptureScreen() {
 
           {/* Tipo de comprobante */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Tipo de comprobante</Text>
+            <Text style={styles.fieldLabel}>¿Con qué se pagó?</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {(['Pagado directo', 'A crédito'] as const).map((opt) => {
-                const active = opt === 'A crédito' ? isCredit : !isCredit;
-                return (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.pmChip, active && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
-                    onPress={() => setIsCredit(opt === 'A crédito')}
-                  >
-                    <Text style={[styles.pmChipText, active && { color: '#fff' }]}>
-                      {opt === 'Pagado directo' ? '💵 ' : '💳 '}{opt}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <TouchableOpacity
+                style={[styles.pmChip, !isCredit && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
+                onPress={() => setIsCredit(false)}
+              >
+                <Text style={[styles.pmChipText, !isCredit && { color: '#fff' }]}>💵 Con anticipo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pmChip, isCredit && styles.pmChipActive, { flex: 1, justifyContent: 'center' }]}
+                onPress={() => setIsCredit(true)}
+              >
+                <Text style={[styles.pmChipText, isCredit && { color: '#fff' }]}>🏦 Pago corporativo</Text>
+              </TouchableOpacity>
             </View>
             {isCredit && (
               <Text style={{ fontSize: 11, color: '#90A4AE', marginTop: 6 }}>
-                Los comprobantes a crédito no descuentan tu saldo de anticipo
+                Tarjeta corporativa, transferencia o a crédito — no descuenta tu anticipo
               </Text>
             )}
           </View>
