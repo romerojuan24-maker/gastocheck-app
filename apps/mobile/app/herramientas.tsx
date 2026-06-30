@@ -175,12 +175,6 @@ export default function HerramientasScreen() {
       {/* ── Configuración (todos los roles) ── */}
       <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Configuración</Text>
       <ToolBtn
-        icon="💸"
-        title="Solicitar anticipo"
-        hint="Pide un anticipo a tu jefe o administrador"
-        onPress={() => router.push('/advance-request' as any)}
-      />
-      <ToolBtn
         icon="⚙️"
         title="Ajustes generales"
         hint="Cuenta, notificaciones, versión y actualizaciones"

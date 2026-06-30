@@ -255,6 +255,9 @@ export default function ReceiptsScreen() {
     const isWarning = item.duplicate_status !== 'no_duplicate' && !!dupMeta;
     const inPoliza = item.status === 'submitted';
 
+    // Identificar depósitos por source_type
+    const isDeposit = ['deposit', 'deposito', 'advance', 'anticipo'].includes(item.source_type ?? '');
+
     // Estado SAT
     const satOk = item.sat_validation_status === 'validated';
     const satFail = item.sat_validation_status === 'cancelled' || item.sat_validation_status === 'not_found';
@@ -267,6 +270,7 @@ export default function ReceiptsScreen() {
           styles.card,
           isWarning && styles.cardWarning,
           inPoliza && styles.cardInPoliza,
+          isDeposit && styles.cardDeposit,
         ]}
         onPress={() => {
           router.push(`/receipt-detail?id=${item.id}` as any);
@@ -288,19 +292,27 @@ export default function ReceiptsScreen() {
             <Text style={styles.date}>
               {item.receipt_date ?? item.created_at?.slice(0, 10) ?? '—'}
               {'  '}
-              {item.source_type === 'photo' ? '📷' : item.source_type === 'xml' ? '📄' : '📎'}
+              {isDeposit ? '💰' : item.source_type === 'photo' ? '📷' : item.source_type === 'xml' ? '📄' : '📎'}
               {item.gc_folio ? `  ·  ${item.gc_folio}` : ''}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             {item.total_amount != null && (
-              <Text style={styles.amount}>{money(item.total_amount)}</Text>
-            )}
-            <View style={[styles.badge, { backgroundColor: statusMeta.color + '20' }]}>
-              <Text style={[styles.badgeText, { color: statusMeta.color }]}>
-                {statusMeta.label}
+              <Text style={[styles.amount, isDeposit && { color: BRAND.green }]}>
+                {isDeposit ? '+' : ''}{money(item.total_amount)}
               </Text>
-            </View>
+            )}
+            {isDeposit ? (
+              <View style={[styles.badge, { backgroundColor: BRAND.green + '20' }]}>
+                <Text style={[styles.badgeText, { color: BRAND.green }]}>💰 Depósito</Text>
+              </View>
+            ) : (
+              <View style={[styles.badge, { backgroundColor: statusMeta.color + '20' }]}>
+                <Text style={[styles.badgeText, { color: statusMeta.color }]}>
+                  {statusMeta.label}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -363,23 +375,6 @@ export default function ReceiptsScreen() {
         </View>
       )}
 
-      {/* Barra de acción: solo visible en tab Vigentes */}
-      {statusFilter === 'vigentes' && (
-        <TouchableOpacity
-          style={[styles.reembolsoBar, creatingReembolso && { opacity: 0.6 }]}
-          onPress={handleCreateReembolso}
-          disabled={creatingReembolso}
-        >
-          {creatingReembolso ? (
-            <Text style={styles.reembolsoBarText}>⏳ Creando reembolso…</Text>
-          ) : (
-            <>
-              <Text style={styles.reembolsoBarText}>📋 Crear Reembolso</Text>
-              <Text style={styles.reembolsoBarHint}>Asigna nombre y número de control →</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
 
       {/* Barra de búsqueda + botón búsqueda avanzada */}
       <View style={styles.searchContainer}>
@@ -596,6 +591,7 @@ const styles = StyleSheet.create({
   badge:        { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
   badgeText:    { fontSize: 11, fontWeight: '700' },
   cardInPoliza: { borderColor: BRAND.blue + '50', borderWidth: 1.5 },
+  cardDeposit:  { borderColor: BRAND.green + '60', borderWidth: 1.5, backgroundColor: '#F0FBF4' },
   tagsRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   tag:          { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   tagText:      { fontSize: 11, fontWeight: '600' },
