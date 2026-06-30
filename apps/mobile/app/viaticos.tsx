@@ -112,6 +112,7 @@ export default function ViaticosScreen() {
         .select('company_id')
         .eq('user_id', uid)
         .eq('status', 'active')
+        .limit(1)
         .maybeSingle();
 
       if (!member) return;
@@ -126,7 +127,7 @@ export default function ViaticosScreen() {
         .from('viaticos')
         .select('*')
         .eq('company_id', member.company_id)
-        .eq('employee_id', uid)
+        .eq('person_id', uid)
         .in('status', statusFilter)
         .order('created_at', { ascending: false });
 
@@ -182,12 +183,16 @@ export default function ViaticosScreen() {
         .from('viaticos')
         .insert({
           company_id:     companyId,
-          employee_id:    userId,
+          created_by:     userId,
+          person_id:      userId,
           destination:    destination.trim(),
           purpose:        purpose.trim() || null,
           departure_date: departureDate.trim(),
           return_date:    returnDate.trim() || null,
           advance_amount: parseFloat(advance) || 0,
+          amount:         parseFloat(advance) || 0,
+          category:       'otro',
+          trip_date:      departureDate.trim(),
           status:         'draft',
         })
         .select('*')
