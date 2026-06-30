@@ -328,8 +328,50 @@ export default function PolizasScreen() {
 
   // ── Cerrar póliza ────────────────────────────────────────────────────────────
 
+  async function handleReopenPolicy() {
+    if (!selectedPolicy || !member) return;
+
+    Alert.alert(
+      'Reabrir póliza',
+      '¿Confirmas reabrir esta póliza para correcciones? Los comprobantes volverán a estado "en revisión".',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reabrir',
+          onPress: async () => {
+            await supabase.from('policies')
+              .update({ status: 'open', closed_at: null })
+              .eq('id', selectedPolicy.id);
+
+            const { data: exps } = await supabase
+              .from('expenses')
+              .select('receipt_id')
+              .eq('policy_id', selectedPolicy.id)
+              .not('receipt_id', 'is', null);
+            const rids = (exps ?? []).map((e: any) => e.receipt_id).filter(Boolean);
+            if (rids.length > 0) {
+              await supabase.from('receipts').update({ status: 'submitted' }).in('id', rids);
+            }
+
+            setSelectedPolicy(null);
+            await loadPolicies();
+          },
+        },
+      ],
+    );
+  }
+
   async function handleClosePolicy() {
     if (!selectedPolicy || !member) return;
+
+    // ✅ VALIDACIÓN 0: Debe tener al menos un comprobante
+    if (policyExpenses.length === 0) {
+      Alert.alert(
+        'Sin comprobantes',
+        'No puedes cerrar una póliza vacía. Agrega comprobantes primero.',
+      );
+      return;
+    }
 
     // ✅ VALIDACIÓN 1: Todos los gastos deben estar autorizados
     const pendientes = policyExpenses.filter(
@@ -390,7 +432,8 @@ export default function PolizasScreen() {
     );
   }
 
-  const isAdmin = member ? ['owner', 'supervisor', 'admin'].includes(member.role) : false;
+  const isAdmin      = member ? ['owner', 'supervisor', 'admin', 'accountant'].includes(member.role) : false;
+  const isAccountant = member ? ['accountant', 'owner', 'admin'].includes(member.role) : false;
   const fmt = (n: number | null) =>
     n != null ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n) : '—';
 
@@ -440,9 +483,18 @@ export default function PolizasScreen() {
             </TouchableOpacity>
           )}
           {selectedPolicy.status === 'closed' && (
-            <View style={[styles.actionBtn, { backgroundColor: '#ECEFF1', flex: 0, paddingHorizontal: 14 }]}>
-              <Text style={{ fontSize: 12, color: '#607D8B', fontWeight: '700' }}>🔒 Póliza cerrada</Text>
-            </View>
+            <>
+              <View style={[styles.actionBtn, { backgroundColor: '#ECEFF1', flex: 0, paddingHorizontal: 14 }]}>
+                <Text style={{ fontSize: 12, color: '#607D8B', fontWeight: '700' }}>🔒 Cerrada</Text>
+              </View>
+              {isAccountant && (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: BRAND.orange }]}
+                  onPress={handleReopenPolicy}>
+                  <Text style={styles.actionBtnText}>↩ Reabrir</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
