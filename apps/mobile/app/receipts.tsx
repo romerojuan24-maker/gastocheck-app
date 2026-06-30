@@ -28,6 +28,7 @@ interface ReceiptRow {
   sat_validation_status: string | null;
   created_at:            string;
   is_processing:         boolean;
+  is_credit:             boolean;
 }
 
 type FilterTab = 'vigentes' | 'revision' | 'rechazados' | 'historico';
@@ -168,7 +169,7 @@ export default function ReceiptsScreen() {
         .from('receipts')
         .select(
           'id, company_id, gc_folio, provider_name, total_amount, receipt_date, status, ' +
-          'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at, is_processing',
+          'duplicate_status, source_type, batch_id, fiscal_uuid, sat_validation_status, created_at, is_processing, is_credit',
         );
 
       // Filtro por rol: comprador solo ve sus recibos, supervisor ve todos de empresa
@@ -257,6 +258,7 @@ export default function ReceiptsScreen() {
 
     // Identificar depósitos por source_type
     const isDeposit = ['deposit', 'deposito', 'advance', 'anticipo'].includes(item.source_type ?? '');
+    const isCredit  = !!item.is_credit && !isDeposit;
 
     // Estado SAT
     const satOk = item.sat_validation_status === 'validated';
@@ -307,10 +309,17 @@ export default function ReceiptsScreen() {
                 <Text style={[styles.badgeText, { color: BRAND.green }]}>💰 Depósito</Text>
               </View>
             ) : (
-              <View style={[styles.badge, { backgroundColor: statusMeta.color + '20' }]}>
-                <Text style={[styles.badgeText, { color: statusMeta.color }]}>
-                  {statusMeta.label}
-                </Text>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <View style={[styles.badge, { backgroundColor: statusMeta.color + '20' }]}>
+                  <Text style={[styles.badgeText, { color: statusMeta.color }]}>
+                    {statusMeta.label}
+                  </Text>
+                </View>
+                {isCredit && (
+                  <View style={[styles.badge, { backgroundColor: '#E3F2FD' }]}>
+                    <Text style={[styles.badgeText, { color: '#1565C0' }]}>💳 A crédito</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>

@@ -513,6 +513,11 @@ export default function ViaticosScreen() {
                   Toca "+ Nuevo Viaje" para registrar un viaje y agregar los comprobantes de gastos
                 </Text>
               )}
+              {tab === 'reportados' && (
+                <Text style={styles.emptyHint}>
+                  Los viajes enviados para aprobación aparecen aquí. Abre un viaje activo y toca "Enviar para aprobación"
+                </Text>
+              )}
               {tab === 'historico' && (
                 <Text style={styles.emptyHint}>
                   Los viajes aprobados y cerrados aparecen aquí para consulta y referencia de presupuestos

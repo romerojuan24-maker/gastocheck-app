@@ -170,10 +170,15 @@ export default function ReembolsosContadorScreen() {
 
   async function assignAccount(rec: ReceiptLine, acct: AccountingAccount) {
     setSavingLine(rec.id);
-    await supabase.from('receipts').update({
+    const { error } = await supabase.from('receipts').update({
       accounting_account_id:   acct.id,
       accounting_account_code: acct.code,
     }).eq('id', rec.id);
+    if (error) {
+      Alert.alert('Error', 'No se pudo asignar la cuenta contable. Intenta de nuevo.');
+      setSavingLine(null);
+      return;
+    }
     setReceipts(prev => prev.map(r =>
       r.id === rec.id ? { ...r, accounting_account_id: acct.id, accounting_account_code: acct.code } : r
     ));
