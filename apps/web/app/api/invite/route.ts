@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
       userId = created.user.id
     }
 
+    // Garantizar que existe un perfil antes de insertar en company_members
+    // (el trigger de auth.users puede no haber corrido aún en el path de invitación)
+    await adminSupabase.from('profiles').upsert(
+      { id: userId, full_name: null },
+      { onConflict: 'id', ignoreDuplicates: true }
+    )
+
     // Insertar membresía
     const { error: insErr } = await adminSupabase.from('company_members').insert({
       company_id,
