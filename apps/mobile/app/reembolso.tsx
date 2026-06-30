@@ -162,17 +162,19 @@ export default function ReembolsoScreen() {
           onPress: async () => {
             setSubmitting(true);
             try {
-              // Llamar a Edge Function para cambiar estado a pending_auth
-              const { data, error } = await supabase.functions.invoke('reembolsos-workflow', {
-                body: { action: 'submit', reembolso_id: reembolso.id },
-              });
+              const total = assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0);
+              const { error: submitErr } = await supabase
+                .from('reembolsos')
+                .update({ status: 'pending_auth', total })
+                .eq('id', reembolso.id)
+                .eq('employee_id', user.id);
 
-              if (error || !data.success) throw new Error(data?.error ?? 'Error enviando reembolso');
+              if (submitErr) throw new Error(submitErr.message);
 
               Alert.alert(
                 '✅ Reembolso enviado',
-                `Tu reembolso ha sido enviado a tu supervisor para aprobación.`,
-                [{ text: 'Listo', onPress: () => router.replace('/receipts' as any) }]
+                `Tu reembolso fue enviado al contador. Aparecerá en "Pólizas → Reembolsos pendientes".`,
+                [{ text: 'Listo', onPress: () => router.replace('/mis-reembolsos' as any) }]
               );
             } catch (e: any) {
               Alert.alert('Error', e.message ?? 'No se pudo enviar el reembolso.');

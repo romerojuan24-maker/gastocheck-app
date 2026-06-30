@@ -67,6 +67,7 @@ export default function ViaticosScreen() {
   const router = useRouter();
 
   const [userId,    setUserId]    = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [viajes,    setViajes]    = useState<Viaje[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -104,6 +105,7 @@ export default function ViaticosScreen() {
       if (!session?.user) return;
       const uid = session.user.id;
       setUserId(uid);
+      setUserEmail(session.user.email ?? null);
 
       const { data: member } = await supabase
         .from('company_members')
@@ -207,29 +209,64 @@ export default function ViaticosScreen() {
     }
   }
 
-  // ── Reportar viaje ─────────────────────────────────────────────────────────
+  // ── Enviar viático para reembolso (crea reembolso → aparece en Pólizas) ────
 
-  async function handleReportarViaje() {
-    if (!selectedViaje) return;
-    if ((selectedViaje.receipt_count ?? viajeReceipts.length) === 0) {
-      Alert.alert('Sin comprobantes', 'Agrega al menos un comprobante antes de reportar el viaje.');
+  async function handleEnviarParaReembolso() {
+    if (!selectedViaje || !userId || !companyId || !userEmail) return;
+    if (viajeReceipts.length === 0) {
+      Alert.alert('Sin comprobantes', 'Agrega al menos un comprobante antes de enviar para reembolso.');
       return;
     }
+    const total = viajeReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0);
     Alert.alert(
-      'Reportar viaje',
-      '¿Confirmas enviar este viaje a revisión? El supervisor deberá aprobarlo.',
+      '📤 Enviar para Reembolso',
+      `¿Enviar ${viajeReceipts.length} comprobante(s) por ${money(total)} al contador para revisión?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Reportar',
+          text: 'Enviar',
           onPress: async () => {
-            const { error } = await supabase
-              .from('viaticos')
-              .update({ status: 'submitted' })
-              .eq('id', selectedViaje.id);
-            if (error) { Alert.alert('Error', error.message); return; }
-            setSelectedViaje(null);
-            await loadViajes();
+            try {
+              // 1. Crear reembolso con status pending_auth
+              const { data: reb, error: rebErr } = await supabase
+                .from('reembolsos')
+                .insert({
+                  company_id:     companyId,
+                  employee_id:    userId,
+                  employee_email: userEmail,
+                  name:           `Viático: ${selectedViaje.destination} ${selectedViaje.departure_date}`,
+                  status:         'pending_auth',
+                  total,
+                  notes:          selectedViaje.purpose ?? null,
+                })
+                .select('id')
+                .single();
+
+              if (rebErr) throw rebErr;
+
+              // 2. Vincular comprobantes del viaje → receipt_reembolsos
+              const inserts = viajeReceipts.map(r => ({
+                reembolso_id: reb.id,
+                receipt_id:   r.id,
+              }));
+              const { error: linkErr } = await supabase.from('receipt_reembolsos').insert(inserts);
+              if (linkErr) throw linkErr;
+
+              // 3. Marcar viático como submitted
+              const { error: vErr } = await supabase
+                .from('viaticos')
+                .update({ status: 'submitted' })
+                .eq('id', selectedViaje.id);
+              if (vErr) throw vErr;
+
+              Alert.alert(
+                '✅ Enviado al Contador',
+                'Tu viático fue enviado para revisión. Aparecerá en "Pólizas → Reembolsos pendientes".',
+                [{ text: 'Listo', onPress: () => { setSelectedViaje(null); loadViajes(); } }]
+              );
+            } catch (e: any) {
+              Alert.alert('Error', e.message);
+            }
           },
         },
       ],
@@ -335,8 +372,8 @@ export default function ViaticosScreen() {
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: BRAND.blue }]} onPress={openAddReceipt}>
               <Text style={styles.actionBtnText}>+ Agregar comprobante</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: BRAND.green }]} onPress={handleReportarViaje}>
-              <Text style={styles.actionBtnText}>📤 Reportar</Text>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: BRAND.green }]} onPress={handleEnviarParaReembolso}>
+              <Text style={styles.actionBtnText}>📤 Enviar para Reembolso</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -515,7 +552,7 @@ export default function ViaticosScreen() {
               )}
               {tab === 'reportados' && (
                 <Text style={styles.emptyHint}>
-                  Los viajes enviados para aprobación aparecen aquí. Abre un viaje activo y toca "Enviar para aprobación"
+                  Los viajes enviados al contador aparecen aquí. El reembolso generado ya está en "Pólizas → Reembolsos pendientes"
                 </Text>
               )}
               {tab === 'historico' && (
