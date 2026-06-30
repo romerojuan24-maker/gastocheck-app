@@ -197,7 +197,7 @@ export default function CaptureScreen() {
     }
   }
 
-  // ── Captura rápida: guarda ahora, OCR corre en el servidor ───────────────
+  // ── Captura rápida: guarda ahora, OCR corre en paralelo ─────────────────
 
   async function handleQuickCapture() {
     if (!photo?.uri || !memberCompanyId || !memberUserId) {
@@ -206,12 +206,16 @@ export default function CaptureScreen() {
     }
     setQuickSaving(true);
     try {
-      // 1. Leer base64 al guardar
+      // 1. Leer base64
       const base64 = await FileSystem.readAsStringAsync(photo.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // 2. Subir foto a Storage
+      // 2. Arrancar OCR en paralelo AHORA (componente aún montado — evita problemas de unmount)
+      const ocrPromise = extractFromImage(base64, 'image/jpeg')
+        .catch(() => ({ data: null, error: 'OCR falló' }));
+
+      // 3. Subir foto a Storage
       const storagePath = `${memberCompanyId}/${Date.now()}/comprobante.jpg`;
       const { error: storErr } = await supabase.storage
         .from('expense-attachments')
@@ -219,7 +223,7 @@ export default function CaptureScreen() {
 
       if (storErr) throw new Error('Error al subir foto: ' + storErr.message);
 
-      // 3. Crear receipt — obtener ID para actualizar con OCR después
+      // 4. Crear receipt
       const { data: saved, error: insertErr } = await supabase
         .from('receipts')
         .insert({
@@ -235,12 +239,12 @@ export default function CaptureScreen() {
 
       if (insertErr) throw new Error(insertErr.message);
 
-      // 4. Navegar inmediatamente — no esperar OCR
+      // 5. Navegar inmediatamente
       router.replace('/receipts');
 
-      // 5. OCR en background (fire and forget) — actualiza receipt con datos extraídos
+      // 6. Cuando OCR termine, actualizar el receipt (promise ya corriendo desde paso 2)
       if (saved?.id) {
-        extractFromImage(base64, 'image/jpeg').then(({ data: ocr }) => {
+        ocrPromise.then(({ data: ocr }) => {
           if (!ocr) return;
           supabase.from('receipts').update({
             provider_name: ocr.providerName ?? null,
@@ -249,7 +253,7 @@ export default function CaptureScreen() {
             receipt_date:  ocr.receiptDate  ?? null,
             fiscal_uuid:   ocr.fiscalUuid   ?? null,
           }).eq('id', saved.id);
-        }).catch(() => {});
+        });
       }
     } catch (e: any) {
       Alert.alert('Error al guardar', e.message ?? 'No se pudo guardar el comprobante');
