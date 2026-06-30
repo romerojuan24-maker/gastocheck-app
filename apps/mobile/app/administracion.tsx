@@ -76,6 +76,21 @@ export default function AdministracionScreen() {
   const [colonias,    setColonias]    = useState<string[]>([]);
   const [showColonia, setShowColonia] = useState(false);
 
+  // Cuentas bancarias
+  interface BankAccount {
+    id: string; bank_name: string; account_last4: string | null;
+    clabe: string | null; account_holder: string | null;
+    account_type: string; active: boolean;
+  }
+  const [bankAccounts,    setBankAccounts]    = useState<BankAccount[]>([]);
+  const [showBankModal,   setShowBankModal]   = useState(false);
+  const [savingBank,      setSavingBank]      = useState(false);
+  const [bBank,           setBBank]           = useState('');
+  const [bLast4,          setBLast4]          = useState('');
+  const [bClabe,          setBClabe]          = useState('');
+  const [bHolder,         setBHolder]         = useState('');
+  const [bType,           setBType]           = useState<'checking' | 'savings'>('checking');
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -138,7 +153,7 @@ export default function AdministracionScreen() {
     }
   }, [router]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadBankAccounts(); }, [load]);
 
   // Buscar CP en copomex cuando tiene 5 dígitos
   async function handleCpChange(value: string) {
@@ -199,6 +214,53 @@ export default function AdministracionScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function loadBankAccounts() {
+    const selectedId = await AsyncStorage.getItem('selectedCompanyId');
+    if (!selectedId) return;
+    const { data } = await supabase
+      .from('company_bank_accounts')
+      .select('id, bank_name, account_last4, clabe, account_holder, account_type, active')
+      .eq('company_id', selectedId)
+      .eq('active', true)
+      .order('created_at', { ascending: true });
+    setBankAccounts((data ?? []) as any[]);
+  }
+
+  async function handleAddBank() {
+    if (!bBank.trim()) { Alert.alert('Requerido', 'Ingresa el nombre del banco.'); return; }
+    const selectedId = await AsyncStorage.getItem('selectedCompanyId');
+    if (!selectedId) return;
+    setSavingBank(true);
+    try {
+      const { error } = await supabase.from('company_bank_accounts').insert({
+        company_id:     selectedId,
+        bank_name:      bBank.trim(),
+        account_last4:  bLast4.trim() || null,
+        clabe:          bClabe.trim() || null,
+        account_holder: bHolder.trim() || null,
+        account_type:   bType,
+      });
+      if (error) throw error;
+      setBBank(''); setBLast4(''); setBClabe(''); setBHolder(''); setBType('checking');
+      setShowBankModal(false);
+      loadBankAccounts();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar.');
+    } finally {
+      setSavingBank(false);
+    }
+  }
+
+  async function handleDeactivateBank(id: string, name: string) {
+    Alert.alert('Desactivar cuenta', `¿Quitar "${name}" de la lista?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Desactivar', style: 'destructive', onPress: async () => {
+        await supabase.from('company_bank_accounts').update({ active: false }).eq('id', id);
+        loadBankAccounts();
+      }},
+    ]);
   }
 
   function inviteCode() {
@@ -415,6 +477,121 @@ export default function AdministracionScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── Cuentas Bancarias ── */}
+      <SectionHeader title="Cuentas Bancarias" />
+      <Text style={styles.sectionHint}>
+        Registra las cuentas donde los compradores reciben depósitos. Aparecerán en comprobantes tipo depósito.
+      </Text>
+
+      {bankAccounts.map((ba) => (
+        <View key={ba.id} style={styles.bankRow}>
+          <View style={styles.bankIcon}>
+            <Text style={{ fontSize: 18 }}>🏦</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bankName}>{ba.bank_name}</Text>
+            <Text style={styles.bankSub}>
+              {ba.account_type === 'savings' ? 'Ahorros' : 'Cheques'}
+              {ba.account_last4 ? `  ···${ba.account_last4}` : ''}
+              {ba.clabe ? `  CLABE: ···${ba.clabe.slice(-4)}` : ''}
+            </Text>
+            {ba.account_holder ? (
+              <Text style={styles.bankHolder}>{ba.account_holder}</Text>
+            ) : null}
+          </View>
+          <TouchableOpacity onPress={() => handleDeactivateBank(ba.id, ba.bank_name)} style={{ padding: 8 }}>
+            <Text style={{ color: BRAND.red, fontSize: 16 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      {bankAccounts.length === 0 && (
+        <Text style={styles.emptyHint}>Sin cuentas bancarias registradas aún.</Text>
+      )}
+
+      <TouchableOpacity style={styles.addBankBtn} onPress={() => setShowBankModal(true)}>
+        <Text style={styles.addBankBtnText}>+ Agregar cuenta bancaria</Text>
+      </TouchableOpacity>
+
+      {/* Modal alta cuenta bancaria */}
+      <Modal visible={showBankModal} animationType="slide" transparent onRequestClose={() => setShowBankModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>🏦 Nueva cuenta bancaria</Text>
+
+            <Text style={styles.fieldLabel}>Banco *</Text>
+            <TextInput
+              style={styles.input}
+              value={bBank}
+              onChangeText={setBBank}
+              placeholder="BBVA, Banamex, Banorte…"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Últimos 4 dígitos</Text>
+            <TextInput
+              style={styles.input}
+              value={bLast4}
+              onChangeText={(v) => setBLast4(v.replace(/\D/g, '').slice(0, 4))}
+              placeholder="1234"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+
+            <Text style={styles.fieldLabel}>CLABE interbancaria (18 dígitos)</Text>
+            <TextInput
+              style={styles.input}
+              value={bClabe}
+              onChangeText={(v) => setBClabe(v.replace(/\D/g, '').slice(0, 18))}
+              placeholder="012340012345678902"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="number-pad"
+              maxLength={18}
+            />
+
+            <Text style={styles.fieldLabel}>Titular</Text>
+            <TextInput
+              style={styles.input}
+              value={bHolder}
+              onChangeText={setBHolder}
+              placeholder="Razón social o nombre"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Tipo de cuenta</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              {(['checking', 'savings'] as const).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.typeChip, bType === t && styles.typeChipActive]}
+                  onPress={() => setBType(t)}
+                >
+                  <Text style={[styles.typeChipText, bType === t && { color: '#fff' }]}>
+                    {t === 'checking' ? '🏧 Cheques' : '💳 Ahorros'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity style={[styles.modalCancelBtn, { flex: 1 }]} onPress={() => setShowBankModal(false)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, { flex: 1 }, savingBank && { opacity: 0.6 }]}
+                onPress={handleAddBank}
+                disabled={savingBank}
+              >
+                {savingBank
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalSaveText}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Perfil de la Empresa ── */}
       <SectionHeader title="Perfil de la Empresa" />
@@ -644,4 +821,40 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#F0F0F0',
   },
   coloniaText: { fontSize: 15, color: BRAND.navy },
+
+  // Cuentas bancarias
+  sectionHint:   { fontSize: 12, color: '#90A4AE', marginBottom: 12, lineHeight: 17 },
+  emptyHint:     { fontSize: 13, color: '#B0BEC5', textAlign: 'center', paddingVertical: 10 },
+  bankRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
+    borderRadius: 12, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#E8EAF6',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
+  },
+  bankIcon:   { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  bankName:   { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  bankSub:    { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  bankHolder: { fontSize: 11, color: BRAND.blue, marginTop: 2 },
+  addBankBtn: {
+    borderRadius: 12, paddingVertical: 13, alignItems: 'center',
+    borderWidth: 1.5, borderColor: BRAND.blue, borderStyle: 'dashed',
+    marginBottom: 8,
+  },
+  addBankBtnText: { fontSize: 14, fontWeight: '700', color: BRAND.blue },
+
+  // Modal banco
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalTitle:      { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
+  modalCancelBtn:  { borderRadius: 12, paddingVertical: 13, backgroundColor: '#F5F5F5', alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: '#90A4AE' },
+  modalSaveBtn:    { borderRadius: 12, paddingVertical: 13, backgroundColor: BRAND.blue, alignItems: 'center' },
+  modalSaveText:   { fontSize: 15, fontWeight: '700', color: '#fff' },
+  typeChip: {
+    flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center',
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  typeChipActive:  { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+  typeChipText:    { fontSize: 13, fontWeight: '600', color: BRAND.navy },
 });
