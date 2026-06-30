@@ -210,22 +210,37 @@ export default function CaptureScreen() {
 
   async function handleQuickCapture() {
     if (!photo?.base64 || !memberCompanyId || !memberUserId) {
-      Alert.alert('Error', 'Faltan datos de empresa. Intenta de nuevo.');
+      Alert.alert('Error', 'Faltan datos. Cierra y vuelve a abrir la pantalla.');
       return;
     }
     setQuickSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('quick-capture', {
-        body: {
-          company_id:   memberCompanyId,
-          employee_id:  memberUserId,
-          image_base64: photo.base64,
-        },
-      });
-      if (error || !data?.ok) throw new Error(data?.error ?? 'No se pudo guardar');
+      // 1. Subir foto directamente a Storage (sin edge function)
+      const storagePath = `${memberCompanyId}/${Date.now()}/comprobante.jpg`;
+      const arrayBuffer = decode(photo.base64);
+      const { error: storErr } = await supabase.storage
+        .from('expense-attachments')
+        .upload(storagePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+
+      if (storErr) throw new Error('Error al subir foto: ' + storErr.message);
+
+      // 2. Crear receipt con status captured
+      const { error: insertErr } = await supabase
+        .from('receipts')
+        .insert({
+          company_id:        memberCompanyId,
+          uploaded_by:       memberUserId,
+          employee_id:       memberUserId,
+          source_type:       'photo',
+          file_storage_path: storagePath,
+          status:            'captured',
+        });
+
+      if (insertErr) throw new Error(insertErr.message);
+
       router.replace('/receipts');
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo guardar el comprobante');
+      Alert.alert('Error al guardar', e.message ?? 'No se pudo guardar el comprobante');
     } finally {
       setQuickSaving(false);
     }
