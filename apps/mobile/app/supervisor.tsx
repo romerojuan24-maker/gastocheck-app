@@ -1,4 +1,4 @@
-// Panel de Supervisor/Contador — gastos de equipo, solicitudes de anticipo, empleados
+// Panel Contador — reembolsos, gastos de equipo, solicitudes de anticipo, empleados
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
@@ -53,7 +53,7 @@ interface Policy {
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
-type Tab          = 'expenses' | 'requests' | 'employees';
+type Tab          = 'reembolsos' | 'expenses' | 'requests' | 'employees';
 type ExpenseFilter = 'pending' | 'all';
 
 // Roles que pueden acceder al panel supervisor
@@ -353,9 +353,10 @@ export default function SupervisorScreen() {
   const spenders        = employees.filter(e => e.role === 'spender');
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'expenses',  label: 'Gastos',      badge: pendingExpenses.length },
-    { key: 'requests',  label: 'Solicitudes', badge: pendingRequests.length },
-    { key: 'employees', label: 'Equipo',       badge: employees.length },
+    { key: 'reembolsos', label: 'Reembolsos' },
+    { key: 'expenses',   label: 'Gastos',      badge: pendingExpenses.length },
+    { key: 'requests',   label: 'Anticipos',   badge: pendingRequests.length },
+    { key: 'employees',  label: 'Equipo',       badge: employees.length },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -376,6 +377,42 @@ export default function SupervisorScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* ── Tab: REEMBOLSOS ─────────────────────────────────────────────── */}
+      {tab === 'reembolsos' && (
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+          {/* Acceso directo a pantalla completa de reembolsos */}
+          <TouchableOpacity
+            style={styles.reembolsosCard}
+            onPress={() => router.push('/supervisor/reembolsos' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Text style={{ fontSize: 40 }}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reembolsosTitle}>Reembolsos Pendientes</Text>
+                <Text style={styles.reembolsosSub}>
+                  Revisa, clasifica y valida los reembolsos enviados por compradores
+                </Text>
+              </View>
+              <Text style={{ fontSize: 26, color: '#fff' }}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.reembolsoInfo}>
+            <Text style={styles.reembolsoInfoTitle}>¿Cómo funciona?</Text>
+            {[
+              '1. El comprador captura tickets y solicita reembolso',
+              '2. Aquí los revisas y aceptas comprobante por comprobante',
+              '3. Asignas la cuenta contable a cada gasto',
+              '4. Validas los CFDI con el SAT (solo fiscales)',
+              '5. Generas la póliza y la envías por WhatsApp',
+            ].map((step, i) => (
+              <Text key={i} style={styles.reembolsoStep}>{step}</Text>
+            ))}
+          </View>
+        </ScrollView>
+      )}
 
       {/* ── Tab: GASTOS ─────────────────────────────────────────────────── */}
       {tab === 'expenses' && (
@@ -834,6 +871,13 @@ export default function SupervisorScreen() {
 // ── Estilos ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  reembolsosCard:   { backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, marginBottom: 14 },
+  reembolsosTitle:  { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  reembolsosSub:    { fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 17 },
+  reembolsoInfo:    { backgroundColor: '#fff', borderRadius: 14, padding: 16 },
+  reembolsoInfoTitle: { fontSize: 13, fontWeight: '800', color: BRAND.navy, marginBottom: 10 },
+  reembolsoStep:    { fontSize: 13, color: '#546E7A', lineHeight: 22 },
+
   tabsScroll:       { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0', maxHeight: 50 },
   tabs:             { flexDirection: 'row' },
   tab:              { paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center', position: 'relative' },

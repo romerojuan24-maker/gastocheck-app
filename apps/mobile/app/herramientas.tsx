@@ -5,13 +5,13 @@ import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 
-const REPORT_ROLES      = ['owner', 'admin', 'supervisor'];
-const EXTENDED_ROLES    = ['owner', 'admin', 'supervisor'];
-const DEPOSIT_ROLES     = ['owner', 'admin', 'supervisor'];
-const BUDGET_ROLES      = ['owner', 'admin', 'supervisor'];
+const REPORT_ROLES      = ['owner', 'admin', 'supervisor', 'accountant'];
+const EXTENDED_ROLES    = ['owner', 'admin', 'supervisor', 'accountant'];
+const DEPOSIT_ROLES     = ['owner', 'admin', 'supervisor', 'accountant'];
+const BUDGET_ROLES      = ['owner', 'admin', 'supervisor', 'accountant'];
 const ROUTE_ADMIN_ROLES = ['owner', 'admin', 'supervisor'];
 const ROUTE_FIELD_ROLES = ['spender', 'operator'];
-const ACCOUNTING_ROLES  = ['owner', 'admin', 'supervisor'];
+const ACCOUNTING_ROLES  = ['owner', 'admin', 'supervisor', 'accountant'];
 
 function ToolBtn({ icon, title, hint, onPress, accent }: {
   icon: string; title: string; hint: string;

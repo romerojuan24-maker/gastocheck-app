@@ -206,14 +206,18 @@ export default function AdministracionScreen() {
     return company.id.replace(/-/g, '').substring(0, 8).toUpperCase();
   }
 
-  async function shareInvite(role: 'supervisor' | 'comprador') {
+  async function shareInvite(role: 'supervisor' | 'comprador' | 'accountant') {
     if (!company) return;
     const code = inviteCode();
 
     const ROLE_INFO = {
       supervisor: {
         label:   'Supervisor',
-        accesos: 'Genera pólizas, verifica comprobantes en SAT, autoriza reembolsos, genera reportes y análisis de todos los compradores.',
+        accesos: 'Autoriza gastos del equipo, revisa reembolsos, supervisa pólizas y reportes de todos los compradores.',
+      },
+      accountant: {
+        label:   'Contador',
+        accesos: 'Acceso completo contable: clasifica cuentas, valida CFDI en SAT, genera pólizas, exporta a CONTPAQi/CSV, y reportes de operación.',
       },
       comprador: {
         label:   'Comprador',
@@ -377,10 +381,23 @@ export default function AdministracionScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.roleCardTitle}>📋 Supervisor</Text>
             <Text style={styles.roleCardDesc}>
-              Genera pólizas, autoriza gastos, reportes de operación y análisis de todos los compradores.
+              Autoriza gastos del equipo, revisa reembolsos y supervisa pólizas.
             </Text>
           </View>
           <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.blue }]} onPress={() => shareInvite('supervisor')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rol: Contador */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.purple ?? '#7C4DFF' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>🧮 Contador</Text>
+            <Text style={styles.roleCardDesc}>
+              Clasifica cuentas contables, valida CFDI, genera pólizas y exporta a CONTPAQi.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.purple ?? '#7C4DFF' }]} onPress={() => shareInvite('accountant')}>
             <Text style={styles.roleInviteBtnText}>Invitar</Text>
           </TouchableOpacity>
         </View>

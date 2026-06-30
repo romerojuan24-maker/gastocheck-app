@@ -11,7 +11,7 @@ import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
 
 const ADMIN_ROLES      = ['owner', 'admin'];
-const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor'];
+const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor', 'accountant'];
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -251,9 +251,9 @@ export default function GastoCheckHome() {
         />
         {isSupervisor && (
           <MenuBtn
-            icon="👥"
-            label="Panel supervisor"
-            hint="Aprobar reembolsos, viáticos y gastos del equipo"
+            icon="🧮"
+            label="Panel Contador"
+            hint="Reembolsos, anticipos, pólizas y gastos del equipo"
             onPress={() => router.push('/supervisor' as any)}
           />
         )}
