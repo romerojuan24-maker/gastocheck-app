@@ -1,4 +1,4 @@
-// Panel de Contador General: ver gastos pendientes, crear anticipos, crear pólizas, revisar solicitudes
+// Panel de Supervisor/Contador — gastos de equipo, solicitudes de anticipo, empleados
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
@@ -8,6 +8,8 @@ import { BRAND } from '@gastocheck/shared';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
 interface PendingExpense {
   id:                      string;
   provider_name:           string | null;
@@ -15,8 +17,6 @@ interface PendingExpense {
   expense_date:            string;
   status:                  string;
   spender_id:              string;
-  spender_email?:          string;
-  policy_name?:            string;
   accounting_account_id?:  string | null;
   accounting_account_code?: string | null;
 }
@@ -42,37 +42,49 @@ interface AdvanceRequest {
   status:           string;
   rejection_reason: string | null;
   created_at:       string;
-  requester_email?: string;
+}
+
+interface Policy {
+  id:       string;
+  name:     string;
+  holder_id: string;
 }
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
-type Tab = 'expenses' | 'requests' | 'policies' | 'employees';
+type Tab          = 'expenses' | 'requests' | 'employees';
+type ExpenseFilter = 'pending' | 'all';
 
-export default function ContadorGeneralScreen() {
+// Roles que pueden acceder al panel supervisor
+const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor'];
+
+// ── Componente ─────────────────────────────────────────────────────────────────
+
+export default function SupervisorScreen() {
   const router = useRouter();
-  const [companyId,  setCompanyId]  = useState<string | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [expenses,   setExpenses]   = useState<PendingExpense[]>([]);
-  const [employees,  setEmployees]  = useState<Employee[]>([]);
-  const [tab,        setTab]        = useState<Tab>('expenses');
-  const [advRequests,setAdvRequests]= useState<AdvanceRequest[]>([]);
 
-  // Modal crear póliza
-  const [showPolicy,  setShowPolicy]  = useState(false);
-  const [polName,     setPolName]     = useState('');
-  const [polHolder,   setPolHolder]   = useState('');
-  const [polBalance,  setPolBalance]  = useState('');
-  const [savingPol,   setSavingPol]   = useState(false);
+  const [companyId,   setCompanyId]   = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [expenses,    setExpenses]    = useState<PendingExpense[]>([]);
+  const [employees,   setEmployees]   = useState<Employee[]>([]);
+  const [advRequests, setAdvRequests] = useState<AdvanceRequest[]>([]);
+  const [policies,    setPolicies]    = useState<Policy[]>([]);
+  const [tab,         setTab]         = useState<Tab>('expenses');
+  const [expFilter,   setExpFilter]   = useState<ExpenseFilter>('pending');
 
-  // Modal crear anticipo manual
-  const [showAdvance, setShowAdvance] = useState(false);
-  const [advPolicy,   setAdvPolicy]   = useState('');
-  const [advAmount,   setAdvAmount]   = useState('');
-  const [advNote,     setAdvNote]     = useState('');
-  const [savingAdv,   setSavingAdv]   = useState(false);
-  const [policies,    setPolicies]    = useState<{ id: string; name: string; holder_id: string }[]>([]);
+  // Modal anticipo manual
+  const [showAdvance,   setShowAdvance]   = useState(false);
+  const [advSpender,    setAdvSpender]    = useState<Employee | null>(null);
+  const [advPolicy,     setAdvPolicy]     = useState('');
+  const [advAmount,     setAdvAmount]     = useState('');
+  const [advNote,       setAdvNote]       = useState('');
+  const [advPurpose,    setAdvPurpose]    = useState('');
+  const [savingAdv,     setSavingAdv]     = useState(false);
+  const [spenderPolicies, setSpenderPolicies] = useState<Policy[]>([]);
+
+  // Expandir solicitud
+  const [expandedReq, setExpandedReq] = useState<string | null>(null);
 
   // Modal aprobar solicitud
   const [approveReq,    setApproveReq]    = useState<AdvanceRequest | null>(null);
@@ -84,7 +96,7 @@ export default function ContadorGeneralScreen() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectSaving, setRejectSaving] = useState(false);
 
-  // Catálogo contable + asignación
+  // Asignación cuenta contable
   const [accounts,         setAccounts]         = useState<AccountingAccount[]>([]);
   const [assigningExpense, setAssigningExpense] = useState<PendingExpense | null>(null);
   const [accountSearch,    setAccountSearch]    = useState('');
@@ -98,41 +110,56 @@ export default function ContadorGeneralScreen() {
     ).slice(0, 30);
   }, [accounts, accountSearch]);
 
-  useEffect(() => { loadData(); }, []);
+  // Mapa userId → nombre para mostrar en expense cards
+  const employeeMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    employees.forEach(e => { m[e.user_id] = e.full_name ?? e.user_id.slice(0, 8); });
+    return m;
+  }, [employees]);
+
+  // ── Carga de datos ─────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { session: supSession } } = await supabase.auth.getSession();
-      const user = supSession?.user;
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       const { data: member } = await supabase
         .from('company_members')
         .select('company_id, role')
         .eq('user_id', user.id)
-        .single();
+        .eq('status', 'active')
+        .maybeSingle();
 
-      if (!member || !['owner', 'admin', 'contador_general'].includes(member.role)) {
-        Alert.alert('Sin acceso', 'Solo Contadores Generales y administradores pueden ver este panel.');
+      if (!member || !SUPERVISOR_ROLES.includes(member.role)) {
+        Alert.alert('Sin acceso', 'Solo supervisores y contadores pueden ver este panel.');
+        router.back();
         return;
       }
 
       setCompanyId(member.company_id);
 
+      // Statuses a mostrar: 'pending' = solo sin procesar; 'all' = todos excepto deleted
+      const expStatuses = expFilter === 'pending'
+        ? ['captured', 'pending_auth', 'submitted']
+        : ['captured', 'pending_auth', 'submitted', 'authorized', 'rejected'];
+
       const [expRes, empRes, polRes, reqRes, acctRes] = await Promise.all([
         supabase
           .from('expenses')
-          .select('id, provider_name, total, expense_date, status, spender_id, policy_id, accounting_account_id, accounting_account_code')
+          .select('id, provider_name, total, expense_date, status, spender_id, accounting_account_id, accounting_account_code')
           .eq('company_id', member.company_id)
-          .in('status', ['captured', 'submitted', 'pending_auth'])
-          .order('created_at', { ascending: false })
-          .limit(50),
+          .in('status', expStatuses)
+          .order('expense_date', { ascending: false })
+          .limit(100),
 
         supabase
           .from('company_members')
           .select('user_id, role, profiles:user_id(full_name)')
-          .eq('company_id', member.company_id),
+          .eq('company_id', member.company_id)
+          .eq('status', 'active'),
 
         supabase
           .from('policies')
@@ -145,7 +172,7 @@ export default function ContadorGeneralScreen() {
           .select('*')
           .eq('company_id', member.company_id)
           .order('created_at', { ascending: false })
-          .limit(50),
+          .limit(100),
 
         supabase
           .from('accounting_accounts')
@@ -157,17 +184,22 @@ export default function ContadorGeneralScreen() {
 
       setExpenses((expRes.data ?? []) as PendingExpense[]);
       setAccounts((acctRes.data ?? []) as AccountingAccount[]);
-      setEmployees((empRes.data ?? []).map((e: any) => ({
+      const emps = (empRes.data ?? []).map((e: any) => ({
         user_id:   e.user_id,
         role:      e.role,
         full_name: (e.profiles as any)?.full_name ?? null,
-      })));
+      }));
+      setEmployees(emps);
       setPolicies(polRes.data ?? []);
       setAdvRequests((reqRes.data ?? []) as AdvanceRequest[]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [expFilter]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Acciones sobre gastos ──────────────────────────────────────────────────
 
   async function approveExpense(id: string) {
     const { error } = await supabase.from('expenses').update({ status: 'authorized' }).eq('id', id);
@@ -189,101 +221,53 @@ export default function ContadorGeneralScreen() {
     ]);
   }
 
-  async function createPolicy() {
-    if (!companyId || !polName.trim() || !polHolder.trim()) return;
-    setSavingPol(true);
-
-    const { data: { session: polSession } } = await supabase.auth.getSession();
-    const u = polSession?.user;
-    if (!u) { setSavingPol(false); return; }
-
-    // Obtener folio correlativo para la póliza
-    let gc_folio: string | null = null;
-    try {
-      const { data: folioData } = await supabase
-        .rpc('next_gc_folio', { p_company_id: companyId, p_type: 'policy' });
-      gc_folio = folioData ?? null;
-    } catch { /* no bloquea la creación */ }
-
-    const { error } = await supabase.from('policies').insert({
-      company_id:      companyId,
-      name:            polName.trim(),
-      holder_id:       polHolder.trim(),
-      opening_balance: parseFloat(polBalance) || 0,
-      status:          'open',
-      gc_folio,
-      created_by:      u.id,
-    });
-    setSavingPol(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      setShowPolicy(false);
-      setPolName(''); setPolHolder(''); setPolBalance('');
-      loadData();
-    }
+  async function assignAccount(expense: PendingExpense, account: AccountingAccount) {
+    setSavingAccount(true);
+    const { error } = await supabase.from('expenses').update({
+      accounting_account_id:   account.id,
+      accounting_account_code: account.code,
+    }).eq('id', expense.id);
+    setSavingAccount(false);
+    if (error) { Alert.alert('Error', error.message); return; }
+    setExpenses(prev => prev.map(e =>
+      e.id === expense.id ? { ...e, accounting_account_id: account.id, accounting_account_code: account.code } : e
+    ));
+    setAssigningExpense(null);
+    setAccountSearch('');
   }
 
-  async function createAdvance() {
-    if (!advPolicy.trim() || !advAmount.trim()) return;
-    setSavingAdv(true);
-    const { data: { session: advSession } } = await supabase.auth.getSession();
-    const u = advSession?.user;
-    if (!u || !companyId) { setSavingAdv(false); return; }
-    const { error } = await supabase.from('advances').insert({
-      company_id: companyId,
-      policy_id:  advPolicy.trim(),
-      amount:     parseFloat(advAmount),
-      concept:    advNote || null,
-      created_by: u.id,
-    });
-    setSavingAdv(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      setShowAdvance(false);
-      setAdvPolicy(''); setAdvAmount(''); setAdvNote('');
-      Alert.alert('Anticipo registrado', 'El anticipo fue agregado a la póliza.');
-    }
-  }
+  // ── Solicitudes de anticipo ─────────────────────────────────────────────────
 
   async function handleApproveRequest() {
     if (!approveReq || !approvePolicy) return;
-    const { data: { session: approveSession } } = await supabase.auth.getSession();
-    const user = approveSession?.user;
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
 
     setApproveSaving(true);
     try {
-      // Crear el anticipo en la póliza seleccionada
-      const { data: adv, error: advErr } = await supabase
-        .from('advances')
-        .insert({
-          company_id: companyId!,
-          policy_id:  approvePolicy,
-          amount:     approveReq.amount,
-          concept:    `Solicitud aprobada: ${approveReq.reason}`,
-          created_by: user.id,
-        })
-        .select('id')
-        .single();
+      const { data: adv, error: advErr } = await supabase.from('advances').insert({
+        company_id: companyId!,
+        policy_id:  approvePolicy,
+        amount:     approveReq.amount,
+        concept:    `Solicitud aprobada: ${approveReq.reason}`,
+        created_by: user.id,
+      }).select('id').single();
 
       if (advErr) throw new Error(advErr.message);
 
-      // Actualizar solicitud
-      const { error: reqErr } = await supabase
-        .from('advance_requests')
-        .update({
-          status:            'approved',
-          reviewer_id:       user.id,
-          reviewed_at:       new Date().toISOString(),
-          linked_advance_id: adv.id,
-        })
-        .eq('id', approveReq.id);
+      const { error: reqErr } = await supabase.from('advance_requests').update({
+        status:            'approved',
+        reviewer_id:       user.id,
+        reviewed_at:       new Date().toISOString(),
+        linked_advance_id: adv.id,
+      }).eq('id', approveReq.id);
 
       if (reqErr) throw new Error(reqErr.message);
 
       setApproveReq(null);
       setApprovePolicy('');
-      Alert.alert('✅ Solicitud aprobada', `Anticipo de ${money(approveReq.amount)} registrado en la póliza.`);
+      Alert.alert('✅ Aprobada', `Anticipo de ${money(approveReq.amount)} registrado.`);
       loadData();
     } catch (err: any) {
       Alert.alert('Error', err.message);
@@ -292,51 +276,69 @@ export default function ContadorGeneralScreen() {
     }
   }
 
-  async function assignAccount(expense: PendingExpense, account: AccountingAccount) {
-    setSavingAccount(true);
-    const { error } = await supabase
-      .from('expenses')
-      .update({
-        accounting_account_id:   account.id,
-        accounting_account_code: account.code,
-      })
-      .eq('id', expense.id);
-    setSavingAccount(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    setExpenses(prev => prev.map(e =>
-      e.id === expense.id
-        ? { ...e, accounting_account_id: account.id, accounting_account_code: account.code }
-        : e
-    ));
-    setAssigningExpense(null);
-    setAccountSearch('');
-  }
-
   async function handleRejectRequest() {
     if (!rejectReqId || !rejectReason.trim()) return;
-    const { data: { session: rejectSession } } = await supabase.auth.getSession();
-    const user = rejectSession?.user;
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
 
     setRejectSaving(true);
-    const { error } = await supabase
-      .from('advance_requests')
-      .update({
-        status:           'rejected',
-        reviewer_id:      user.id,
-        reviewed_at:      new Date().toISOString(),
-        rejection_reason: rejectReason.trim(),
-      })
-      .eq('id', rejectReqId);
+    const { error } = await supabase.from('advance_requests').update({
+      status:           'rejected',
+      reviewer_id:      user.id,
+      reviewed_at:      new Date().toISOString(),
+      rejection_reason: rejectReason.trim(),
+    }).eq('id', rejectReqId);
     setRejectSaving(false);
 
     if (error) Alert.alert('Error', error.message);
+    else { setRejectReqId(null); setRejectReason(''); loadData(); }
+  }
+
+  // ── Anticipo manual ────────────────────────────────────────────────────────
+
+  async function onSelectSpender(emp: Employee) {
+    setAdvSpender(emp);
+    // Cargar pólizas de ese empleado
+    const { data } = await supabase
+      .from('policies')
+      .select('id, name, holder_id')
+      .eq('company_id', companyId!)
+      .eq('holder_id', emp.user_id)
+      .eq('status', 'open');
+    setSpenderPolicies(data ?? []);
+    setAdvPolicy((data?.[0]?.id) ?? '');
+  }
+
+  async function createAdvance() {
+    if (!advSpender || !advPolicy || !advAmount || !companyId) {
+      Alert.alert('Faltan datos', 'Selecciona el empleado, la póliza y el monto.');
+      return;
+    }
+    setSavingAdv(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const u = session?.user;
+    if (!u) { setSavingAdv(false); return; }
+
+    const { error } = await supabase.from('advances').insert({
+      company_id: companyId,
+      policy_id:  advPolicy,
+      amount:     parseFloat(advAmount),
+      concept:    advPurpose.trim() || advNote.trim() || null,
+      created_by: u.id,
+    });
+    setSavingAdv(false);
+    if (error) Alert.alert('Error', error.message);
     else {
-      setRejectReqId(null);
-      setRejectReason('');
+      setShowAdvance(false);
+      setAdvSpender(null); setAdvPolicy(''); setAdvAmount('');
+      setAdvNote(''); setAdvPurpose(''); setSpenderPolicies([]);
+      Alert.alert('Anticipo registrado', `Anticipo de ${money(parseFloat(advAmount))} registrado correctamente.`);
       loadData();
     }
   }
+
+  // ── Loading ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -346,102 +348,134 @@ export default function ContadorGeneralScreen() {
     );
   }
 
-  const pendingRequests = advRequests.filter((r) => r.status === 'pending');
+  const pendingExpenses = expenses.filter(e => ['captured', 'pending_auth', 'submitted'].includes(e.status));
+  const pendingRequests = advRequests.filter(r => r.status === 'pending');
+  const spenders        = employees.filter(e => e.role === 'spender');
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'expenses',  label: 'Gastos',      badge: expenses.length },
+    { key: 'expenses',  label: 'Gastos',      badge: pendingExpenses.length },
     { key: 'requests',  label: 'Solicitudes', badge: pendingRequests.length },
-    { key: 'policies',  label: 'Pólizas',     badge: policies.length },
     { key: 'employees', label: 'Equipo',       badge: employees.length },
   ];
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
+
       {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
         <View style={styles.tabs}>
-          {TABS.map((t) => (
-            <TouchableOpacity
-              key={t.key}
-              style={[styles.tab, tab === t.key && styles.tabActive]}
-              onPress={() => setTab(t.key)}
-            >
+          {TABS.map(t => (
+            <TouchableOpacity key={t.key} style={[styles.tab, tab === t.key && styles.tabActive]} onPress={() => setTab(t.key)}>
               <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>
-                {t.label}
-                {(t.badge ?? 0) > 0 && ` (${t.badge})`}
+                {t.label}{(t.badge ?? 0) > 0 ? ` (${t.badge})` : ''}
               </Text>
-              {t.key === 'requests' && pendingRequests.length > 0 && (
-                <View style={styles.tabDot} />
-              )}
+              {t.key === 'requests' && pendingRequests.length > 0 && <View style={styles.tabDot} />}
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
 
-      {/* ── Tab: Gastos ── */}
+      {/* ── Tab: GASTOS ─────────────────────────────────────────────────── */}
       {tab === 'expenses' && (
-        <FlatList
-          data={expenses}
-          keyExtractor={(e) => e.id}
-          contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
-          refreshing={loading}
-          onRefresh={loadData}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>✅</Text>
-              <Text style={styles.emptyText}>Sin gastos pendientes</Text>
-            </View>
-          }
-          renderItem={({ item: e }) => (
-            <View style={styles.expCard}>
-              <Text style={styles.expProvider} numberOfLines={1}>
-                {e.provider_name ?? '(sin proveedor)'}
+        <>
+          {/* Sub-filtro: Pendientes / Todos */}
+          <View style={styles.subFilterRow}>
+            <TouchableOpacity
+              style={[styles.subFilterBtn, expFilter === 'pending' && styles.subFilterActive]}
+              onPress={() => setExpFilter('pending')}
+            >
+              <Text style={[styles.subFilterText, expFilter === 'pending' && styles.subFilterTextActive]}>
+                Pendientes ({pendingExpenses.length})
               </Text>
-              <Text style={styles.expDate}>{e.expense_date}</Text>
-              <View style={styles.expRow}>
-                <Text style={styles.expAmount}>{money(e.total)}</Text>
-                <View style={[styles.badge, {
-                    backgroundColor: e.status === 'submitted' ? '#E3F2FD'
-                      : e.status === 'pending_auth' ? '#FFF8E1' : '#F5F5F5',
-                  }]}>
-                  <Text style={[styles.badgeText, {
-                    color: e.status === 'submitted' ? BRAND.blue
-                      : e.status === 'pending_auth' ? BRAND.orange : '#90A4AE',
-                  }]}>
-                    {e.status === 'submitted'    ? 'En revisión'
-                    : e.status === 'pending_auth' ? '⏳ Pend. autorización'
-                    : 'Capturado'}
-                  </Text>
-                </View>
-              </View>
-              {/* Cuenta contable */}
-              <TouchableOpacity
-                style={styles.acctRow}
-                onPress={() => { setAssigningExpense(e); setAccountSearch(''); }}
-              >
-                <Text style={styles.acctLabel}>Cuenta contable: </Text>
-                <Text style={[styles.acctValue, !e.accounting_account_code && styles.acctNone]}>
-                  {e.accounting_account_code ?? 'Sin asignar →'}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.subFilterBtn, expFilter === 'all' && styles.subFilterActive]}
+              onPress={() => setExpFilter('all')}
+            >
+              <Text style={[styles.subFilterText, expFilter === 'all' && styles.subFilterTextActive]}>
+                Todos ({expenses.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.advanceQuickBtn} onPress={() => setShowAdvance(true)}>
+              <Text style={styles.advanceQuickBtnText}>+ Anticipo</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={expenses}
+            keyExtractor={e => e.id}
+            contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
+            refreshing={loading}
+            onRefresh={loadData}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>{expFilter === 'pending' ? '✅' : '🧾'}</Text>
+                <Text style={styles.emptyText}>
+                  {expFilter === 'pending' ? 'Sin gastos pendientes' : 'Sin gastos'}
                 </Text>
-              </TouchableOpacity>
-              <View style={styles.actions}>
-                <TouchableOpacity style={styles.approveBtn} onPress={() => approveExpense(e.id)}>
-                  <Text style={styles.approveTxt}>✓ Aprobar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rejectBtn} onPress={() => rejectExpense(e.id)}>
-                  <Text style={styles.rejectTxt}>✕ Rechazar</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          )}
-        />
+            }
+            renderItem={({ item: e }) => {
+              const isPending = ['captured', 'pending_auth', 'submitted'].includes(e.status);
+              const isAuth    = e.status === 'authorized';
+              const isRej     = e.status === 'rejected';
+              const barColor  = isAuth ? BRAND.green : isRej ? BRAND.red : BRAND.orange;
+              const spenderName = employeeMap[e.spender_id] ?? '—';
+
+              return (
+                <View style={[styles.expCard, { flexDirection: 'row' }]}>
+                  <View style={[styles.expBar, { backgroundColor: barColor }]} />
+                  <View style={{ flex: 1, padding: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={styles.expProvider} numberOfLines={1}>{e.provider_name ?? '(sin proveedor)'}</Text>
+                      <Text style={styles.expAmount}>{money(e.total)}</Text>
+                    </View>
+                    <Text style={styles.expMeta}>
+                      👤 {spenderName}  ·  📅 {e.expense_date}
+                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                      <View style={[styles.statusBadge, {
+                        backgroundColor: isAuth ? '#E8F5E9' : isRej ? '#FFEBEE' : '#FFF8E1',
+                      }]}>
+                        <Text style={[styles.statusText, { color: isAuth ? BRAND.green : isRej ? BRAND.red : BRAND.orange }]}>
+                          {isAuth ? '✓ Autorizado' : isRej ? '✗ Rechazado'
+                            : e.status === 'submitted' ? '📋 En revisión' : '⏳ Pendiente'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.acctChip}
+                        onPress={() => { setAssigningExpense(e); setAccountSearch(''); }}
+                      >
+                        <Text style={[styles.acctChipText, !e.accounting_account_code && { color: BRAND.blue }]}>
+                          {e.accounting_account_code ?? 'Cuenta →'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {isPending && (
+                      <View style={styles.actions}>
+                        <TouchableOpacity style={styles.approveBtn} onPress={() => approveExpense(e.id)}>
+                          <Text style={styles.approveTxt}>✓ Autorizar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.rejectBtn} onPress={() => rejectExpense(e.id)}>
+                          <Text style={styles.rejectTxt}>✕ Rechazar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            }}
+          />
+        </>
       )}
 
-      {/* ── Tab: Solicitudes de anticipo ── */}
+      {/* ── Tab: SOLICITUDES ────────────────────────────────────────────── */}
       {tab === 'requests' && (
         <FlatList
           data={advRequests}
-          keyExtractor={(r) => r.id}
+          keyExtractor={r => r.id}
           contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
           refreshing={loading}
           onRefresh={loadData}
@@ -452,132 +486,230 @@ export default function ContadorGeneralScreen() {
             </View>
           }
           renderItem={({ item: r }) => {
-            const isPending = r.status === 'pending';
-            const statusColor = r.status === 'approved' ? BRAND.green
+            const isPending    = r.status === 'pending';
+            const isExpanded   = expandedReq === r.id;
+            const statusColor  = r.status === 'approved' ? BRAND.green
               : r.status === 'rejected' ? BRAND.red
               : r.status === 'cancelled' ? '#90A4AE'
               : BRAND.orange;
-            const statusLabel = r.status === 'approved' ? 'Aprobada'
-              : r.status === 'rejected' ? 'Rechazada'
-              : r.status === 'cancelled' ? 'Cancelada'
-              : 'Pendiente';
+            const statusLabel  = r.status === 'approved' ? '✅ Aprobada'
+              : r.status === 'rejected' ? '❌ Rechazada'
+              : r.status === 'cancelled' ? '🚫 Cancelada'
+              : '⏳ Pendiente';
+            const spenderName  = employeeMap[r.requester_id] ?? '—';
 
             return (
-              <View style={styles.reqCard}>
+              <TouchableOpacity
+                style={styles.reqCard}
+                onPress={() => setExpandedReq(isExpanded ? null : r.id)}
+                activeOpacity={0.85}
+              >
                 <View style={styles.reqHeader}>
-                  <Text style={styles.reqAmount}>{money(r.amount)}</Text>
-                  <View style={[styles.badge, { backgroundColor: statusColor + '20' }]}>
-                    <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.reqAmount}>{money(r.amount)}</Text>
+                    <Text style={styles.reqSpender}>👤 {spenderName}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                      <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+                    </View>
+                    <Text style={styles.reqDate}>
+                      {new Date(r.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.reqReason}>{r.reason}</Text>
-                <Text style={styles.reqDate}>
-                  {new Date(r.created_at).toLocaleDateString('es-MX', {
-                    day: '2-digit', month: 'short', year: 'numeric',
-                  })}
-                </Text>
-                {r.rejection_reason && (
-                  <Text style={styles.reqReject}>Motivo rechazo: {r.rejection_reason}</Text>
-                )}
-                {isPending && (
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      style={styles.approveBtn}
-                      onPress={() => { setApproveReq(r); setApprovePolicy(policies[0]?.id ?? ''); }}
-                    >
-                      <Text style={styles.approveTxt}>✓ Aprobar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => setRejectReqId(r.id)}
-                    >
-                      <Text style={styles.rejectTxt}>✕ Rechazar</Text>
-                    </TouchableOpacity>
+
+                {/* Expandido */}
+                {isExpanded && (
+                  <View style={styles.reqExpanded}>
+                    <Text style={styles.reqReason}>📝 {r.reason}</Text>
+                    {r.rejection_reason && (
+                      <Text style={styles.reqReject}>Motivo rechazo: {r.rejection_reason}</Text>
+                    )}
+                    {isPending && (
+                      <View style={styles.actions}>
+                        <TouchableOpacity
+                          style={styles.approveBtn}
+                          onPress={() => { setApproveReq(r); setApprovePolicy(policies[0]?.id ?? ''); }}
+                        >
+                          <Text style={styles.approveTxt}>✓ Aprobar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.rejectBtn} onPress={() => setRejectReqId(r.id)}>
+                          <Text style={styles.rejectTxt}>✕ Rechazar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           }}
         />
       )}
 
-      {/* ── Tab: Pólizas — redirige a la pantalla completa ── */}
-      {tab === 'policies' && (
-        <View style={{ flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
-          <Text style={[styles.emptyText, { marginBottom: 6, color: BRAND.navy, fontWeight: '700' }]}>
-            Gestión de pólizas
-          </Text>
-          <Text style={[styles.emptyText, { fontSize: 13, marginBottom: 20, textAlign: 'center' }]}>
-            Crea pólizas, agrega comprobantes, verifica en el SAT y autoriza los gastos.
-          </Text>
-          <TouchableOpacity
-            style={[styles.createBtn, { width: '100%', marginHorizontal: 0 }]}
-            onPress={() => router.push('/polizas' as any)}>
-            <Text style={styles.createBtnText}>Ir a Pólizas →</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.createBtn, { backgroundColor: BRAND.green, width: '100%', marginHorizontal: 0, marginTop: 8 }]}
-            onPress={() => setShowAdvance(true)}>
-            <Text style={styles.createBtnText}>+ Registrar anticipo</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── Tab: Empleados ── */}
+      {/* ── Tab: EMPLEADOS ──────────────────────────────────────────────── */}
       {tab === 'employees' && (
         <FlatList
           data={employees}
-          keyExtractor={(e) => e.user_id}
+          keyExtractor={e => e.user_id}
           contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
           renderItem={({ item: e }) => (
             <View style={styles.empCard}>
               <Text style={styles.empIcon}>
-                {e.role === 'owner' ? '👑'
-                  : e.role === 'admin' ? '👑'
-                  : e.role === 'contador_general' ? '🧑‍💼'
+                {e.role === 'owner' || e.role === 'admin' ? '👑'
                   : e.role === 'accountant' ? '🧮'
-                  : e.role === 'collector' ? '🚶'
+                  : e.role === 'supervisor' ? '📋'
+                  : e.role === 'spender' ? '🛒'
                   : '👤'}
               </Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.empId} numberOfLines={1}>{e.full_name ?? e.user_id}</Text>
+                <Text style={styles.empName}>{e.full_name ?? '(sin nombre)'}</Text>
                 <Text style={styles.empRole}>
                   {e.role === 'owner'      ? 'Dueño'
-                    : e.role === 'admin'   ? 'Administrador'
-                    : e.role === 'supervisor' ? 'Supervisor'
-                    : e.role === 'accountant' ? 'Contador'
-                    : e.role === 'spender' ? 'Comprador'
-                    : e.role === 'employee'? 'Empleado'
-                    : e.role === 'collector'? 'Cobrador'
-                    : e.role === 'operator'? 'Operador'
-                    : e.role}
+                  : e.role === 'admin'     ? 'Administrador'
+                  : e.role === 'accountant'? 'Contador'
+                  : e.role === 'supervisor'? 'Supervisor'
+                  : e.role === 'spender'   ? 'Comprador'
+                  : e.role === 'operator'  ? 'Operador'
+                  : e.role}
                 </Text>
               </View>
+              {e.role === 'spender' && (
+                <TouchableOpacity
+                  style={styles.miniAdvBtn}
+                  onPress={async () => { await onSelectSpender(e); setShowAdvance(true); }}
+                >
+                  <Text style={styles.miniAdvBtnText}>+ Anticipo</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />
       )}
 
-      {/* ── Modal aprobar solicitud ── */}
+      {/* ── Modal: anticipo manual ─────────────────────────────────────── */}
+      <Modal visible={showAdvance} animationType="slide" transparent onRequestClose={() => setShowAdvance(false)}>
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
+            <Text style={styles.sheetTitle}>Registrar Anticipo</Text>
+
+            {/* 1. A quién */}
+            <Text style={styles.fieldLabel}>Comprador *</Text>
+            {spenders.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                {spenders.map(s => (
+                  <TouchableOpacity
+                    key={s.user_id}
+                    style={[styles.chip, advSpender?.user_id === s.user_id && styles.chipActive]}
+                    onPress={() => onSelectSpender(s)}
+                  >
+                    <Text style={[styles.chipText, advSpender?.user_id === s.user_id && { color: '#fff' }]}>
+                      {s.full_name ?? s.user_id.slice(0, 8)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={{ color: '#90A4AE', fontSize: 13, marginBottom: 8 }}>Sin compradores activos</Text>
+            )}
+
+            {/* 2. Póliza del comprador */}
+            {advSpender && (
+              <>
+                <Text style={styles.fieldLabel}>Póliza *</Text>
+                {spenderPolicies.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                    {spenderPolicies.map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        style={[styles.chip, advPolicy === p.id && styles.chipActive]}
+                        onPress={() => setAdvPolicy(p.id)}
+                      >
+                        <Text style={[styles.chipText, advPolicy === p.id && { color: '#fff' }]}>{p.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={{ color: BRAND.red, fontSize: 13, marginBottom: 8 }}>
+                    {advSpender.full_name ?? 'Este empleado'} no tiene pólizas abiertas. Créale una primero desde Pólizas.
+                  </Text>
+                )}
+              </>
+            )}
+
+            {/* 3. Propósito */}
+            <Text style={styles.fieldLabel}>Para qué *</Text>
+            <TextInput
+              style={styles.input}
+              value={advPurpose}
+              onChangeText={setAdvPurpose}
+              placeholder="Ej: Viaje a Guadalajara, Compras campo norte"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            {/* 4. Monto */}
+            <Text style={styles.fieldLabel}>Monto (MXN) *</Text>
+            <TextInput
+              style={styles.input}
+              value={advAmount}
+              onChangeText={setAdvAmount}
+              placeholder="0.00"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="decimal-pad"
+            />
+
+            {/* 5. Nota adicional */}
+            <Text style={styles.fieldLabel}>Nota adicional</Text>
+            <TextInput
+              style={[styles.input, { height: 70 }]}
+              multiline
+              value={advNote}
+              onChangeText={setAdvNote}
+              placeholder="Instrucciones o referencia adicional..."
+              placeholderTextColor="#B0BEC5"
+              textAlignVertical="top"
+            />
+
+            <TouchableOpacity
+              style={[styles.createBtn, (!advSpender || !advPolicy || !advAmount || !advPurpose || savingAdv) && { opacity: 0.5 }]}
+              onPress={createAdvance}
+              disabled={!advSpender || !advPolicy || !advAmount || !advPurpose || savingAdv}
+            >
+              {savingAdv
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.createBtnText}>Registrar Anticipo</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+              setShowAdvance(false);
+              setAdvSpender(null); setAdvPolicy(''); setAdvAmount('');
+              setAdvNote(''); setAdvPurpose(''); setSpenderPolicies([]);
+            }}>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Modal: aprobar solicitud ───────────────────────────────────── */}
       {approveReq && (
         <Modal visible animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.bottomSheet}>
+          <View style={styles.overlay}>
+            <View style={styles.sheet}>
               <Text style={styles.sheetTitle}>Aprobar solicitud</Text>
               <Text style={styles.sheetAmount}>{money(approveReq.amount)}</Text>
               <Text style={styles.sheetReason}>{approveReq.reason}</Text>
 
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Aplicar anticipo a la póliza</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Aplicar a la póliza</Text>
               {policies.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                  {policies.map((p) => (
+                  {policies.map(p => (
                     <TouchableOpacity
                       key={p.id}
-                      style={[styles.polChip, approvePolicy === p.id && { backgroundColor: BRAND.blue }]}
+                      style={[styles.chip, approvePolicy === p.id && styles.chipActive]}
                       onPress={() => setApprovePolicy(p.id)}
                     >
-                      <Text style={[styles.polChipText, approvePolicy === p.id && { color: '#fff' }]} numberOfLines={1}>
+                      <Text style={[styles.chipText, approvePolicy === p.id && { color: '#fff' }]} numberOfLines={1}>
                         {p.name}
                       </Text>
                     </TouchableOpacity>
@@ -585,20 +717,16 @@ export default function ContadorGeneralScreen() {
                 </ScrollView>
               ) : (
                 <Text style={{ color: BRAND.red, fontSize: 13, marginBottom: 8 }}>
-                  No hay pólizas abiertas. Crea una primero.
+                  No hay pólizas abiertas. Crea una desde Pólizas.
                 </Text>
               )}
 
               <View style={[styles.actions, { marginTop: 16 }]}>
-                <TouchableOpacity
-                  style={[styles.rejectBtn, { flex: 1 }]}
-                  onPress={() => { setApproveReq(null); setApprovePolicy(''); }}
-                  disabled={approveSaving}
-                >
+                <TouchableOpacity style={styles.rejectBtn} onPress={() => { setApproveReq(null); setApprovePolicy(''); }} disabled={approveSaving}>
                   <Text style={styles.rejectTxt}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.approveBtn, { flex: 1 }, (!approvePolicy || approveSaving) && { opacity: 0.5 }]}
+                  style={[styles.approveBtn, (!approvePolicy || approveSaving) && { opacity: 0.5 }]}
                   onPress={handleApproveRequest}
                   disabled={!approvePolicy || approveSaving}
                 >
@@ -613,11 +741,11 @@ export default function ContadorGeneralScreen() {
         </Modal>
       )}
 
-      {/* ── Modal rechazar solicitud ── */}
+      {/* ── Modal: rechazar solicitud ──────────────────────────────────── */}
       {rejectReqId && (
         <Modal visible animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.bottomSheet}>
+          <View style={styles.overlay}>
+            <View style={styles.sheet}>
               <Text style={styles.sheetTitle}>Rechazar solicitud</Text>
               <Text style={styles.fieldLabel}>Motivo del rechazo *</Text>
               <TextInput
@@ -630,15 +758,11 @@ export default function ContadorGeneralScreen() {
                 textAlignVertical="top"
               />
               <View style={[styles.actions, { marginTop: 12 }]}>
-                <TouchableOpacity
-                  style={[styles.approveBtn, { flex: 1 }]}
-                  onPress={() => { setRejectReqId(null); setRejectReason(''); }}
-                  disabled={rejectSaving}
-                >
+                <TouchableOpacity style={styles.approveBtn} onPress={() => { setRejectReqId(null); setRejectReason(''); }} disabled={rejectSaving}>
                   <Text style={styles.approveTxt}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.rejectBtn, { flex: 1 }, (!rejectReason.trim() || rejectSaving) && { opacity: 0.5 }]}
+                  style={[styles.rejectBtn, (!rejectReason.trim() || rejectSaving) && { opacity: 0.5 }]}
                   onPress={handleRejectRequest}
                   disabled={!rejectReason.trim() || rejectSaving}
                 >
@@ -653,35 +777,28 @@ export default function ContadorGeneralScreen() {
         </Modal>
       )}
 
-      {/* ── Modal asignar cuenta contable ── */}
+      {/* ── Modal: asignar cuenta contable ────────────────────────────── */}
       {assigningExpense && (
         <Modal visible animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.bottomSheet, { maxHeight: '80%' }]}>
+          <View style={styles.overlay}>
+            <View style={[styles.sheet, { maxHeight: '80%' }]}>
               <Text style={styles.sheetTitle}>Cuenta contable</Text>
               <Text style={[styles.sheetReason, { marginBottom: 12 }]} numberOfLines={1}>
-                {assigningExpense.provider_name ?? '(sin proveedor)'}
-                {' — '}{money(assigningExpense.total)}
+                {assigningExpense.provider_name ?? '(sin proveedor)'} — {money(assigningExpense.total)}
               </Text>
-
-              {/* Buscador autocomplete */}
               <TextInput
                 style={[styles.input, { marginBottom: 8 }]}
-                placeholder="Escribe el código (ej: 605) o nombre…"
+                placeholder="Código (ej: 605) o nombre de cuenta…"
                 placeholderTextColor="#B0BEC5"
                 value={accountSearch}
                 onChangeText={setAccountSearch}
                 autoFocus
                 autoCapitalize="none"
-                keyboardType="default"
               />
-
               {accounts.length === 0 ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ color: '#90A4AE', fontSize: 13, textAlign: 'center' }}>
-                    Sin cuentas cargadas.{'\n'}Ve a Herramientas → Catálogo contable para importar tu catálogo.
-                  </Text>
-                </View>
+                <Text style={{ color: '#90A4AE', fontSize: 13, textAlign: 'center', padding: 16 }}>
+                  Sin cuentas. Ve a Herramientas → Catálogo contable para importar.
+                </Text>
               ) : (
                 <FlatList
                   data={filteredAccounts}
@@ -694,160 +811,94 @@ export default function ContadorGeneralScreen() {
                     </Text>
                   }
                   renderItem={({ item: a }) => (
-                    <TouchableOpacity
-                      style={styles.acctOption}
-                      onPress={() => assignAccount(assigningExpense, a)}
-                      disabled={savingAccount}
-                    >
+                    <TouchableOpacity style={styles.acctOption} onPress={() => assignAccount(assigningExpense, a)} disabled={savingAccount}>
                       <Text style={styles.acctOptionCode}>{a.code}</Text>
                       <Text style={styles.acctOptionName} numberOfLines={1}>{a.name}</Text>
-                      {assigningExpense.accounting_account_id === a.id && (
-                        <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>
-                      )}
+                      {assigningExpense.accounting_account_id === a.id && <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>}
                     </TouchableOpacity>
                   )}
                 />
               )}
-
-              <TouchableOpacity
-                style={[styles.rejectBtn, { marginTop: 12 }]}
-                onPress={() => { setAssigningExpense(null); setAccountSearch(''); }}
-              >
-                <Text style={styles.rejectTxt}>Cerrar</Text>
+              <TouchableOpacity style={[styles.cancelBtn, { marginTop: 12 }]} onPress={() => { setAssigningExpense(null); setAccountSearch(''); }}>
+                <Text style={styles.cancelText}>Cerrar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
       )}
 
-      {/* Modal crear póliza */}
-      <Modal visible={showPolicy} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPolicy(false)}>
-        <View style={styles.modalWrap}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowPolicy(false)}>
-              <Text style={styles.modalCancel}>Cancelar</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nueva póliza</Text>
-            <TouchableOpacity onPress={createPolicy} disabled={!polName.trim() || !polHolder.trim() || savingPol}>
-              <Text style={[styles.modalSave, (!polName.trim() || !polHolder.trim()) && { opacity: 0.4 }]}>
-                {savingPol ? '…' : 'Crear'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
-            <Text style={styles.fieldLabel}>Nombre de la póliza *</Text>
-            <TextInput style={styles.input} placeholder="Ej: Gastos Junio 2026" value={polName} onChangeText={setPolName} />
-            <Text style={styles.fieldLabel}>ID del empleado titular *</Text>
-            <TextInput style={styles.input} placeholder="UUID del usuario en Supabase" value={polHolder} onChangeText={setPolHolder} autoCapitalize="none" />
-            <Text style={styles.fieldLabel}>Saldo inicial (MXN)</Text>
-            <TextInput style={styles.input} placeholder="0.00" value={polBalance} onChangeText={setPolBalance} keyboardType="decimal-pad" />
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Modal crear anticipo */}
-      <Modal visible={showAdvance} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAdvance(false)}>
-        <View style={styles.modalWrap}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowAdvance(false)}>
-              <Text style={styles.modalCancel}>Cancelar</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Registrar anticipo</Text>
-            <TouchableOpacity onPress={createAdvance} disabled={!advPolicy.trim() || !advAmount.trim() || savingAdv}>
-              <Text style={[styles.modalSave, (!advPolicy.trim() || !advAmount.trim()) && { opacity: 0.4 }]}>
-                {savingAdv ? '…' : 'Registrar'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
-            <Text style={styles.fieldLabel}>Póliza *</Text>
-            {policies.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {policies.map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={[styles.polChip, advPolicy === p.id && { backgroundColor: BRAND.blue }]}
-                    onPress={() => setAdvPolicy(p.id)}
-                  >
-                    <Text style={[styles.polChipText, advPolicy === p.id && { color: '#fff' }]} numberOfLines={1}>
-                      {p.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            <TextInput style={styles.input} placeholder="UUID de la póliza" value={advPolicy} onChangeText={setAdvPolicy} autoCapitalize="none" />
-            <Text style={styles.fieldLabel}>Monto (MXN) *</Text>
-            <TextInput style={styles.input} placeholder="0.00" value={advAmount} onChangeText={setAdvAmount} keyboardType="decimal-pad" />
-            <Text style={styles.fieldLabel}>Nota (opcional)</Text>
-            <TextInput style={[styles.input, { height: 70 }]} multiline placeholder="Descripción del anticipo…" value={advNote} onChangeText={setAdvNote} />
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }
 
+// ── Estilos ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  tabsScroll:     { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0', maxHeight: 50 },
-  tabs:           { flexDirection: 'row' },
-  tab:            { paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center', position: 'relative' },
-  tabActive:      { borderBottomWidth: 2, borderBottomColor: BRAND.blue },
-  tabText:        { fontSize: 13, fontWeight: '600', color: '#90A4AE' },
-  tabTextActive:  { color: BRAND.blue },
-  tabDot:         { position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: BRAND.orange },
-  expCard:        { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8 },
-  expProvider:    { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  expDate:        { fontSize: 12, color: '#90A4AE', marginTop: 2, marginBottom: 8 },
-  expRow:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  expAmount:      { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  badge:          { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText:      { fontSize: 11, fontWeight: '700' },
-  actions:        { flexDirection: 'row', gap: 8, marginTop: 12 },
-  approveBtn:     { flex: 1, backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
-  approveTxt:     { color: BRAND.green, fontWeight: '700', fontSize: 14 },
-  rejectBtn:      { flex: 1, backgroundColor: '#FFEBEE', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
-  rejectTxt:      { color: BRAND.red, fontWeight: '700', fontSize: 14 },
-  reqCard:        { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8 },
-  reqHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  reqAmount:      { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  reqReason:      { fontSize: 14, color: '#555', marginBottom: 4, lineHeight: 20 },
-  reqDate:        { fontSize: 12, color: '#B0BEC5' },
-  reqReject:      { fontSize: 13, color: BRAND.red, marginTop: 6 },
-  createBtn:      { margin: 12, marginBottom: 6, backgroundColor: BRAND.blue, borderRadius: 12, padding: 14, alignItems: 'center' },
-  createBtnText:  { color: '#fff', fontSize: 15, fontWeight: '700' },
-  polCard:        { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 },
-  polName:        { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-  polId:          { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  empCard:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
-  empIcon:        { fontSize: 22 },
-  empId:          { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
-  empRole:        { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  empty:          { alignItems: 'center', padding: 40 },
-  emptyIcon:      { fontSize: 36, marginBottom: 8 },
-  emptyText:      { fontSize: 15, color: '#90A4AE', textAlign: 'center' },
-  // Bottom sheet modals
-  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  bottomSheet:    { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  sheetTitle:     { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
-  sheetAmount:    { fontSize: 26, fontWeight: '800', color: BRAND.blue, marginBottom: 4 },
-  sheetReason:    { fontSize: 14, color: '#555', marginBottom: 4 },
-  // Page sheet modals
-  modalWrap:      { flex: 1, backgroundColor: BRAND.gray },
-  modalHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  modalTitle:     { fontSize: 16, fontWeight: '700', color: BRAND.navy },
-  modalCancel:    { fontSize: 15, color: '#90A4AE', paddingVertical: 4 },
-  modalSave:      { fontSize: 15, color: BRAND.blue, fontWeight: '700', paddingVertical: 4 },
-  fieldLabel:     { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginTop: 12, marginBottom: 4 },
-  input:          { backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy },
-  polChip:        { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#E0E0E0', marginRight: 8 },
-  polChipText:    { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
-  // Cuenta contable
-  acctRow:        { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 2, paddingVertical: 5, paddingHorizontal: 8, backgroundColor: '#F8F9FA', borderRadius: 8 },
-  acctLabel:      { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase' },
-  acctValue:      { fontSize: 12, fontWeight: '700', color: BRAND.navy, flex: 1 },
-  acctNone:       { color: BRAND.blue },
-  acctOption:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', gap: 10 },
-  acctOptionCode: { fontSize: 13, fontWeight: '800', color: BRAND.navy, width: 70, fontVariant: ['tabular-nums'] },
-  acctOptionName: { flex: 1, fontSize: 13, color: '#546E7A' },
+  tabsScroll:       { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0', maxHeight: 50 },
+  tabs:             { flexDirection: 'row' },
+  tab:              { paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center', position: 'relative' },
+  tabActive:        { borderBottomWidth: 2, borderBottomColor: BRAND.blue },
+  tabText:          { fontSize: 13, fontWeight: '600', color: '#90A4AE' },
+  tabTextActive:    { color: BRAND.blue },
+  tabDot:           { position: 'absolute', top: 8, right: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: BRAND.orange },
+
+  subFilterRow:     { flexDirection: 'row', padding: 12, gap: 8, alignItems: 'center' },
+  subFilterBtn:     { flex: 1, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0' },
+  subFilterActive:  { backgroundColor: BRAND.navy, borderColor: BRAND.navy },
+  subFilterText:    { fontSize: 12, fontWeight: '600', color: BRAND.navy },
+  subFilterTextActive: { color: '#fff' },
+  advanceQuickBtn:  { backgroundColor: BRAND.green, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  advanceQuickBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  expCard:          { backgroundColor: '#fff', borderRadius: 14, marginBottom: 8, overflow: 'hidden' },
+  expBar:           { width: 5 },
+  expProvider:      { fontSize: 14, fontWeight: '700', color: BRAND.navy, flex: 1, marginRight: 8 },
+  expAmount:        { fontSize: 15, fontWeight: '800', color: BRAND.navy },
+  expMeta:          { fontSize: 12, color: '#90A4AE', marginTop: 4 },
+  statusBadge:      { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  statusText:       { fontSize: 11, fontWeight: '700' },
+  acctChip:         { backgroundColor: '#F8F9FA', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  acctChipText:     { fontSize: 11, fontWeight: '700', color: '#546E7A' },
+  actions:          { flexDirection: 'row', gap: 8, marginTop: 12 },
+  approveBtn:       { flex: 1, backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  approveTxt:       { color: BRAND.green, fontWeight: '700', fontSize: 13 },
+  rejectBtn:        { flex: 1, backgroundColor: '#FFEBEE', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  rejectTxt:        { color: BRAND.red, fontWeight: '700', fontSize: 13 },
+
+  reqCard:          { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8 },
+  reqHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  reqAmount:        { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 2 },
+  reqSpender:       { fontSize: 12, color: '#90A4AE' },
+  reqDate:          { fontSize: 11, color: '#B0BEC5' },
+  reqExpanded:      { marginTop: 12, borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 10 },
+  reqReason:        { fontSize: 14, color: '#546E7A', lineHeight: 20, marginBottom: 4 },
+  reqReject:        { fontSize: 13, color: BRAND.red, marginTop: 6 },
+
+  empCard:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
+  empIcon:          { fontSize: 22 },
+  empName:          { fontSize: 14, color: BRAND.navy, fontWeight: '700' },
+  empRole:          { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  miniAdvBtn:       { backgroundColor: BRAND.green + '20', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
+  miniAdvBtnText:   { fontSize: 11, fontWeight: '700', color: BRAND.green },
+
+  overlay:          { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:            { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 },
+  sheetTitle:       { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 8 },
+  sheetAmount:      { fontSize: 26, fontWeight: '800', color: BRAND.blue, marginBottom: 4 },
+  sheetReason:      { fontSize: 14, color: '#555', marginBottom: 4 },
+  fieldLabel:       { fontSize: 12, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginTop: 14, marginBottom: 4 },
+  input:            { backgroundColor: BRAND.gray, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy },
+  createBtn:        { marginTop: 20, backgroundColor: BRAND.blue, borderRadius: 12, padding: 16, alignItems: 'center' },
+  createBtnText:    { color: '#fff', fontWeight: '700', fontSize: 15 },
+  cancelBtn:        { marginTop: 10, padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1.5, borderColor: '#E0E0E0' },
+  cancelText:       { color: '#607D8B', fontWeight: '600' },
+  chip:             { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#E0E0E0', marginRight: 8 },
+  chipActive:       { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+  chipText:         { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
+  acctOption:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', gap: 10 },
+  acctOptionCode:   { fontSize: 13, fontWeight: '800', color: BRAND.navy, width: 70 },
+  acctOptionName:   { flex: 1, fontSize: 13, color: '#546E7A' },
+  empty:            { alignItems: 'center', padding: 40 },
+  emptyIcon:        { fontSize: 36, marginBottom: 8 },
+  emptyText:        { fontSize: 15, color: '#90A4AE', textAlign: 'center' },
 });
