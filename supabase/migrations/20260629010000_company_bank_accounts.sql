@@ -37,3 +37,11 @@ CREATE POLICY "admin_manage_bank_accounts"
 -- Índice para listar por empresa
 CREATE INDEX IF NOT EXISTS idx_company_bank_accounts_company
   ON company_bank_accounts (company_id, active);
+
+-- Enlace a receipts: depósitos identifican la cuenta bancaria de origen
+-- Preparado para integración futura con BancoCheck
+ALTER TABLE receipts
+  ADD COLUMN IF NOT EXISTS bank_account_id uuid REFERENCES company_bank_accounts(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_receipts_bank_account
+  ON receipts (bank_account_id) WHERE bank_account_id IS NOT NULL;
