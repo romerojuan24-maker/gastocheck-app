@@ -1,5 +1,6 @@
 // Pantalla de reembolso DRAFT — comprador agrega recibos progresivamente y luego envía
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, ActivityIndicator, Alert, FlatList, Modal,
@@ -44,9 +45,8 @@ export default function ReembolsoScreen() {
   const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    loadReembolso();
-  }, []);
+  useEffect(() => { loadReembolso(); }, []);
+  useFocusEffect(useCallback(() => { loadReembolso(); }, [reembolso_id]));
 
   async function loadReembolso() {
     setLoading(true);
@@ -87,10 +87,10 @@ export default function ReembolsoScreen() {
       const assignedList = (assigned ?? []).map((item: any) => item.receipts);
       setAssignedReceipts(assignedList.filter(Boolean));
 
-      // Recibos ya en CUALQUIER reembolso (excluir de disponibles)
+      // Recibos ya en algún reembolso existente (!inner descarta huérfanos de reembolsos eliminados)
       const { data: linked } = await supabase
         .from('receipt_reembolsos')
-        .select('receipt_id');
+        .select('receipt_id, reembolsos!inner(id)');
       const linkedIds = (linked ?? []).map((l: any) => l.receipt_id).filter(Boolean);
 
       // Recibos capturados del empleado aún no procesados
@@ -177,6 +177,34 @@ export default function ReembolsoScreen() {
     Alert.alert('Validación SAT', `✅ ${ok} vigente(s)   ❌ ${fail} cancelado(s) / no encontrado(s)`);
   }
 
+  // ── Recargar lista de disponibles al abrir modal ─────────────────────────
+  async function refreshAvailable() {
+    if (!reembolso) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: linked } = await supabase
+      .from('receipt_reembolsos')
+      .select('receipt_id, reembolsos!inner(id)');
+    const linkedIds = (linked ?? []).map((l: any) => l.receipt_id).filter(Boolean);
+
+    let availQ = supabase
+      .from('receipts')
+      .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status, is_credit')
+      .eq('company_id', reembolso.company_id)
+      .or(`uploaded_by.eq.${user.id},employee_id.eq.${user.id}`)
+      .in('status', ['captured', 'approved'])
+      .order('receipt_date', { ascending: false })
+      .limit(100);
+
+    if (linkedIds.length > 0) {
+      availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
+    }
+
+    const { data: available } = await availQ;
+    setAvailableReceipts(available ?? []);
+  }
+
   // ── Quitar comprobante del reembolso (lo regresa a disponibles) ───────────
   async function removeReceipt(receiptId: string) {
     if (!reembolso) return;
@@ -204,7 +232,9 @@ export default function ReembolsoScreen() {
           style: 'destructive',
           onPress: async () => {
             // 1. Desvincular todos los comprobantes
-            await supabase.from('receipt_reembolsos').delete().eq('reembolso_id', reembolso.id);
+            const { error: unlinkErr } = await supabase
+              .from('receipt_reembolsos').delete().eq('reembolso_id', reembolso.id);
+            if (unlinkErr) { Alert.alert('Error', 'No se pudo desvincular: ' + unlinkErr.message); return; }
             // 2. Eliminar el reembolso
             const { error } = await supabase.from('reembolsos').delete().eq('id', reembolso.id);
             if (error) { Alert.alert('Error', error.message); return; }
@@ -353,7 +383,7 @@ export default function ReembolsoScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtn, { flex: 1, backgroundColor: BRAND.orange }]}
-            onPress={() => setShowAddReceipts(true)}
+            onPress={() => { refreshAvailable(); setShowAddReceipts(true); }}
           >
             <Text style={styles.addBtnText}>📋 Mis recibos</Text>
           </TouchableOpacity>
