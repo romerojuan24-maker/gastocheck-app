@@ -68,20 +68,11 @@ export default function CaptureScreen() {
     return unsubscribe;
   }, []);
 
-  // Procesar foto llegando desde camera-screen — ir a preview sin esperar OCR
+  // Foto desde camera-screen — mostrar preview INMEDIATO sin leer base64
   useEffect(() => {
     if (!photoUri || typeof photoUri !== 'string') return;
-    (async () => {
-      try {
-        const base64 = await FileSystem.readAsStringAsync(photoUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        setPhoto({ uri: photoUri, base64 });
-        setStep('preview');
-      } catch (e: any) {
-        Alert.alert('Error', 'No se pudo leer la foto: ' + (e?.message ?? ''));
-      }
-    })();
+    setPhoto({ uri: photoUri, base64: null });
+    setStep('preview');
   }, [photoUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [photo,      setPhoto]      = useState<{ uri: string; base64?: string | null } | null>(null);
@@ -209,22 +200,26 @@ export default function CaptureScreen() {
   // ── Captura rápida: guarda ahora, OCR corre en el servidor ───────────────
 
   async function handleQuickCapture() {
-    if (!photo?.base64 || !memberCompanyId || !memberUserId) {
+    if (!photo?.uri || !memberCompanyId || !memberUserId) {
       Alert.alert('Error', 'Faltan datos. Cierra y vuelve a abrir la pantalla.');
       return;
     }
     setQuickSaving(true);
     try {
-      // 1. Subir foto directamente a Storage (sin edge function)
+      // 1. Leer base64 solo al guardar (no bloquea la navegación al preview)
+      const base64 = await FileSystem.readAsStringAsync(photo.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // 2. Subir foto a Storage
       const storagePath = `${memberCompanyId}/${Date.now()}/comprobante.jpg`;
-      const arrayBuffer = decode(photo.base64);
       const { error: storErr } = await supabase.storage
         .from('expense-attachments')
-        .upload(storagePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+        .upload(storagePath, decode(base64), { contentType: 'image/jpeg', upsert: false });
 
       if (storErr) throw new Error('Error al subir foto: ' + storErr.message);
 
-      // 2. Crear receipt con status captured
+      // 3. Crear receipt con status captured
       const { error: insertErr } = await supabase
         .from('receipts')
         .insert({
