@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, TextInput, Alert,
+  ActivityIndicator, TextInput, Alert, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND, RECEIPT_STATUS_META, DUPLICATE_STATUS_META } from '@gastocheck/shared';
@@ -55,41 +55,54 @@ export default function ReceiptsScreen() {
   const [page,         setPage]         = useState(0);
   const PAGE_SIZE = 20;
 
-  // Crear reembolso draft vacío
-  const [creatingReembolso, setCreatingReembolso] = useState(false);
+  // Crear reembolso — modal nombre
+  const [showReembolsoModal, setShowReembolsoModal] = useState(false);
+  const [reembolsoName,      setReembolsoName]      = useState('');
+  const [creatingReembolso,  setCreatingReembolso]  = useState(false);
+  const [pendingCompanyId,   setPendingCompanyId]   = useState<string | null>(null);
   const [tabCounts, setTabCounts] = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
 
+  // Paso 1: obtener empresa y abrir modal de nombre
   async function handleCreateReembolso() {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) return;
+    const { data: member } = await supabase.from('company_members')
+      .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    if (!member) { Alert.alert('Error', 'No tienes asignada una empresa.'); return; }
+    setPendingCompanyId(member.company_id);
+    setReembolsoName('');
+    setShowReembolsoModal(true);
+  }
 
-    // Obtener empresa del usuario actual
-    const { data: member } = await supabase
-      .from('company_members')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (!member) {
-      Alert.alert('Error', 'No tienes asignada una empresa.');
-      return;
-    }
-
+  // Paso 2: crear con nombre + número de control atómico
+  async function confirmCreateReembolso() {
+    const name = reembolsoName.trim();
+    if (!name) { Alert.alert('Nombre requerido', 'Escribe un nombre para identificar este reembolso.'); return; }
+    if (!pendingCompanyId) return;
     setCreatingReembolso(true);
     try {
-      const { data, error } = await supabase.functions.invoke('reembolsos-workflow', {
-        body: { action: 'create_draft', company_id: member.company_id },
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No autenticado');
 
-      if (error || !data.reembolso_id) throw new Error(data?.error ?? 'No se pudo crear');
+      const { data: numData, error: numErr } = await supabase
+        .rpc('next_reembolso_number', { p_company_id: pendingCompanyId });
+      if (numErr) throw new Error(numErr.message);
 
-      // Ir al reembolso draft
-      router.push({
-        pathname: '/reembolso',
-        params: { reembolso_id: data.reembolso_id }
-      } as any);
+      const { data: reb, error: rebErr } = await supabase.from('reembolsos').insert({
+        company_id:     pendingCompanyId,
+        employee_id:    user.id,
+        employee_email: user.email ?? '',
+        name,
+        control_number: numData as number,
+        status:         'draft',
+        total:          0,
+        notes:          '',
+      }).select('id').single();
+      if (rebErr) throw new Error(rebErr.message);
+
+      setShowReembolsoModal(false);
+      router.push({ pathname: '/reembolso', params: { reembolso_id: reb.id } } as any);
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'No se pudo crear el reembolso.');
     } finally {
@@ -358,13 +371,11 @@ export default function ReceiptsScreen() {
           disabled={creatingReembolso}
         >
           {creatingReembolso ? (
-            <>
-              <Text style={styles.reembolsoBarText}>⏳ Creando reembolso…</Text>
-            </>
+            <Text style={styles.reembolsoBarText}>⏳ Creando reembolso…</Text>
           ) : (
             <>
               <Text style={styles.reembolsoBarText}>📋 Crear Reembolso</Text>
-              <Text style={styles.reembolsoBarHint}>Nuevo reembolso vacío →</Text>
+              <Text style={styles.reembolsoBarHint}>Asigna nombre y número de control →</Text>
             </>
           )}
         </TouchableOpacity>
@@ -492,6 +503,49 @@ export default function ReceiptsScreen() {
         />
       )}
 
+      {/* ── Modal: nombre del reembolso ──────────────────────────────────── */}
+      {showReembolsoModal && (
+        <Modal visible animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Nuevo Reembolso</Text>
+              <Text style={styles.modalSub}>
+                El número de control (R-0001, R-0002…) se asigna automático y es único para tu empresa.
+              </Text>
+              <Text style={styles.modalLabel}>Nombre del reembolso</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Ej: Materiales obra norte, Viaje CDMX, Papelería…"
+                placeholderTextColor="#B0BEC5"
+                value={reembolsoName}
+                onChangeText={setReembolsoName}
+                autoFocus
+                maxLength={80}
+                returnKeyType="done"
+                onSubmitEditing={confirmCreateReembolso}
+              />
+              <Text style={styles.modalCounter}>{reembolsoName.trim().length}/80</Text>
+              <TouchableOpacity
+                style={[styles.modalCreateBtn, (!reembolsoName.trim() || creatingReembolso) && { opacity: 0.4 }]}
+                onPress={confirmCreateReembolso}
+                disabled={!reembolsoName.trim() || creatingReembolso}
+              >
+                {creatingReembolso
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.modalCreateText}>Crear Reembolso →</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => { setShowReembolsoModal(false); setReembolsoName(''); }}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
     </View>
   );
 }
@@ -588,4 +642,17 @@ const styles = StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
   },
   captureBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+  // Modal nombre reembolso
+  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet:      { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 48 },
+  modalTitle:      { fontSize: 19, fontWeight: '800', color: BRAND.navy, marginBottom: 6 },
+  modalSub:        { fontSize: 13, color: '#90A4AE', marginBottom: 18, lineHeight: 18 },
+  modalLabel:      { fontSize: 12, fontWeight: '700', color: '#607D8B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
+  modalInput:      { backgroundColor: BRAND.gray, borderRadius: 12, padding: 14, fontSize: 15, color: BRAND.navy, borderWidth: 1, borderColor: '#E0E0E0' },
+  modalCounter:    { fontSize: 11, color: '#B0BEC5', textAlign: 'right', marginTop: 4, marginBottom: 18 },
+  modalCreateBtn:  { backgroundColor: BRAND.green, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  modalCreateText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  modalCancelBtn:  { padding: 14, alignItems: 'center' },
+  modalCancelText: { color: '#90A4AE', fontWeight: '600', fontSize: 14 },
 });

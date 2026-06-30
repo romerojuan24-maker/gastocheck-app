@@ -239,6 +239,12 @@ export default function GastoCheckHome() {
         />
         <MenuBtn
           icon="📋"
+          label="Mis Reembolsos"
+          hint="Crea, arma y envía reembolsos al contador — R-0001, R-0002…"
+          onPress={() => router.push('/mis-reembolsos' as any)}
+        />
+        <MenuBtn
+          icon="📋"
           label="Mis pólizas"
           hint={isAdmin ? 'Crear, revisar y autorizar gastos' : 'Crear póliza e integrar comprobantes'}
           onPress={() => router.push('/polizas' as any)}

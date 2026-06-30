@@ -22,10 +22,12 @@ interface ReceiptItem {
 }
 
 interface Reembolso {
-  id: string;
-  status: string;
-  company_id: string;
-  employee_id: string;
+  id:             string;
+  status:         string;
+  company_id:     string;
+  employee_id:    string;
+  control_number: number | null;
+  name:           string;
 }
 
 export default function ReembolsoScreen() {
@@ -57,7 +59,7 @@ export default function ReembolsoScreen() {
       // Cargar reembolso
       const { data: reb } = await supabase
         .from('reembolsos')
-        .select('id, status, company_id, employee_id')
+        .select('id, status, company_id, employee_id, control_number, name')
         .eq('id', reembolso_id)
         .single();
 
@@ -192,7 +194,10 @@ export default function ReembolsoScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <Text style={styles.title}>Nuevo Reembolso</Text>
+        <Text style={styles.controlNum}>
+          {reembolso.control_number ? `R-${String(reembolso.control_number).padStart(4, '0')}` : 'Nuevo Reembolso'}
+        </Text>
+        {reembolso.name ? <Text style={styles.title}>{reembolso.name}</Text> : null}
         <Text style={styles.subtitle}>
           {assignedReceipts.length} comprobante{assignedReceipts.length !== 1 ? 's' : ''} · Total: {money(totalAmount)}
         </Text>
@@ -353,7 +358,8 @@ export default function ReembolsoScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 24, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  controlNum: { fontSize: 13, fontWeight: '900', color: BRAND.blue, letterSpacing: 1, marginBottom: 4 },
+  title:    { fontSize: 20, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#90A4AE', marginBottom: 16 },
 
   section: {
