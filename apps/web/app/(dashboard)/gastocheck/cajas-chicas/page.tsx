@@ -11,13 +11,27 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+interface SpenderBalance {
+  user_id: string
+  company_id: string
+  total_advances: number
+  total_spent: number
+  balance: number
+}
+
+interface Profile {
+  id: string
+  full_name: string | null
+  email?: string
+}
+
 interface Caja {
-  holderId: string
-  holder: string
+  userId: string
+  name: string
+  email: string
   anticipado: number
   gastado: number
   saldo: number
-  polizas: number
 }
 
 export default function CajasChicasPage() {
@@ -34,29 +48,41 @@ export default function CajasChicasPage() {
       if (!u?.company_id) { setLoading(false); return }
       const cid = u.company_id
 
-      const [{ data: advances }, { data: expenses }, { data: profiles }] = await Promise.all([
-        supabase.from('advances').select('amount, policy_id, policies(holder_id)').eq('company_id', cid),
-        supabase.from('expenses').select('total, policy_id, policies(holder_id)').eq('company_id', cid),
-        supabase.from('profiles').select('id, full_name'),
+      const [{ data: balances }, { data: profiles }] = await Promise.all([
+        supabase
+          .from('v_spender_balance')
+          .select('*')
+          .eq('company_id', cid),
+        supabase
+          .from('profiles')
+          .select('id, full_name'),
       ])
 
-      const nameOf = (id: string) => (profiles ?? []).find((p: any) => p.id === id)?.full_name || 'Sin nombre'
-      const map: Record<string, Caja> = {}
-      const ensure = (hid: string) => (map[hid] ??= { holderId: hid, holder: nameOf(hid), anticipado: 0, gastado: 0, saldo: 0, polizas: 0 })
-      const polSet: Record<string, Set<string>> = {}
+      // También intentar obtener emails desde company_members
+      const { data: members } = await supabase
+        .from('company_members')
+        .select('user_id, profiles(full_name)')
+        .eq('company_id', cid)
+        .in('role', ['spender', 'comprador'])
 
-      for (const a of (advances ?? []) as any[]) {
-        const hid = a.policies?.holder_id; if (!hid) continue
-        ensure(hid).anticipado += Number(a.amount) || 0
-        ;(polSet[hid] ??= new Set()).add(a.policy_id)
+      const nameMap: Record<string, string> = {}
+      for (const p of (profiles ?? []) as Profile[]) {
+        if (p.full_name) nameMap[p.id] = p.full_name
       }
-      for (const e of (expenses ?? []) as any[]) {
-        const hid = e.policies?.holder_id; if (!hid) continue
-        ensure(hid).gastado += Number(e.total) || 0
-        ;(polSet[hid] ??= new Set()).add(e.policy_id)
+      for (const m of (members ?? []) as any[]) {
+        if (m.profiles?.full_name) nameMap[m.user_id] = m.profiles.full_name
       }
-      const list = Object.values(map).map((c) => ({ ...c, saldo: c.anticipado - c.gastado, polizas: polSet[c.holderId]?.size ?? 0 }))
+
+      const list: Caja[] = (balances ?? []).map((b: SpenderBalance) => ({
+        userId:     b.user_id,
+        name:       nameMap[b.user_id] || 'Comprador',
+        email:      b.user_id,
+        anticipado: Number(b.total_advances) || 0,
+        gastado:    Number(b.total_spent)    || 0,
+        saldo:      Number(b.balance)        || 0,
+      }))
       list.sort((a, b) => b.anticipado - a.anticipado)
+
       setCajas(list)
       setLoading(false)
     })()
@@ -72,32 +98,31 @@ export default function CajasChicasPage() {
 
   const totAnt = cajas.reduce((s, c) => s + c.anticipado, 0)
   const totGas = cajas.reduce((s, c) => s + c.gastado, 0)
-  const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+  const fmt = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n)
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-black text-slate-900">🏦 Cajas Chicas</h1>
-        <p className="text-slate-500 mt-1">Saldo por responsable: anticipos entregados menos gastos comprobados</p>
+        <p className="text-slate-500 mt-1">Saldo por comprador: anticipos entregados menos gastos comprobados (capturados en app)</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <Kpi label="Total anticipado" value={fmt(totAnt)} color="text-blue-600" />
-        <Kpi label="Total comprobado" value={fmt(totGas)} color="text-slate-700" />
-        <Kpi label="Saldo en cajas" value={fmt(totAnt - totGas)} color="text-emerald-600" />
+        <Kpi label="Total anticipado"  value={fmt(totAnt)}          color="text-blue-600" />
+        <Kpi label="Total comprobado"  value={fmt(totGas)}          color="text-slate-700" />
+        <Kpi label="Saldo en cajas"    value={fmt(totAnt - totGas)} color="text-emerald-600" />
       </div>
 
       {cajas.length === 0 ? (
         <div className="p-12 text-center text-slate-500 border border-dashed border-slate-200 rounded-lg">
-          No hay anticipos registrados.
+          No hay anticipos registrados. Los compradores deben recibir un anticipo en la app para aparecer aquí.
         </div>
       ) : (
         <div className="overflow-x-auto border border-slate-200 rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                <th className="text-left p-3">Responsable</th>
-                <th className="text-center p-3">Pólizas</th>
+                <th className="text-left p-3">Comprador</th>
                 <th className="text-right p-3">Anticipado</th>
                 <th className="text-right p-3">Comprobado</th>
                 <th className="text-right p-3">Saldo</th>
@@ -105,12 +130,13 @@ export default function CajasChicasPage() {
             </thead>
             <tbody>
               {cajas.map((c) => (
-                <tr key={c.holderId} className="border-t border-slate-100">
-                  <td className="p-3 font-medium text-slate-900">{c.holder}</td>
-                  <td className="p-3 text-center text-slate-600">{c.polizas}</td>
+                <tr key={c.userId} className="border-t border-slate-100">
+                  <td className="p-3 font-medium text-slate-900">{c.name}</td>
                   <td className="p-3 text-right text-slate-700">{fmt(c.anticipado)}</td>
                   <td className="p-3 text-right text-slate-700">{fmt(c.gastado)}</td>
-                  <td className={`p-3 text-right font-bold ${c.saldo < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{fmt(c.saldo)}</td>
+                  <td className={`p-3 text-right font-bold ${c.saldo < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {fmt(c.saldo)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -118,7 +144,8 @@ export default function CajasChicasPage() {
         </div>
       )}
       <p className="text-xs text-slate-400">
-        Saldo = anticipos entregados − gastos comprobados. Saldo negativo (rojo) = gastó más de lo anticipado (por reembolsar).
+        Saldo = anticipos entregados − gastos capturados (pago propio). Gastos con pago corporativo no descuentan.
+        Saldo negativo = gastó más de lo anticipado (por reembolsar).
       </p>
     </div>
   )
