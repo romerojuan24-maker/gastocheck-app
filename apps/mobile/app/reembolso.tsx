@@ -18,6 +18,7 @@ interface ReceiptItem {
   total_amount: number | null;
   receipt_date: string | null;
   fiscal_uuid: string | null;
+  sat_validation_status: string | null;
   status: string;
 }
 
@@ -36,8 +37,10 @@ export default function ReembolsoScreen() {
 
   const [loading, setLoading] = useState(true);
   const [reembolso, setReembolso] = useState<Reembolso | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [assignedReceipts, setAssignedReceipts] = useState<ReceiptItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [validatingSat, setValidatingSat] = useState(false);
   const [showAddReceipts, setShowAddReceipts] = useState(false);
   const [showIntegrateModal, setShowIntegrateModal] = useState(false);
   const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
@@ -55,6 +58,9 @@ export default function ReembolsoScreen() {
         router.back();
         return;
       }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) setUserId(session.user.id);
 
       // Cargar reembolso
       const { data: reb } = await supabase
@@ -75,7 +81,7 @@ export default function ReembolsoScreen() {
       const { data: assigned } = await supabase
         .from('receipt_reembolsos')
         .select(
-          'receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, status)',
+          'receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, sat_validation_status, status)',
           { count: 'exact' }
         )
         .eq('reembolso_id', reembolso_id);
@@ -144,6 +150,33 @@ export default function ReembolsoScreen() {
     }
   }
 
+  async function handleValidateSat() {
+    const pendientes = assignedReceipts.filter(r =>
+      r.fiscal_uuid && r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'invalid'
+    );
+    if (pendientes.length === 0) {
+      Alert.alert('Sin CFDI pendientes', 'Todos los CFDI ya están validados.');
+      return;
+    }
+    setValidatingSat(true);
+    let ok = 0; let fail = 0;
+    for (const rec of pendientes) {
+      try {
+        const { data } = await supabase.functions.invoke('validate-cfdi', {
+          body: { uuid: rec.fiscal_uuid },
+        });
+        const ns: string = data?.status === 'validated' ? 'validated' : 'invalid';
+        await supabase.from('receipts').update({ sat_validation_status: ns }).eq('id', rec.id);
+        setAssignedReceipts(prev => prev.map(r =>
+          r.id === rec.id ? { ...r, sat_validation_status: ns } : r
+        ));
+        if (ns === 'validated') ok++; else fail++;
+      } catch { fail++; }
+    }
+    setValidatingSat(false);
+    Alert.alert('Validación SAT', `✅ ${ok} vigente(s)   ❌ ${fail} cancelado(s) / no encontrado(s)`);
+  }
+
   async function handleSubmitReembolso() {
     if (!reembolso) return;
 
@@ -167,7 +200,7 @@ export default function ReembolsoScreen() {
                 .from('reembolsos')
                 .update({ status: 'pending_auth', total })
                 .eq('id', reembolso.id)
-                .eq('employee_id', user.id);
+                .eq('employee_id', reembolso.employee_id);
 
               if (submitErr) throw new Error(submitErr.message);
 
@@ -204,6 +237,15 @@ export default function ReembolsoScreen() {
   }
 
   const totalAmount = assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0);
+  const hasCfdi     = assignedReceipts.some(r => !!r.fiscal_uuid);
+  const allSatDone  = !hasCfdi || assignedReceipts.every(r =>
+    !r.fiscal_uuid ||
+    r.sat_validation_status === 'validated' ||
+    r.sat_validation_status === 'invalid'
+  );
+  const pendingSatCount = assignedReceipts.filter(r =>
+    r.fiscal_uuid && !r.sat_validation_status
+  ).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
@@ -220,19 +262,30 @@ export default function ReembolsoScreen() {
         {assignedReceipts.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Comprobantes incluidos</Text>
-            {assignedReceipts.map(r => (
-              <View key={r.id} style={styles.receiptRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.receiptProvider} numberOfLines={1}>
-                    {r.provider_name ?? '(sin proveedor)'}
-                  </Text>
-                  <Text style={styles.receiptDate}>
-                    {r.receipt_date ?? '—'} · {r.fiscal_uuid ? '📄 Con CFDI' : '📋 Sin CFDI'}
-                  </Text>
+            {assignedReceipts.map(r => {
+              const satOk  = r.sat_validation_status === 'validated';
+              const satBad = r.sat_validation_status === 'invalid';
+              const satPend = !!r.fiscal_uuid && !r.sat_validation_status;
+              return (
+                <View key={r.id} style={styles.receiptRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.receiptProvider} numberOfLines={1}>
+                      {r.provider_name ?? '(sin proveedor)'}
+                    </Text>
+                    <Text style={styles.receiptDate}>
+                      {r.receipt_date ?? '—'}
+                    </Text>
+                    {r.fiscal_uuid && (
+                      <Text style={{ fontSize: 11, fontWeight: '700', marginTop: 2,
+                        color: satOk ? '#2E7D32' : satBad ? '#C62828' : '#E65100' }}>
+                        {satOk ? '✅ CFDI Vigente' : satBad ? '❌ CFDI Cancelado' : '⏳ CFDI sin validar'}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.receiptAmount}>{money(r.total_amount ?? 0)}</Text>
                 </View>
-                <Text style={styles.receiptAmount}>{money(r.total_amount ?? 0)}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -242,7 +295,7 @@ export default function ReembolsoScreen() {
           </View>
         )}
 
-        {/* Botones de acción */}
+        {/* Botones agregar */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
           <TouchableOpacity
             style={[styles.addBtn, { flex: 1 }]}
@@ -258,7 +311,29 @@ export default function ReembolsoScreen() {
           </TouchableOpacity>
         </View>
 
-        {assignedReceipts.length > 0 && (
+        {/* Paso 2: Validar SAT (aparece si hay CFDI sin validar) */}
+        {assignedReceipts.length > 0 && hasCfdi && !allSatDone && (
+          <>
+            <View style={styles.stepHint}>
+              <Text style={styles.stepHintText}>
+                ⏳ Hay {pendingSatCount} CFDI sin validar. Valida en SAT antes de enviar.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.satBtn, validatingSat && { opacity: 0.5 }]}
+              onPress={handleValidateSat}
+              disabled={validatingSat}
+            >
+              {validatingSat
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.satBtnText}>🔍 Validar CFDI en SAT</Text>
+              }
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Paso 3: Enviar reembolso (solo cuando SAT OK o sin CFDI) */}
+        {assignedReceipts.length > 0 && allSatDone && (
           <TouchableOpacity
             style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
             onPress={handleSubmitReembolso}
@@ -268,7 +343,7 @@ export default function ReembolsoScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.submitBtnText}>
-                Enviar Reembolso · {money(totalAmount)}
+                📤 Enviar Reembolso · {money(totalAmount)}
               </Text>
             )}
           </TouchableOpacity>
@@ -404,6 +479,16 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 15, fontWeight: '700', color: BRAND.blue },
 
+  stepHint: {
+    backgroundColor: '#FFF8E1', borderRadius: 10, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#FFE082',
+  },
+  stepHintText: { fontSize: 12, color: '#E65100', fontWeight: '600' },
+  satBtn: {
+    backgroundColor: BRAND.blue, borderRadius: 14, padding: 14,
+    alignItems: 'center', marginBottom: 10,
+  },
+  satBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   submitBtn: {
     backgroundColor: BRAND.green, borderRadius: 14, padding: 16,
     alignItems: 'center', marginBottom: 8,
