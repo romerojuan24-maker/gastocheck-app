@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import DatePickerField from '../components/DatePickerField';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,10 @@ export default function ViaticosScreen() {
   const [showCreate,    setShowCreate]    = useState(false);
   const [destination,   setDestination]   = useState('');
   const [purpose,       setPurpose]       = useState('');
-  const [departureDate, setDepartureDate] = useState('');
+  const [departureDate, setDepartureDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  });
   const [returnDate,    setReturnDate]    = useState('');
   const [advance,       setAdvance]       = useState('');
   const [creating,      setCreating]      = useState(false);
@@ -190,7 +194,9 @@ export default function ViaticosScreen() {
       if (error) throw error;
 
       setShowCreate(false);
-      setDestination(''); setPurpose(''); setDepartureDate('');
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+      setDestination(''); setPurpose(''); setDepartureDate(todayStr);
       setReturnDate(''); setAdvance('');
       await loadViajes();
       if (data) openViaje(data as Viaje);
@@ -389,7 +395,7 @@ export default function ViaticosScreen() {
         )}
 
         {/* Modal agregar comprobante */}
-        <Modal visible={showAddReceipt} animationType="slide">
+        <Modal visible={showAddReceipt} animationType="slide" onRequestClose={() => setShowAddReceipt(false)}>
           <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
             <View style={[styles.detailHeader, { paddingTop: 48 }]}>
               <Text style={styles.detailTitle}>Mis Comprobantes</Text>
@@ -554,22 +560,26 @@ export default function ViaticosScreen() {
             <TextInput style={styles.sheetInput} value={purpose} onChangeText={setPurpose}
               placeholder="Ej: Visita a cliente, Feria agrícola" placeholderTextColor="#B0BEC5" />
 
-            <Text style={styles.sheetLabel}>Fecha de salida * (AAAA-MM-DD)</Text>
-            <TextInput style={styles.sheetInput} value={departureDate} onChangeText={setDepartureDate}
-              placeholder="2026-07-01" placeholderTextColor="#B0BEC5" keyboardType="numeric" />
+            <DatePickerField
+              label="Fecha de salida *"
+              value={departureDate}
+              onChange={setDepartureDate}
+            />
 
-            <Text style={styles.sheetLabel}>Fecha de regreso (AAAA-MM-DD)</Text>
-            <TextInput style={styles.sheetInput} value={returnDate} onChangeText={setReturnDate}
-              placeholder="2026-07-03" placeholderTextColor="#B0BEC5" keyboardType="numeric" />
+            <DatePickerField
+              label="Fecha de regreso (opcional)"
+              value={returnDate}
+              onChange={setReturnDate}
+            />
 
             <Text style={styles.sheetLabel}>Anticipo recibido</Text>
             <TextInput style={styles.sheetInput} value={advance} onChangeText={setAdvance}
               placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
 
             <TouchableOpacity
-              style={[styles.createBtn, (creating || !destination.trim() || !departureDate.trim()) && { opacity: 0.5 }]}
+              style={[styles.createBtn, (creating || !destination.trim()) && { opacity: 0.5 }]}
               onPress={handleCreateViaje}
-              disabled={creating || !destination.trim() || !departureDate.trim()}
+              disabled={creating || !destination.trim()}
             >
               {creating
                 ? <ActivityIndicator color="#fff" />

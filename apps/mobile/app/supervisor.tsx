@@ -424,6 +424,24 @@ export default function SupervisorScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* Acceso a aprobación de viáticos */}
+          <TouchableOpacity
+            style={[styles.reembolsosCard, { backgroundColor: BRAND.navy + 'CC', marginTop: 12 }]}
+            onPress={() => router.push('/supervisor/viaticos-aprobacion' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Text style={{ fontSize: 40 }}>✈️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reembolsosTitle}>Aprobar Viáticos</Text>
+                <Text style={styles.reembolsosSub}>
+                  Revisa y aprueba los viajes reportados por compradores
+                </Text>
+              </View>
+              <Text style={{ fontSize: 26, color: '#fff' }}>›</Text>
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.reembolsoInfo}>
             <Text style={styles.reembolsoInfoTitle}>¿Cómo funciona?</Text>
             {[

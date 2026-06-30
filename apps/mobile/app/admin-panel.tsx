@@ -268,7 +268,7 @@ export default function AdminPanelScreen() {
       {/* FAB: Nuevo Anticipo */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => { setSelBuyer(null); setPurpose(''); setAmount(''); setBankId(''); setSelPolicy(''); setBuyerPolicies([]); setShowModal(true); }}
+        onPress={() => { setSelBuyer(null); setPurpose(''); setAmount(''); setBankId(''); setSelPolicy(''); setBuyerPolicies([]); setNote(''); setShowModal(true); }}
       >
         <Text style={styles.fabText}>+ Anticipo</Text>
       </TouchableOpacity>

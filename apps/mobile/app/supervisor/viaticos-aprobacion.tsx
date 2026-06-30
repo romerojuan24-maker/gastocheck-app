@@ -1,53 +1,41 @@
-// Pantalla de aprobación de viáticos para supervisores
+// Pantalla de aprobación de viáticos para supervisor/contador/admin
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 
-interface ViaticoPending {
-  id: string;
-  user_id: string;
-  user_name: string;
-  concept: string;
-  type: string;
-  amount: number;
-  description: string;
-  trip_date: string;
-  city: string;
-  created_at: string;
-}
+const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor'];
 
-const CONCEPTS: Record<string, { label: string; icon: string }> = {
-  car_rental: { label: 'Renta de auto', icon: '🚗' },
-  presentation: { label: 'Presentación', icon: '🎯' },
-  meals: { label: 'Comidas', icon: '🍽️' },
-  accommodation: { label: 'Hospedaje', icon: '🏨' },
-  transport: { label: 'Transporte', icon: '🚕' },
-  other: { label: 'Otro', icon: '📦' },
-};
+interface ViajeSubmitted {
+  id:             string;
+  employee_id:    string;
+  employee_name:  string;
+  destination:    string;
+  purpose:        string | null;
+  departure_date: string;
+  return_date:    string | null;
+  advance_amount: number;
+  total_spent:    number;
+  created_at:     string;
+}
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function ViaticosAprobacionScreen() {
-  const router = useRouter();
+  const [viajes,         setViajes]         = useState<ViajeSubmitted[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [companyId,      setCompanyId]      = useState<string | null>(null);
+  const [showReject,     setShowReject]     = useState(false);
+  const [selectedViaje,  setSelectedViaje]  = useState<ViajeSubmitted | null>(null);
+  const [rejectReason,   setRejectReason]   = useState('');
+  const [processing,     setProcessing]     = useState(false);
 
-  const [viaticos, setViaticos] = useState<ViaticoPending[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [companyId, setCompanyId] = useState<string | null>(null);
-
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedViatico, setSelectedViatico] = useState<ViaticoPending | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [approving, setApproving] = useState(false);
-
-  // Cargar viáticos pendientes
-  const loadViaticos = useCallback(async () => {
+  const loadViajes = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -60,188 +48,137 @@ export default function ViaticosAprobacionScreen() {
         .eq('status', 'active')
         .maybeSingle();
 
-      if (!member || !['admin', 'supervisor'].includes(member.role)) {
-        Alert.alert('Acceso denegado', 'Solo supervisores pueden aprobar viáticos');
+      if (!member || !SUPERVISOR_ROLES.includes(member.role)) {
+        Alert.alert('Acceso denegado', 'Solo supervisores y contadores pueden aprobar viáticos.');
         return;
       }
 
       setCompanyId(member.company_id);
 
-      // Obtener viáticos pendientes con nombre del usuario
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from('viaticos')
-        .select(`
-          id, user_id, concept, type, amount, description, trip_date, city, created_at,
-          user:user_id(email)
-        `)
+        .select('id, employee_id, destination, purpose, departure_date, return_date, advance_amount, total_spent, created_at')
         .eq('company_id', member.company_id)
-        .eq('status', 'pending')
+        .eq('status', 'submitted')
         .order('created_at', { ascending: false });
 
-      if (data) {
-        setViaticos(
-          data.map((v: any) => ({
-            id: v.id,
-            user_id: v.user_id,
-            user_name: v.user?.email ?? 'Usuario',
-            concept: v.concept,
-            type: v.type,
-            amount: v.amount,
-            description: v.description,
-            trip_date: v.trip_date,
-            city: v.city,
-            created_at: v.created_at,
-          })),
-        );
-      }
+      if (!rows?.length) { setViajes([]); return; }
+
+      // Obtener nombres de los empleados
+      const ids = [...new Set(rows.map((r: any) => r.employee_id))];
+      const { data: members } = await supabase
+        .from('company_members')
+        .select('user_id, full_name')
+        .eq('company_id', member.company_id)
+        .in('user_id', ids);
+
+      const nameMap: Record<string, string> = {};
+      (members ?? []).forEach((m: any) => { nameMap[m.user_id] = m.full_name ?? m.user_id.slice(0, 8); });
+
+      setViajes(
+        rows.map((v: any) => ({
+          ...v,
+          employee_name: nameMap[v.employee_id] ?? 'Usuario',
+          advance_amount: v.advance_amount ?? 0,
+          total_spent:    v.total_spent    ?? 0,
+        }))
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadViaticos();
-  }, [loadViaticos]);
+  useEffect(() => { loadViajes(); }, [loadViajes]);
+  useFocusEffect(useCallback(() => { loadViajes(); }, [loadViajes]));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadViaticos();
-    }, [loadViaticos]),
-  );
-
-  // Aprobar viático
-  async function handleApprove(viatico: ViaticoPending) {
-    setApproving(true);
+  async function handleApprove(viaje: ViajeSubmitted) {
+    setProcessing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('No autenticado');
-
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/approve-viatico`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            viatico_id: viatico.id,
-            action: 'approve',
-          }),
-        },
-      );
-
-      if (!res.ok) throw new Error('Error al aprobar');
-
-      Alert.alert('✓ Aprobado', `${money(viatico.amount)} aprobado para ${viatico.user_name}`);
-      loadViaticos();
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+      const { error } = await supabase
+        .from('viaticos')
+        .update({ status: 'approved' })
+        .eq('id', viaje.id);
+      if (error) throw error;
+      Alert.alert('✅ Aprobado', `Viaje a ${viaje.destination} aprobado para ${viaje.employee_name}.`);
+      await loadViajes();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
     } finally {
-      setApproving(false);
+      setProcessing(false);
     }
   }
 
-  // Rechazar viático
   async function handleReject() {
-    if (!selectedViatico || !rejectionReason.trim()) {
-      Alert.alert('Motivo requerido', 'Especifica por qué rechazas el viático');
+    if (!selectedViaje || !rejectReason.trim()) {
+      Alert.alert('Motivo requerido', 'Escribe el motivo del rechazo.');
       return;
     }
-
-    setApproving(true);
+    setProcessing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('No autenticado');
-
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/approve-viatico`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            viatico_id: selectedViatico.id,
-            action: 'reject',
-            rejection_reason: rejectionReason.trim(),
-          }),
-        },
-      );
-
-      if (!res.ok) throw new Error('Error al rechazar');
-
-      Alert.alert('✓ Rechazado', `Viático rechazado con motivo enviado al usuario`);
-      setShowRejectModal(false);
-      setSelectedViatico(null);
-      setRejectionReason('');
-      loadViaticos();
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+      const { error } = await supabase
+        .from('viaticos')
+        .update({ status: 'rejected', notes: `Rechazado: ${rejectReason.trim()}` })
+        .eq('id', selectedViaje.id);
+      if (error) throw error;
+      Alert.alert('❌ Rechazado', 'El viaje fue rechazado. El comprador fue notificado.');
+      setShowReject(false);
+      setSelectedViaje(null);
+      setRejectReason('');
+      await loadViajes();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
     } finally {
-      setApproving(false);
+      setProcessing(false);
     }
   }
 
-  // Renderizar viático
-  function renderViatico({ item }: { item: ViaticoPending }) {
-    const conceptMeta = CONCEPTS[item.concept] ?? { label: 'Otro', icon: '📦' };
-
+  function renderViaje({ item }: { item: ViajeSubmitted }) {
+    const balance = item.advance_amount - item.total_spent;
     return (
       <View style={styles.card}>
-        <View style={styles.header}>
+        <View style={styles.cardTop}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.user}>{item.user_name}</Text>
-            <Text style={styles.concept}>
-              {conceptMeta.icon} {conceptMeta.label}
+            <Text style={styles.employeeName}>{item.employee_name}</Text>
+            <Text style={styles.destination}>✈️ {item.destination}</Text>
+            {item.purpose ? <Text style={styles.purpose}>{item.purpose}</Text> : null}
+            <Text style={styles.dates}>
+              📅 {item.departure_date}{item.return_date ? ` → ${item.return_date}` : ''}
             </Text>
-            <Text style={styles.description} numberOfLines={1}>{item.description}</Text>
-            <Text style={styles.date}>{item.trip_date} {item.city ? `• ${item.city}` : ''}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.amount}>{money(item.amount)}</Text>
-            <View style={[styles.typeBadge, {
-              backgroundColor: item.type === 'controlled' ? BRAND.blue + '20' : '#FFC10720',
-            }]}>
-              <Text style={[styles.typeBadgeText, {
-                color: item.type === 'controlled' ? BRAND.blue : '#FF9800',
-              }]}>
-                {item.type === 'controlled' ? 'Controlado' : 'Sin control'}
-              </Text>
-            </View>
+            {item.advance_amount > 0 && (
+              <>
+                <Text style={styles.advLabel}>Anticipo</Text>
+                <Text style={styles.advAmount}>{money(item.advance_amount)}</Text>
+                <Text style={[styles.balanceText, { color: balance >= 0 ? BRAND.green : BRAND.red }]}>
+                  {balance >= 0 ? '↑' : '↓'} {money(Math.abs(balance))}
+                </Text>
+              </>
+            )}
           </View>
         </View>
 
-        {/* Botones de acción */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: BRAND.green + '20' }]}
+            style={[styles.btn, { backgroundColor: BRAND.green + '20' }]}
             onPress={() => handleApprove(item)}
-            disabled={approving}
+            disabled={processing}
           >
-            <Text style={[styles.actionBtnText, { color: BRAND.green }]}>
-              ✅ Aprobar
-            </Text>
+            <Text style={[styles.btnText, { color: BRAND.green }]}>✅ Aprobar</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: BRAND.red + '20' }]}
-            onPress={() => {
-              setSelectedViatico(item);
-              setShowRejectModal(true);
-            }}
-            disabled={approving}
+            style={[styles.btn, { backgroundColor: BRAND.red + '20' }]}
+            onPress={() => { setSelectedViaje(item); setShowReject(true); }}
+            disabled={processing}
           >
-            <Text style={[styles.actionBtnText, { color: BRAND.red }]}>
-              ❌ Rechazar
-            </Text>
+            <Text style={[styles.btnText, { color: BRAND.red }]}>❌ Rechazar</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  if (loading && viaticos.length === 0) {
+  if (loading && !viajes.length) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
         <ActivityIndicator size="large" color={BRAND.blue} />
@@ -251,63 +188,69 @@ export default function ViaticosAprobacionScreen() {
 
   return (
     <View style={styles.container}>
-      {viaticos.length === 0 ? (
+      {viajes.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>✅</Text>
-          <Text style={styles.emptyText}>Sin viáticos pendientes</Text>
-          <Text style={styles.emptyHint}>Todos los viáticos han sido procesados</Text>
+          <Text style={styles.emptyIcon}>✈️</Text>
+          <Text style={styles.emptyTitle}>Sin viajes pendientes</Text>
+          <Text style={styles.emptyHint}>Los viajes reportados aparecerán aquí para aprobación</Text>
         </View>
       ) : (
         <>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              ⏳ {viaticos.length} viático{viaticos.length !== 1 ? 's' : ''} pendiente{viaticos.length !== 1 ? 's' : ''} de aprobación
+          <View style={styles.banner}>
+            <Text style={styles.bannerText}>
+              ⏳ {viajes.length} viaje{viajes.length !== 1 ? 's' : ''} pendiente{viajes.length !== 1 ? 's' : ''} de aprobación
             </Text>
           </View>
           <FlatList
-            data={viaticos}
-            keyExtractor={(v) => v.id}
-            renderItem={renderViatico}
+            data={viajes}
+            keyExtractor={v => v.id}
+            renderItem={renderViaje}
             contentContainerStyle={styles.list}
             refreshing={loading}
-            onRefresh={loadViaticos}
+            onRefresh={loadViajes}
           />
         </>
       )}
 
-      {/* Modal rechazar */}
-      <Modal visible={showRejectModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Motivo del rechazo</Text>
-            {selectedViatico && (
-              <Text style={styles.modalSubtitle}>
-                {money(selectedViatico.amount)} - {selectedViatico.description}
+      {/* Modal rechazo */}
+      <Modal
+        visible={showReject}
+        animationType="slide"
+        transparent
+        onRequestClose={() => { setShowReject(false); setRejectReason(''); }}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Motivo del rechazo</Text>
+            {selectedViaje && (
+              <Text style={styles.sheetSub}>
+                Viaje a {selectedViaje.destination} de {selectedViaje.employee_name}
               </Text>
             )}
             <TextInput
-              style={[styles.input, { height: 100, textAlignVertical: 'top', marginVertical: 12 }]}
-              placeholder="Explica por qué rechazas este viático..."
+              style={styles.reasonInput}
+              placeholder="Escribe el motivo..."
+              placeholderTextColor="#B0BEC5"
               multiline
-              value={rejectionReason}
-              onChangeText={setRejectionReason}
+              value={rejectReason}
+              onChangeText={setRejectReason}
             />
-            <View style={styles.modalActions}>
+            <View style={styles.sheetActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
-                onPress={() => {
-                  setShowRejectModal(false);
-                  setRejectionReason('');
-                }}
+                onPress={() => { setShowReject(false); setRejectReason(''); }}
               >
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.rejectBtn, (!rejectionReason.trim() || approving) && { opacity: 0.5 }]}
+                style={[styles.rejectBtn, (!rejectReason.trim() || processing) && { opacity: 0.5 }]}
                 onPress={handleReject}
-                disabled={!rejectionReason.trim() || approving}
+                disabled={!rejectReason.trim() || processing}
               >
-                {approving ? <ActivityIndicator color="#fff" /> : <Text style={styles.rejectBtnText}>Rechazar</Text>}
+                {processing
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.rejectBtnText}>Rechazar</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
@@ -318,44 +261,34 @@ export default function ViaticosAprobacionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.gray },
-  badge: {
-    marginHorizontal: 12, marginTop: 12, marginBottom: 8,
-    backgroundColor: BRAND.orange + '20', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-  },
-  badgeText: { color: BRAND.orange, fontWeight: '700', fontSize: 13 },
-  list: { paddingHorizontal: 12, paddingBottom: 24 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    marginBottom: 8, borderWidth: 1, borderColor: BRAND.orange + '30',
-  },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  user: { fontSize: 13, color: '#90A4AE', fontWeight: '600' },
-  concept: { fontSize: 15, fontWeight: '700', color: BRAND.navy, marginTop: 2 },
-  description: { fontSize: 13, color: '#90A4AE', marginTop: 2 },
-  date: { fontSize: 11, color: '#90A4AE', marginTop: 2 },
-  amount: { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  typeBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
-  typeBadgeText: { fontSize: 11, fontWeight: '600' },
-  actions: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  actionBtnText: { fontWeight: '700', fontSize: 13 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
-  emptyText: { fontSize: 16, color: BRAND.navy, fontWeight: '700' },
-  emptyHint: { fontSize: 13, color: '#90A4AE', marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalContent: {
-    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 20, paddingBottom: 32,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  modalSubtitle: { fontSize: 13, color: '#90A4AE', marginTop: 6 },
-  input: { backgroundColor: BRAND.gray, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy },
-  modalActions: { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 15, fontWeight: '700', color: '#90A4AE' },
-  rejectBtn: { flex: 1, backgroundColor: BRAND.red, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  rejectBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  container:    { flex: 1, backgroundColor: BRAND.gray },
+  banner:       { margin: 12, backgroundColor: BRAND.orange + '20', borderRadius: 10, padding: 12 },
+  bannerText:   { color: BRAND.orange, fontWeight: '700', fontSize: 13 },
+  list:         { paddingHorizontal: 12, paddingBottom: 32 },
+  card:         { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  cardTop:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  employeeName: { fontSize: 12, fontWeight: '600', color: '#90A4AE' },
+  destination:  { fontSize: 16, fontWeight: '800', color: BRAND.navy, marginTop: 2 },
+  purpose:      { fontSize: 13, color: '#607D8B', marginTop: 2 },
+  dates:        { fontSize: 12, color: '#90A4AE', marginTop: 4 },
+  advLabel:     { fontSize: 11, color: '#90A4AE', textAlign: 'right' },
+  advAmount:    { fontSize: 16, fontWeight: '800', color: BRAND.navy, textAlign: 'right' },
+  balanceText:  { fontSize: 12, fontWeight: '700', textAlign: 'right', marginTop: 2 },
+  actions:      { flexDirection: 'row', gap: 8 },
+  btn:          { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  btnText:      { fontWeight: '700', fontSize: 13 },
+  center:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  emptyIcon:    { fontSize: 52, marginBottom: 12 },
+  emptyTitle:   { fontSize: 16, fontWeight: '700', color: BRAND.navy },
+  emptyHint:    { fontSize: 13, color: '#90A4AE', marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  overlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:        { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 },
+  sheetTitle:   { fontSize: 18, fontWeight: '800', color: BRAND.navy },
+  sheetSub:     { fontSize: 13, color: '#90A4AE', marginTop: 6, marginBottom: 12 },
+  reasonInput:  { backgroundColor: BRAND.gray, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 14, color: BRAND.navy, height: 100, textAlignVertical: 'top' },
+  sheetActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  cancelBtn:    { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  cancelBtnText:{ fontSize: 15, fontWeight: '700', color: '#90A4AE' },
+  rejectBtn:    { flex: 1, backgroundColor: BRAND.red, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  rejectBtnText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
 });
