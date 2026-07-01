@@ -5,6 +5,10 @@ import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
+import { initLogger } from '../lib/logger';
+
+// Captura de console.* a buffer para poder exportar logs de diagnóstico desde Ajustes
+initLogger();
 
 export default function Layout() {
   const router   = useRouter();

@@ -105,12 +105,15 @@ export default function ReembolsoScreen() {
         .order('receipt_date', { ascending: false })
         .limit(100);
 
+      // OJO: UUIDs SIN comillas — PostgREST castea cada valor a uuid; comillas simples
+      // producen "invalid input syntax for type uuid" y tumban toda la consulta (lista vacía).
       if (linkedIds.length > 0) {
-        availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
+        availQ = availQ.not('id', 'in', `(${linkedIds.join(',')})`);
       }
 
       const { data: available, error: availErr } = await availQ;
       if (availErr) console.warn('[loadReembolso] availableReceipts error:', availErr.message);
+      console.log('[loadReembolso] company:', reb.company_id, 'user:', currentUserId, 'linked:', linkedIds.length, 'disponibles:', available?.length ?? 0);
       setAvailableReceipts(available ?? []);
     } finally {
       setLoading(false);
@@ -198,12 +201,14 @@ export default function ReembolsoScreen() {
       .order('receipt_date', { ascending: false })
       .limit(100);
 
+    // UUIDs SIN comillas (ver nota en loadReembolso) — comillas rompen el cast a uuid.
     if (linkedIds.length > 0) {
-      availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
+      availQ = availQ.not('id', 'in', `(${linkedIds.join(',')})`);
     }
 
     const { data: available, error: availErr } = await availQ;
     if (availErr) console.warn('[refreshAvailable] error:', availErr.message);
+    console.log('[refreshAvailable] linked:', linkedIds.length, 'disponibles:', available?.length ?? 0);
     setAvailableReceipts(available ?? []);
   }
 

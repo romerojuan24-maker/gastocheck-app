@@ -8,6 +8,7 @@ import * as Updates from 'expo-updates';
 import { BRAND, APP_VERSION, isFleetSector } from '@gastocheck/shared';
 import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { exportLogs } from '../lib/logger';
 
 // OTA_VERSION viene de @gastocheck/shared — un solo lugar para actualizar
 const OTA_VERSION = APP_VERSION;
@@ -41,6 +42,19 @@ export default function SettingsScreen() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCo,    setCreatingCo]    = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [exportingLogs, setExportingLogs] = useState(false);
+
+  async function handleExportLogs() {
+    setExportingLogs(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await exportLogs({ userId: user?.id ?? null, email: user?.email ?? null, role });
+    } catch (e: any) {
+      Alert.alert('Error al exportar', e?.message ?? 'No se pudo generar el archivo de logs.');
+    } finally {
+      setExportingLogs(false);
+    }
+  }
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -367,6 +381,17 @@ export default function SettingsScreen() {
           {checkingUpdate
             ? <ActivityIndicator size="small" color={BRAND.blue} />
             : <Text style={styles.updateBtnText}>🔄 Buscar actualización</Text>
+          }
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.updateBtn, { marginTop: 8 }, exportingLogs && { opacity: 0.6 }]}
+          onPress={handleExportLogs}
+          disabled={exportingLogs}
+        >
+          {exportingLogs
+            ? <ActivityIndicator size="small" color={BRAND.blue} />
+            : <Text style={styles.updateBtnText}>📄 Exportar logs de diagnóstico</Text>
           }
         </TouchableOpacity>
       </View>
