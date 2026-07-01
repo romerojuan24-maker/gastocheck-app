@@ -143,7 +143,7 @@ export default function Layout() {
       <Stack.Screen name="settings"       options={{ title: 'Ajustes' }} />
       <Stack.Screen name="supervisor"    options={{ title: 'Panel Contador' }} />
       <Stack.Screen name="admin-panel"   options={{ title: 'Panel Administrador' }} />
-      <Stack.Screen name="supervisor/reembolsos"  options={{ title: 'Reembolsos Pendientes' }} />
+      <Stack.Screen name="supervisor/reembolsos/index"  options={{ title: 'Reembolsos Pendientes' }} />
       <Stack.Screen name="supervisor/viaticos-aprobacion" options={{ title: 'Aprobar Viáticos' }} />
       <Stack.Screen name="gastadores"    options={{ title: 'Mis Compradores' }} />
       <Stack.Screen name="events"          options={{ title: 'Eventos' }} />
