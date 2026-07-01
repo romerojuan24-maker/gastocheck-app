@@ -34,6 +34,7 @@ export default function ReceiptDetailScreen() {
   const [vehicleName, setVehicleName] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState<string | null>(null);
   const [uploadingCfdi, setUploadingCfdi] = useState(false);
+  const [capturedByName, setCapturedByName] = useState<string | null>(null);
 
   // ── Cargar comprobante ─────────────────────────────────────────────────────
 
@@ -70,6 +71,17 @@ export default function ReceiptDetailScreen() {
           .eq('id', (r as any).operator_id)
           .single();
         if (o) setOperatorName(o.name);
+      }
+
+      // Quién capturó el comprobante
+      const capturerId = (r as any).uploaded_by ?? (r as any).employee_id;
+      if (capturerId) {
+        const { data: capturer } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', capturerId)
+          .maybeSingle();
+        if (capturer?.full_name) setCapturedByName(capturer.full_name);
       }
 
       // Generar URL firmada para la foto (bucket privado, 2h de validez)
@@ -278,6 +290,19 @@ export default function ReceiptDetailScreen() {
           <View style={styles.rejBanner}>
             <Text style={styles.rejText}>🚫 {receipt.rejection_reason}</Text>
           </View>
+        )}
+      </View>
+
+      {/* ── Control: quién y cuándo capturó, folio interno (solo no-fiscales) ── */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Control</Text>
+        {capturedByName && <InfoRow label="Capturado por" value={capturedByName} />}
+        <InfoRow
+          label="Fecha de captura"
+          value={receipt.created_at?.slice(0, 16)?.replace('T', ' ') ?? '—'}
+        />
+        {(receipt as any).gc_folio && (
+          <InfoRow label="Folio GastoCheck" value={(receipt as any).gc_folio} />
         )}
       </View>
 

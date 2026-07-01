@@ -247,19 +247,51 @@ export default function CaptureScreen() {
       router.replace('/receipts');
 
       // 6. Cuando OCR termine, actualizar el receipt (promise ya corriendo desde paso 2)
+      //    Folio y validación de UUID solo tienen sentido con los datos de OCR ya en mano:
+      //    - Fiscal (tiene UUID CFDI, legal e irrepetible): se valida que no esté repetido,
+      //      NO se le asigna folio interno (el UUID ya es su identificador).
+      //    - No fiscal (ticket sin CFDI): se le asigna el folio correlativo interno.
       if (saved?.id) {
-        ocrPromise.then(({ data: ocr, error: ocrError }) => {
+        ocrPromise.then(async ({ data: ocr, error: ocrError }) => {
           if (!ocr) {
             console.warn('[quickCapture] OCR sin datos para receipt', saved.id, '— error:', ocrError);
             return;
           }
-          console.log('[quickCapture] OCR ok para receipt', saved.id, '— provider:', ocr.providerName);
+          console.log('[quickCapture] OCR ok para receipt', saved.id, '— provider:', ocr.providerName, 'fiscalUuid:', ocr.fiscalUuid);
+
+          let gc_folio: string | null = null;
+          let duplicateStatus: string | null = null;
+
+          if (ocr.fiscalUuid && memberCompanyId) {
+            const { count } = await supabase
+              .from('receipts')
+              .select('id', { count: 'exact', head: true })
+              .eq('company_id', memberCompanyId)
+              .eq('fiscal_uuid', ocr.fiscalUuid)
+              .neq('id', saved.id)
+              .neq('status', 'cancelled');
+            if ((count ?? 0) > 0) {
+              duplicateStatus = 'blocked_duplicate';
+              console.warn('[quickCapture] UUID fiscal duplicado detectado para receipt', saved.id);
+            }
+          } else if (memberCompanyId) {
+            try {
+              const { data: folioData } = await supabase
+                .rpc('next_gc_folio', { p_company_id: memberCompanyId, p_type: 'receipt' });
+              gc_folio = folioData ?? null;
+            } catch (e) {
+              console.warn('[quickCapture] next_gc_folio falló:', e);
+            }
+          }
+
           supabase.from('receipts').update({
             provider_name: ocr.providerName ?? null,
             provider_rfc:  ocr.providerRfc  ?? null,
             total_amount:  ocr.total        ?? null,
             receipt_date:  ocr.receiptDate  ?? null,
             fiscal_uuid:   ocr.fiscalUuid   ?? null,
+            ...(gc_folio ? { gc_folio } : {}),
+            ...(duplicateStatus ? { duplicate_status: duplicateStatus } : {}),
           }).eq('id', saved.id).then(({ error: updErr }) => {
             if (updErr) console.warn('[quickCapture] update tras OCR falló:', updErr.message);
           });
@@ -509,6 +541,12 @@ export default function CaptureScreen() {
     setSaving(true);
     setShowDupModal(false);
 
+    // Declarados fuera del try para que el catch (encolado offline) pueda usarlos
+    // aunque el error ocurra después de asignarlos — antes estaban dentro del try
+    // y el catch tiraba ReferenceError en vez de encolar.
+    let companyId: string | null = null;
+    let storagePath: string | null = null;
+
     try {
       const { data: { session: confirmSession } } = await supabase.auth.getSession();
       const user = confirmSession?.user;
@@ -530,7 +568,7 @@ export default function CaptureScreen() {
         return;
       }
 
-      const companyId = membership.company_id;
+      companyId = membership.company_id;
 
       // Cargar datos fleet si aplica (lazy, una sola vez)
       if (!isFleet) loadFleetData(companyId);
@@ -538,7 +576,7 @@ export default function CaptureScreen() {
       // Subir archivo a Storage (XML o foto)
       const ext         = isXml ? 'xml' : 'jpg';
       const contentType = isXml ? 'text/xml' : 'image/jpeg';
-      const storagePath = `${companyId}/${Date.now()}/comprobante.${ext}`;
+      storagePath = `${companyId}/${Date.now()}/comprobante.${ext}`;
       const arrayBuffer = decode(photo.base64);
 
       const { error: storErr } = await supabase.storage
@@ -670,6 +708,7 @@ export default function CaptureScreen() {
           category_id: categoryId || null,
           description: description.trim() || null,
           photo_url: storagePath || null,
+          fiscal_uuid: extracted?.fiscalUuid || null,
           duplicate_status: 'checked',
           vehicle_id: vehicleId || null,
           operator_id: operatorId || null,

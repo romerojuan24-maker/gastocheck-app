@@ -44,50 +44,76 @@ Deno.serve(async (req) => {
     // Procesar según entityType + operation
     if (queueItem.entityType === 'receipt' && queueItem.operation === 'create') {
       const p = queueItem.payload;
+
+      // Comprobante FISCAL (tiene UUID de CFDI, legal e irrepetible):
+      // no se le asigna gc_folio — se valida que el UUID no esté ya registrado.
+      // Comprobante NO FISCAL (ticket sin CFDI): se le asigna el folio correlativo
+      // interno, que es el único identificador de control que tiene.
+      let gc_folio: string | null = null;
+      let duplicateStatus = p.duplicate_status ?? 'checked';
+
+      if (p.fiscal_uuid) {
+        const { count } = await supabase
+          .from('receipts')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', p.company_id)
+          .eq('fiscal_uuid', p.fiscal_uuid)
+          .neq('status', 'cancelled');
+        if ((count ?? 0) > 0) duplicateStatus = 'blocked_duplicate';
+      } else {
+        try {
+          const { data: folioData } = await supabase
+            .rpc('next_gc_folio', { p_company_id: p.company_id, p_type: 'receipt' });
+          gc_folio = folioData ?? null;
+        } catch { /* no bloquea el guardado */ }
+      }
+
       const { data, error } = await supabase
         .from('receipts')
         .insert({
-          user_id,
-          company_id: p.company_id,
-          provider_name: p.provider_name,
-          provider_rfc: p.provider_rfc,
-          receipt_date: p.receipt_date,
-          receipt_folio: p.receipt_folio,
-          total_amount: p.total_amount,
-          subtotal: p.subtotal ?? 0,
-          iva: p.iva ?? 0,
-          descuento: p.descuento ?? 0,
-          ieps: p.ieps ?? 0,
-          ish: p.ish ?? 0,
-          retencion_iva: p.retencion_iva ?? 0,
-          retencion_isr: p.retencion_isr ?? 0,
-          payment_method: p.payment_method,
-          category_id: p.category_id,
-          description: p.description,
-          photo_url: p.photo_url,
-          xml_url: p.xml_url,
-          duplicate_status: p.duplicate_status ?? 'checked',
-          force_reason: p.force_reason,
-          vehicle_id: p.vehicle_id,
-          operator_id: p.operator_id,
-          created_at: new Date(queueItem.createdAt).toISOString(),
+          company_id:        p.company_id,
+          uploaded_by:       user_id,
+          employee_id:       user_id,
+          source_type:       'photo',
+          provider_name:     p.provider_name,
+          provider_rfc:      p.provider_rfc,
+          receipt_date:      p.receipt_date,
+          gc_folio,
+          fiscal_uuid:       p.fiscal_uuid ?? null,
+          total_amount:      p.total_amount,
+          subtotal_amount:   p.subtotal ?? 0,
+          tax_amount:        p.iva ?? 0,
+          discount_amount:   p.descuento ?? 0,
+          ieps_amount:       p.ieps ?? 0,
+          ish_amount:        p.ish ?? 0,
+          retencion_iva:     p.retencion_iva ?? 0,
+          retencion_isr:     p.retencion_isr ?? 0,
+          payment_method:    p.payment_method,
+          category_id:       p.category_id,
+          notes:             p.description,
+          file_storage_path: p.photo_url,
+          duplicate_status:  duplicateStatus,
+          vehicle_id:        p.vehicle_id,
+          operator_id:       p.operator_id,
+          status:            'captured',
+          created_at:        new Date(queueItem.createdAt).toISOString(),
         })
         .select('id')
         .single();
 
       if (error) throw error;
-      result = { receipt_id: data.id };
+      result = { receipt_id: data.id, gc_folio, duplicate_status: duplicateStatus };
     } else if (queueItem.entityType === 'advance_request' && queueItem.operation === 'create') {
       const p = queueItem.payload;
       const { data, error } = await supabase
         .from('advance_requests')
         .insert({
-          user_id,
-          company_id: p.company_id,
-          amount: p.amount,
-          status: 'pending',
-          description: p.description,
-          created_at: new Date(queueItem.createdAt).toISOString(),
+          requester_id: user_id,
+          company_id:   p.company_id,
+          amount:       p.amount,
+          status:       'pending',
+          reason:       p.description,
+          created_at:   new Date(queueItem.createdAt).toISOString(),
         })
         .select('id')
         .single();
