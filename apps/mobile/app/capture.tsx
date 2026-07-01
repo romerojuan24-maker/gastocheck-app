@@ -212,8 +212,12 @@ export default function CaptureScreen() {
       });
 
       // 2. Arrancar OCR en paralelo AHORA (componente aún montado — evita problemas de unmount)
+      console.log('[quickCapture] base64 length:', base64.length, 'bytes approx:', Math.round(base64.length * 0.75));
       const ocrPromise = extractFromImage(base64, 'image/jpeg')
-        .catch(() => ({ data: null, error: 'OCR falló' }));
+        .catch((e) => {
+          console.warn('[quickCapture] OCR fetch threw:', e?.message ?? e);
+          return { data: null, error: 'OCR falló' };
+        });
 
       // 3. Subir foto a Storage
       const storagePath = `${memberCompanyId}/${Date.now()}/comprobante.jpg`;
@@ -244,15 +248,21 @@ export default function CaptureScreen() {
 
       // 6. Cuando OCR termine, actualizar el receipt (promise ya corriendo desde paso 2)
       if (saved?.id) {
-        ocrPromise.then(({ data: ocr }) => {
-          if (!ocr) return;
+        ocrPromise.then(({ data: ocr, error: ocrError }) => {
+          if (!ocr) {
+            console.warn('[quickCapture] OCR sin datos para receipt', saved.id, '— error:', ocrError);
+            return;
+          }
+          console.log('[quickCapture] OCR ok para receipt', saved.id, '— provider:', ocr.providerName);
           supabase.from('receipts').update({
             provider_name: ocr.providerName ?? null,
             provider_rfc:  ocr.providerRfc  ?? null,
             total_amount:  ocr.total        ?? null,
             receipt_date:  ocr.receiptDate  ?? null,
             fiscal_uuid:   ocr.fiscalUuid   ?? null,
-          }).eq('id', saved.id);
+          }).eq('id', saved.id).then(({ error: updErr }) => {
+            if (updErr) console.warn('[quickCapture] update tras OCR falló:', updErr.message);
+          });
         });
       }
     } catch (e: any) {
