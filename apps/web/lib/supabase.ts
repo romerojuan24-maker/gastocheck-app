@@ -64,7 +64,10 @@ export function isManager(role: UserRole) {
 }
 export function getHomeRoute(role: UserRole): string {
   if (role === 'owner' || role === 'admin') return '/hoy';
-  if (role === 'accountant' || role === 'supervisor') return '/pendientes';
+  // '/pendientes' consulta columnas que ya no existen (receipts.folio/amount/vendor_name,
+  // advances.status/user_id) — quedó obsoleto. '/gastocheck/polizas' es la página real
+  // de trabajo del contador (reembolsos pendientes + SAT + generar póliza).
+  if (role === 'accountant' || role === 'supervisor') return '/gastocheck/polizas';
   if (role === 'collector') return '/cobracheck';
   return '/gastocheck';
 }
