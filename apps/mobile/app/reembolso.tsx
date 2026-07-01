@@ -109,7 +109,8 @@ export default function ReembolsoScreen() {
         availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
       }
 
-      const { data: available } = await availQ;
+      const { data: available, error: availErr } = await availQ;
+      if (availErr) console.warn('[loadReembolso] availableReceipts error:', availErr.message);
       setAvailableReceipts(available ?? []);
     } finally {
       setLoading(false);
@@ -201,7 +202,8 @@ export default function ReembolsoScreen() {
       availQ = availQ.not('id', 'in', `(${linkedIds.map((id: string) => `'${id}'`).join(',')})`);
     }
 
-    const { data: available } = await availQ;
+    const { data: available, error: availErr } = await availQ;
+    if (availErr) console.warn('[refreshAvailable] error:', availErr.message);
     setAvailableReceipts(available ?? []);
   }
 
