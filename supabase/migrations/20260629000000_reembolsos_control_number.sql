@@ -34,6 +34,7 @@ $$;
 -- 4. RLS: solo la misma empresa puede ver/modificar sus contadores
 ALTER TABLE company_reembolso_counters ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "company_members_read_own_counter" ON company_reembolso_counters;
 CREATE POLICY "company_members_read_own_counter"
   ON company_reembolso_counters FOR SELECT
   USING (company_id IN (

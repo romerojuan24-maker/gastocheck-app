@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS company_bank_accounts (
 ALTER TABLE company_bank_accounts ENABLE ROW LEVEL SECURITY;
 
 -- Solo miembros activos de la empresa pueden ver las cuentas
+DROP POLICY IF EXISTS "members_view_bank_accounts" ON company_bank_accounts;
 CREATE POLICY "members_view_bank_accounts"
   ON company_bank_accounts FOR SELECT
   USING (company_id IN (
@@ -25,6 +26,7 @@ CREATE POLICY "members_view_bank_accounts"
   ));
 
 -- Solo owner/admin pueden insertar/actualizar/borrar
+DROP POLICY IF EXISTS "admin_manage_bank_accounts" ON company_bank_accounts;
 CREATE POLICY "admin_manage_bank_accounts"
   ON company_bank_accounts FOR ALL
   USING (company_id IN (

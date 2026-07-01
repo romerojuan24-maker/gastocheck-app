@@ -85,8 +85,8 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
 
     setSaving(true);
     try {
-      // Insertar cuentas en Supabase
-      const { error } = await supabase.from('accounting_accounts').insert(
+      // Insertar cuentas nuevas / actualizar las que ya existan (mismo company_id + code)
+      const { error } = await supabase.from('accounting_accounts').upsert(
         selected.map((a) => ({
           company_id:   companyId,
           code:         a.codigo,
@@ -96,6 +96,7 @@ export default function CatalogImportModal({ visible, companyId, onClose, onSucc
           parent_code:  a.ctaSup ?? null,
           active:       true,
         })),
+        { onConflict: 'company_id,code' },
       );
 
       if (error) throw error;

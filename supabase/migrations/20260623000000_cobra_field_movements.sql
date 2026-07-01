@@ -73,7 +73,7 @@ CREATE POLICY "cobra_movements_read"
       SELECT cm.user_id
       FROM company_members cm
       WHERE cm.company_id = cobra_movements.company_id
-      AND cm.member_role IN ('admin', 'supervisor')
+      AND cm.role IN ('admin', 'supervisor')
       AND cm.status = 'active'
     )
   );
@@ -88,7 +88,7 @@ CREATE POLICY "cobra_movements_insert"
       SELECT user_id
       FROM company_members
       WHERE company_id = cobra_movements.company_id
-      AND member_role IN ('collector', 'admin', 'supervisor')
+      AND role IN ('collector', 'admin', 'supervisor')
       AND status = 'active'
     )
   );
@@ -103,7 +103,7 @@ CREATE POLICY "cobra_movements_update"
       SELECT cm.user_id
       FROM company_members cm
       WHERE cm.company_id = cobra_movements.company_id
-      AND cm.member_role IN ('admin', 'supervisor')
+      AND cm.role IN ('admin', 'supervisor')
       AND cm.status = 'active'
     )
   );
@@ -116,7 +116,7 @@ CREATE POLICY "cobra_movements_update"
 CREATE TRIGGER cobra_movements_updated_at
   BEFORE UPDATE ON cobra_movements
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION touch_updated_at();
 
 -- Auto-crear cobra_payment si movement_type = 'collected'
 CREATE OR REPLACE FUNCTION create_payment_from_movement()
