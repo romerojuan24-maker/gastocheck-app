@@ -1,6 +1,10 @@
 // Edge Function: Extracción enriquecida de comprobantes con Gemini 1.5 Flash
-// Versión 2.0 — extrae RFC, hora, folio, UUID, conceptos detallados y warnings
+// Versión 2.1 — extrae RFC, hora, folio, UUID, conceptos detallados, warnings
+// y recorta automáticamente el documento (bounding box de Gemini + imagescript)
 // Deploy: npx supabase functions deploy ocr-extract
+
+import { decode as decodeImage } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+import { decodeBase64, encodeBase64 } from 'https://deno.land/std@0.224.0/encoding/base64.ts';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 const GEMINI_URL =
@@ -36,6 +40,7 @@ interface OcrResult {
   lineItems:     OcrLineItem[];
   confidence:    'high' | 'medium' | 'low';
   warnings:      string[];
+  documentBox:   { x0: number; y0: number; x1: number; y1: number } | null; // recorte 0-1
 }
 
 const CORS_HEADERS = {
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
 
 Eres un experto en lectura de tickets, facturas y recibos mexicanos. Analiza esta imagen y devuelve EXACTAMENTE este JSON (rellena con null los campos que no puedas leer):
 
-{"providerName":null,"providerRfc":null,"receiptDate":null,"receiptTime":null,"subtotal":null,"tax":null,"discount":null,"ieps":null,"ish":null,"retencionIva":null,"retencionIsr":null,"total":null,"currency":"MXN","fiscalUuid":null,"internalFolio":null,"paymentMethod":null,"fullText":"","lineItems":[],"confidence":"low","warnings":[]}
+{"providerName":null,"providerRfc":null,"receiptDate":null,"receiptTime":null,"subtotal":null,"tax":null,"discount":null,"ieps":null,"ish":null,"retencionIva":null,"retencionIsr":null,"total":null,"currency":"MXN","fiscalUuid":null,"internalFolio":null,"paymentMethod":null,"fullText":"","lineItems":[],"confidence":"low","warnings":[],"documentBox":null}
 
 Reglas:
 - providerName: nombre del negocio tal como aparece
@@ -93,6 +98,11 @@ Reglas:
 - lineItems: array de productos detectados (puede ser vacío [])
 - confidence: "high" si lees todo claramente, "medium" si parcial, "low" si borroso/difícil
 - warnings: lista de problemas encontrados (borroso, cortado, ilegible, etc)
+- documentBox: rectángulo que delimita el ticket/factura dentro de la foto (para recortar fondo/mesa/mano
+  y dejar solo el documento). Coordenadas NORMALIZADAS de 0.0 a 1.0 relativas al tamaño de la imagen
+  completa: {"x0": izquierda, "y0": arriba, "x1": derecha, "y1": abajo}. x0<x1, y0<y1. Si el documento
+  ya ocupa casi toda la imagen o no puedes determinar el borde con confianza, devuelve null (no inventes
+  un recorte agresivo — más vale no recortar que cortar texto real).
 - Si el ticket es ilegible, devuelve el JSON con todos nulls y confidence "low"
 - NUNCA respondas con texto explicativo. SOLO JSON.`;
 
@@ -140,6 +150,14 @@ Reglas:
               fullText:      { type: 'string'                  },
               confidence:    { type: 'string',  enum: ['high', 'medium', 'low'] },
               warnings:      { type: 'array',   items: { type: 'string' } },
+              documentBox: {
+                type: 'object', nullable: true,
+                properties: {
+                  x0: { type: 'number' }, y0: { type: 'number' },
+                  x1: { type: 'number' }, y1: { type: 'number' },
+                },
+                required: ['x0', 'y0', 'x1', 'y1'],
+              },
               lineItems: {
                 type: 'array',
                 items: {
@@ -185,6 +203,7 @@ Reglas:
       total: null, currency: 'MXN',
       fiscalUuid: null, internalFolio: null, paymentMethod: null,
       fullText: '', lineItems: [], confidence: 'low' as const, warnings: [] as string[],
+      documentBox: null as { x0: number; y0: number; x1: number; y1: number } | null,
     };
 
     // ── Estrategias de parseo (en orden de preferencia) ───────────────────────
@@ -294,8 +313,46 @@ Reglas:
       result.warnings.push('No se detectó nombre del proveedor');
     }
 
+    // ── Recorte automático del documento (si Gemini devolvió un bounding box confiable) ──
+    // No falla el OCR si el recorte da error — result ya tiene todos los datos útiles.
+    let croppedImageBase64: string | null = null;
+    if (result.documentBox) {
+      try {
+        const { x0, y0, x1, y1 } = result.documentBox;
+        const validBox =
+          [x0, y0, x1, y1].every((n) => typeof n === 'number' && n >= 0 && n <= 1) &&
+          x1 > x0 && y1 > y0 &&
+          (x1 - x0) > 0.15 && (y1 - y0) > 0.15; // evita recortes absurdos o casi vacíos
+
+        if (validBox) {
+          const raw = decodeBase64(image_base64);
+          const img = await decodeImage(raw);
+          // Margen de seguridad 2% para no cortar texto pegado al borde detectado
+          const pad = 0.02;
+          const cx0 = Math.max(0, x0 - pad);
+          const cy0 = Math.max(0, y0 - pad);
+          const cx1 = Math.min(1, x1 + pad);
+          const cy1 = Math.min(1, y1 + pad);
+          const left   = Math.round(cx0 * img.width);
+          const top    = Math.round(cy0 * img.height);
+          const width  = Math.round((cx1 - cx0) * img.width);
+          const height = Math.round((cy1 - cy0) * img.height);
+
+          if (width > 50 && height > 50) {
+            img.crop(left, top, width, height);
+            const encoded = await img.encodeJPEG(85);
+            croppedImageBase64 = encodeBase64(encoded);
+          }
+        } else {
+          result.documentBox = null; // recorte no confiable — no lo reportamos como aplicado
+        }
+      } catch (cropErr) {
+        console.warn('[ocr-extract] Recorte falló (no bloquea el OCR):', cropErr);
+      }
+    }
+
     return Response.json(
-      { ok: true, data: result },
+      { ok: true, data: result, croppedImageBase64 },
       { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
     );
   } catch (e) {

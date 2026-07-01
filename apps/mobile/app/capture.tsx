@@ -252,12 +252,20 @@ export default function CaptureScreen() {
       //      NO se le asigna folio interno (el UUID ya es su identificador).
       //    - No fiscal (ticket sin CFDI): se le asigna el folio correlativo interno.
       if (saved?.id) {
-        ocrPromise.then(async ({ data: ocr, error: ocrError }) => {
+        ocrPromise.then(async ({ data: ocr, error: ocrError, croppedImageBase64 }) => {
           if (!ocr) {
             console.warn('[quickCapture] OCR sin datos para receipt', saved.id, '— error:', ocrError);
             return;
           }
-          console.log('[quickCapture] OCR ok para receipt', saved.id, '— provider:', ocr.providerName, 'fiscalUuid:', ocr.fiscalUuid);
+          console.log('[quickCapture] OCR ok para receipt', saved.id, '— provider:', ocr.providerName, 'fiscalUuid:', ocr.fiscalUuid, 'recortado:', !!croppedImageBase64);
+
+          // Reemplazar la foto original por la recortada (mismo storagePath, sin fondo/mesa/mano)
+          if (croppedImageBase64) {
+            const { error: cropUpErr } = await supabase.storage
+              .from('expense-attachments')
+              .upload(storagePath, decode(croppedImageBase64), { contentType: 'image/jpeg', upsert: true });
+            if (cropUpErr) console.warn('[quickCapture] no se pudo subir imagen recortada:', cropUpErr.message);
+          }
 
           let gc_folio: string | null = null;
           let duplicateStatus: string | null = null;

@@ -8,7 +8,7 @@ export function useOcr() {
   async function extractFromImage(
     base64: string,
     mimeType: string = 'image/jpeg',
-  ): Promise<{ data: OcrResult | null; error: string | null }> {
+  ): Promise<{ data: OcrResult | null; error: string | null; croppedImageBase64: string | null }> {
     setLoading(true);
     try {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -27,13 +27,17 @@ export function useOcr() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        return { data: null, error: err.error || err.detail || `Error ${res.status}` };
+        return { data: null, error: err.error || err.detail || `Error ${res.status}`, croppedImageBase64: null };
       }
 
       const body = await res.json();
-      return { data: body.data as OcrResult, error: null };
+      return {
+        data: body.data as OcrResult,
+        error: null,
+        croppedImageBase64: body.croppedImageBase64 ?? null,
+      };
     } catch (e) {
-      return { data: null, error: String(e) };
+      return { data: null, error: String(e), croppedImageBase64: null };
     } finally {
       setLoading(false);
     }

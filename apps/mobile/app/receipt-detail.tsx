@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
+import ZoomableImageModal from '../components/ZoomableImageModal';
 
 const money = (n: number | null) =>
   n == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -35,6 +36,7 @@ export default function ReceiptDetailScreen() {
   const [operatorName, setOperatorName] = useState<string | null>(null);
   const [uploadingCfdi, setUploadingCfdi] = useState(false);
   const [capturedByName, setCapturedByName] = useState<string | null>(null);
+  const [showZoom, setShowZoom] = useState(false);
 
   // ── Cargar comprobante ─────────────────────────────────────────────────────
 
@@ -242,6 +244,7 @@ export default function ReceiptDetailScreen() {
   const isSupervisor = myRole === 'admin' || myRole === 'supervisor';
 
   return (
+    <>
     <ScrollView style={{ backgroundColor: BRAND.gray }} contentContainerStyle={styles.scroll}>
 
       {/* ── Encabezado de estado ── */}
@@ -259,9 +262,12 @@ export default function ReceiptDetailScreen() {
 
       {/* ── Foto del comprobante ── */}
       {photoUrl ? (
-        <View style={styles.photoCard}>
+        <TouchableOpacity style={styles.photoCard} activeOpacity={0.9} onPress={() => setShowZoom(true)}>
           <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="contain" />
-        </View>
+          <View style={styles.zoomHint}>
+            <Text style={styles.zoomHintText}>🔍 Toca para acercar</Text>
+          </View>
+        </TouchableOpacity>
       ) : receipt?.source_type === 'xml' ? (
         <View style={[styles.photoCard, styles.xmlPlaceholder]}>
           <Text style={{ fontSize: 36 }}>📄</Text>
@@ -516,6 +522,8 @@ export default function ReceiptDetailScreen() {
       </Text>
 
     </ScrollView>
+    <ZoomableImageModal visible={showZoom} uri={photoUrl} onClose={() => setShowZoom(false)} />
+    </>
   );
 }
 
@@ -586,5 +594,11 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0',
   },
   photo:        { width: '100%', height: 260 },
+  zoomHint: {
+    position: 'absolute', bottom: 8, right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  zoomHintText: { color: '#fff', fontSize: 10, fontWeight: '600' },
   xmlPlaceholder: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28 },
 });

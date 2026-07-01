@@ -10,6 +10,7 @@ import { BRAND, RECEIPT_STATUS_META, DUPLICATE_STATUS_META } from '@gastocheck/s
 import type { ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import { useOfflineStatus } from '../hooks/useOfflineStatus';
+import { fetchReceiptsNeedingOcr, runOcrBatch, type BatchOcrProgress } from '../lib/ocr-batch';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,48 @@ export default function ReceiptsScreen() {
   const [creatingReembolso,  setCreatingReembolso]  = useState(false);
   const [pendingCompanyId,   setPendingCompanyId]   = useState<string | null>(null);
   const [tabCounts, setTabCounts] = useState<Record<FilterTab, number>>({ vigentes: 0, revision: 0, rechazados: 0, historico: 0 });
+
+  // OCR masivo — reanaliza los comprobantes que quedaron sin proveedor
+  const [ocrBatchRunning,  setOcrBatchRunning]  = useState(false);
+  const [ocrBatchProgress, setOcrBatchProgress] = useState<BatchOcrProgress | null>(null);
+
+  async function handleBulkOcr() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return;
+    const { data: member } = await supabase.from('company_members')
+      .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    if (!member) { Alert.alert('Error', 'No tienes asignada una empresa.'); return; }
+
+    const candidates = await fetchReceiptsNeedingOcr(member.company_id, user.id);
+    if (candidates.length === 0) {
+      Alert.alert('✅ Todo al día', 'No hay comprobantes pendientes de analizar.');
+      return;
+    }
+
+    Alert.alert(
+      'Analizar con OCR',
+      `${candidates.length} comprobante${candidates.length !== 1 ? 's' : ''} sin proveedor. Se leerán con IA y se recortará el documento automáticamente. Puede tardar unos minutos.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Analizar',
+          onPress: async () => {
+            setOcrBatchRunning(true);
+            setOcrBatchProgress({ total: candidates.length, done: 0, ok: 0, failed: 0, current: null });
+            const result = await runOcrBatch(candidates, member.company_id, setOcrBatchProgress);
+            setOcrBatchRunning(false);
+            Alert.alert(
+              'OCR masivo terminado',
+              `${result.ok} comprobante${result.ok !== 1 ? 's' : ''} actualizado${result.ok !== 1 ? 's' : ''}` +
+              (result.failed > 0 ? `\n${result.failed} fallaron (revisa los logs de diagnóstico en Ajustes)` : ''),
+            );
+            loadReceipts(true);
+          },
+        },
+      ],
+    );
+  }
 
   // Paso 1: obtener empresa y abrir modal de nombre
   async function handleCreateReembolso() {
@@ -408,6 +451,13 @@ export default function ReceiptsScreen() {
         >
           <Text style={styles.advancedSearchText}>🔍</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.advancedSearchBtn, { backgroundColor: BRAND.blue }]}
+          onPress={handleBulkOcr}
+          disabled={ocrBatchRunning}
+        >
+          <Text style={styles.advancedSearchText}>🪄</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs de estado */}
@@ -545,6 +595,25 @@ export default function ReceiptsScreen() {
               >
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Progreso del OCR masivo */}
+      {ocrBatchRunning && ocrBatchProgress && (
+        <Modal visible animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>🪄 Analizando comprobantes…</Text>
+              <ActivityIndicator size="large" color={BRAND.blue} style={{ marginVertical: 16 }} />
+              <Text style={styles.modalSub}>
+                {ocrBatchProgress.done} de {ocrBatchProgress.total} procesados
+                {ocrBatchProgress.failed > 0 ? ` · ${ocrBatchProgress.failed} fallaron` : ''}
+              </Text>
+              <Text style={[styles.modalSub, { marginTop: 4, fontSize: 11 }]}>
+                No cierres la pantalla, esto puede tardar unos minutos.
+              </Text>
             </View>
           </View>
         </Modal>

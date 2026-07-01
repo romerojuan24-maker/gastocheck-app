@@ -282,6 +282,7 @@ export interface OcrResult {
   lineItems?: OcrLineItem[];
   confidence: 'high' | 'medium' | 'low';
   warnings: string[];
+  documentBox?: { x0: number; y0: number; x1: number; y1: number } | null;
 }
 
 // ── Proveedores ───────────────────────────────────────────────────────────────
