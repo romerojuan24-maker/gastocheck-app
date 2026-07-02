@@ -1,5 +1,6 @@
 // Panel Administrador — solo owner y admin
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, Modal, TextInput, FlatList,
@@ -141,6 +142,7 @@ export default function AdminPanelScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function onSelectBuyer(c: Comprador) {
     setSelBuyer(c);

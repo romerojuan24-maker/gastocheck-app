@@ -261,6 +261,21 @@ export default function ReembolsoScreen() {
       return;
     }
 
+    const sinOcr = assignedReceipts.filter(r => !r.provider_name).length;
+    if (sinOcr > 0) {
+      const proceed = await new Promise<boolean>(resolve =>
+        Alert.alert(
+          '⚠️ Comprobantes sin identificar',
+          `${sinOcr} comprobante${sinOcr !== 1 ? 's' : ''} no tiene${sinOcr !== 1 ? 'n' : ''} proveedor ni monto detectados por OCR. El contador no podrá clasificarlos fácilmente.\n\nUsa el botón OCR en Mis Comprobantes para analizarlos primero.`,
+          [
+            { text: 'Cancelar y corregir', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Enviar de todas formas', onPress: () => resolve(true) },
+          ]
+        )
+      );
+      if (!proceed) return;
+    }
+
     Alert.alert(
       'Cerrar Reembolso',
       `¿Cerrar y enviar ${assignedReceipts.length} comprobante(s) por ${money(assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0))} al contador para clasificar?`,
@@ -272,13 +287,14 @@ export default function ReembolsoScreen() {
             setSubmitting(true);
             try {
               const total = assignedReceipts.reduce((s, r) => s + (r.total_amount ?? 0), 0);
-              const { error: submitErr } = await supabase
+              const { data: updated, error: submitErr } = await supabase
                 .from('reembolsos')
                 .update({ status: 'pending_auth', total })
                 .eq('id', reembolso.id)
-                .eq('employee_id', reembolso.employee_id);
+                .select('id');
 
               if (submitErr) throw new Error(submitErr.message);
+              if (!updated || updated.length === 0) throw new Error('No se pudo actualizar el reembolso. Verifica tu conexión e intenta de nuevo.');
 
               Alert.alert(
                 '✅ Reembolso cerrado',

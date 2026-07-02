@@ -83,11 +83,14 @@ export default function EmpresasScreen() {
 
     setCreating(true);
     try {
-      // refreshSession garantiza que el JWT en el cliente es válido antes del INSERT
-      // (evita que auth.uid() sea NULL en la política RLS de companies)
-      await supabase.auth.refreshSession();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { Alert.alert('Error', 'Sesión expirada. Vuelve a iniciar sesión.'); return; }
+      // Refrescar sesión y verificar que devolvió token válido.
+      // Si el refresh falla, auth.uid() en Postgres devuelve null y la RLS bloquea el INSERT.
+      const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+      const user = refreshed?.session?.user ?? refreshed?.user;
+      if (refreshErr || !user) {
+        Alert.alert('Sesión expirada', 'Cierra y vuelve a abrir la app para continuar.');
+        return;
+      }
 
       // Crear empresa
       const { data: company, error: errCo } = await supabase
