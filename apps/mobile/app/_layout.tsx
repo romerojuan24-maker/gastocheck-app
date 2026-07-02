@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
 import { initLogger } from '../lib/logger';
 
-// Captura de console.* a buffer para poder exportar logs de diagnóstico desde Ajustes
+// Captura console.* al buffer local; logError/logWarn también escriben a Supabase diagnostic_logs
 initLogger();
 
 export default function Layout() {
