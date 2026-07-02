@@ -452,11 +452,12 @@ export default function ReceiptsScreen() {
           <Text style={styles.advancedSearchText}>🔍</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.advancedSearchBtn, { backgroundColor: BRAND.blue }]}
+          style={[styles.advancedSearchBtn, styles.ocrBtn, ocrBatchRunning && { opacity: 0.5 }]}
           onPress={handleBulkOcr}
           disabled={ocrBatchRunning}
         >
-          <Text style={styles.advancedSearchText}>🪄</Text>
+          <Text style={styles.ocrBtnIcon}>🔎🧾</Text>
+          <Text style={styles.ocrBtnLabel}>OCR</Text>
         </TouchableOpacity>
       </View>
 
@@ -643,6 +644,9 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.blue, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center', alignItems: 'center',
   },
   advancedSearchText: { fontSize: 18 },
+  ocrBtn:       { paddingHorizontal: 10, minWidth: 54 },
+  ocrBtnIcon:   { fontSize: 15, lineHeight: 18 },
+  ocrBtnLabel:  { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5, marginTop: 1 },
   searchInput:  { flex: 1, paddingVertical: 10, fontSize: 14, color: BRAND.navy },
   clearBtn:     { padding: 6 },
   clearText:    { color: '#90A4AE', fontSize: 16 },
