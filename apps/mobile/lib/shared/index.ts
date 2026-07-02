@@ -33,4 +33,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 112 · v1.1.12';
+export const APP_VERSION = 'OTA 113 · v1.1.13';
