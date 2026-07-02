@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import type { OcrResult } from '@gastocheck/shared';
 import { supabase } from './supabase';
-import { logEvent } from './logger';
+import { logEvent, logError, logWarn } from './logger';
 
 export interface BatchOcrReceipt {
   id: string;
@@ -67,7 +67,7 @@ export async function fetchReceiptsNeedingOcr(companyId: string, userId: string)
 /** Corre OCR sobre un comprobante puntual: descarga la foto, llama Gemini, aplica recorte y folio/UUID. */
 export async function runOcrOnReceipt(receipt: BatchOcrReceipt, companyId: string): Promise<{ ok: boolean; error?: string }> {
   if (!receipt.file_storage_path) {
-    logEvent('OCR-BATCH', `receipt ${receipt.id}: sin archivo en storage`);
+    logWarn('OCR-BATCH', `receipt ${receipt.id}: sin archivo en storage`);
     return { ok: false, error: 'Sin archivo' };
   }
 
@@ -78,14 +78,14 @@ export async function runOcrOnReceipt(receipt: BatchOcrReceipt, companyId: strin
       .createSignedUrl(receipt.file_storage_path, 300);
     if (signErr || !signed?.signedUrl) {
       const msg = signErr?.message ?? 'Sin URL firmada';
-      logEvent('OCR-BATCH', `receipt ${receipt.id} signed-url error: ${msg}`);
+      logError('OCR-BATCH', `receipt ${receipt.id} signed-url error: ${msg}`, { receipt_id: receipt.id, path: receipt.file_storage_path });
       return { ok: false, error: msg };
     }
 
     const localUri = `${FileSystem.cacheDirectory}ocr-batch-${receipt.id}.jpg`;
     const dl = await FileSystem.downloadAsync(signed.signedUrl, localUri);
     if (dl.status !== 200) {
-      logEvent('OCR-BATCH', `receipt ${receipt.id} download HTTP ${dl.status}: ${receipt.file_storage_path}`);
+      logError('OCR-BATCH', `receipt ${receipt.id} download HTTP ${dl.status}: ${receipt.file_storage_path}`, { receipt_id: receipt.id, http_status: dl.status });
       return { ok: false, error: `Descarga falló (${dl.status})` };
     }
 
@@ -95,7 +95,7 @@ export async function runOcrOnReceipt(receipt: BatchOcrReceipt, companyId: strin
     // 2. OCR
     const { data: ocr, error: ocrError, croppedImageBase64 } = await callOcrExtract(base64);
     if (!ocr) {
-      logEvent('OCR-BATCH', `receipt ${receipt.id} OCR error: ${ocrError ?? 'sin datos'}`);
+      logError('OCR-BATCH', `receipt ${receipt.id} OCR error: ${ocrError ?? 'sin datos'}`, { receipt_id: receipt.id, ocr_error: ocrError });
       return { ok: false, error: ocrError ?? 'OCR sin datos' };
     }
 
@@ -139,14 +139,14 @@ export async function runOcrOnReceipt(receipt: BatchOcrReceipt, companyId: strin
     }).eq('id', receipt.id);
 
     if (updErr) {
-      logEvent('OCR-BATCH', `receipt ${receipt.id} update error: ${updErr.message}`);
+      logError('OCR-BATCH', `receipt ${receipt.id} update error: ${updErr.message}`, { receipt_id: receipt.id });
       return { ok: false, error: updErr.message };
     }
     logEvent('OCR-BATCH', `receipt ${receipt.id} OK — proveedor: ${ocr.providerName ?? 'N/A'} total: ${ocr.total ?? 'N/A'}`);
     return { ok: true };
   } catch (e: any) {
     const msg = e?.message ?? String(e);
-    logEvent('OCR-BATCH', `receipt ${receipt.id} exception: ${msg}`);
+    logError('OCR-BATCH', `receipt ${receipt.id} exception: ${msg}`, { receipt_id: receipt.id });
     return { ok: false, error: msg };
   }
 }

@@ -1,11 +1,15 @@
 // Logger de diagnóstico — captura console.log/warn/error en un buffer en memoria
 // y permite exportarlo a un archivo de texto (nombre por fecha) + compartir.
 //
+// logError() y logWarn() también escriben a Supabase (diagnostic_logs) para
+// visibilidad remota sin necesidad de que el usuario reenvíe archivos.
+//
 // IMPORTANTE: usa el Share nativo de React Native (no expo-sharing), porque
 // un OTA no puede agregar módulos nativos nuevos al APK ya instalado.
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform, Share } from 'react-native';
 import { APP_VERSION } from '@gastocheck/shared';
+import { supabase } from './supabase';
 
 const MAX_LINES = 3000;
 const buffer: string[] = [];
@@ -26,6 +30,24 @@ function push(level: string, args: unknown[]) {
   if (buffer.length > MAX_LINES) buffer.splice(0, buffer.length - MAX_LINES);
 }
 
+// Escribe a Supabase de forma fire-and-forget; nunca lanza excepciones.
+async function logRemote(tag: string, level: string, message: string, metadata?: Record<string, unknown>) {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const userId = data?.session?.user?.id;
+    if (!userId) return;
+    await supabase.from('diagnostic_logs').insert({
+      user_id: userId,
+      tag,
+      message,
+      level,
+      ...(metadata ? { metadata } : {}),
+    });
+  } catch {
+    // El logger nunca debe crashear la app
+  }
+}
+
 /** Monkeypatch console para duplicar la salida al buffer. Idempotente. */
 export function initLogger() {
   if (installed) return;
@@ -44,9 +66,21 @@ export function initLogger() {
   buffer.push(`${ts()} [INIT] logger iniciado · ${APP_VERSION} · ${Platform.OS}`);
 }
 
-/** Registra una línea manual (útil para marcar acciones del usuario). */
+/** Registra una línea manual (local únicamente — para eventos informativos). */
 export function logEvent(tag: string, ...args: unknown[]) {
   push(tag, args);
+}
+
+/** Registra un aviso + lo envía a Supabase diagnostic_logs. */
+export function logWarn(tag: string, message: string, metadata?: Record<string, unknown>) {
+  push('WARN', [message]);
+  logRemote(tag, 'warn', message, metadata);
+}
+
+/** Registra un error + lo envía a Supabase diagnostic_logs. */
+export function logError(tag: string, message: string, metadata?: Record<string, unknown>) {
+  push('ERROR', [message]);
+  logRemote(tag, 'error', message, metadata);
 }
 
 function buildContents(extra?: Record<string, unknown>): string {
@@ -75,12 +109,10 @@ export async function exportLogs(extra?: Record<string, unknown>): Promise<strin
   const fileUri = `${FileSystem.documentDirectory}${fileName}`;
   const contents = buildContents(extra);
 
-  // 1. Guardar archivo (registro en el dispositivo)
   await FileSystem.writeAsStringAsync(fileUri, contents, {
     encoding: FileSystem.EncodingType.UTF8,
   });
 
-  // 2. Compartir el contenido como texto (Share nativo — siempre disponible)
   await Share.share({
     title:   fileName,
     message: contents,
