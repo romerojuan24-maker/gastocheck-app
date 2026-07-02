@@ -1,6 +1,6 @@
 # CHECK SUITE — Setup completo para nueva PC
 ### Statika Electronics · Guía para Juan o Daniel
-*Actualizado: 2026-07-02 · OTA 101 activa*
+*Actualizado: 2026-07-02 · OTA 110 activa*
 
 ---
 
@@ -325,7 +325,7 @@ Repo: https://github.com/romerojuan24-maker/gastocheck-app
 - Monorepo: pnpm workspaces (apps/web · apps/mobile · packages/shared)
 - OTA Channel: preview (Expo EAS, cuenta: juan.romero)
 - OCR: Edge Function ocr-extract → Gemini 2.5 Flash
-- Versión actual: OTA 101 · v1.1.1
+- Versión actual: OTA 110 · v1.1.10
 
 ## Roles en el sistema:
 owner > admin > accountant > contador_general > supervisor > spender/comprador
@@ -387,5 +387,5 @@ Archivos pendientes de aplicar (verificar con Juan):
 
 ---
 
-*Actualizado: 2026-07-02 · OTA 101 · Statika Electronics*
+*Actualizado: 2026-07-02 · OTA 110 · Statika Electronics*
 *Si algo no funciona, escribe [BLOCKER] en DAILY_LOG.md y avísale a Juan.*
