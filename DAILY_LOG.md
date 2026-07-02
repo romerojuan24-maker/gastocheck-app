@@ -81,6 +81,33 @@ Archivos completos respaldados en `C:\Users\statika\AppData\Local\Temp\claude\ga
 
 ---
 
+## 2026-07-02 — Sesión migración a PC nueva (Juan)
+
+### ✅ Completado hoy
+- **Setup PC nueva completo**: Node v24.15.0, pnpm@11 (11.9.0), Supabase CLI (2.109.0) instalados; EAS CLI ya estaba (18.12.1); repo clonado en `C:\Users\perte\Documents\gastocheck-app`; `pnpm install` corrido sobre el monorepo completo; `apps/web/.env.local` + `apps/mobile/.env.local` creados con claves reales de `SETUP_NUEVA_PC.md`.
+- **Fix typecheck — `apps/web/components/ui/` no existía**: nunca se generó (probablemente se planeó shadcn/ui y no se corrió el scaffolding). Creados a mano, sin dependencias nuevas (sin Radix): `button.tsx`, `input.tsx`, `card.tsx`, `badge.tsx`, `checkbox.tsx`, `table.tsx`, `select.tsx` (este último con Context propio para el API compound `Select/SelectTrigger/SelectValue/SelectContent/SelectItem`). Nota: `SelectValue` muestra el `value` crudo (ej. UUID del cliente/cobrador) en vez de la etiqueta legible — suficiente por ahora porque CobraCheck está pausado (ver decisión abajo), pero habría que arreglarlo si se retoma esa pantalla.
+- Borrados 2 archivos muertos que rompían `typecheck` sin aportar nada (huérfanos, reemplazados por sus `page.tsx`, confirmado que nada los importa): `apps/web/app/(dashboard)/gastocheck/contador-general.tsx` y `apps/web/app/(dashboard)/admin/contador-assignment.tsx`.
+- Verificado: `pnpm run web` levanta en `http://localhost:3000` y responde 200 OK.
+
+### ✔️ Decisiones tomadas
+- [DECIDIDO] CobraCheck no está activo por ahora — no tocar nada de CobraCheck (rutas, `daily_routes`, `movement_attempts`/`daily_movement_report`/`reason_codes`/`cash_deposits`) hasta avanzar más con GastoCheck.
+
+### 📌 Pendientes activos (typecheck — NO relacionado a lo de hoy, preexistente)
+`pnpm run typecheck` sigue fallando por 4 errores sin relación con `components/ui`:
+- `packages/shared/src/types/index.ts` — imports rotos: `./bancocheck`, `./flujocheck`, `./facturacheck`, `./inventariocheck`, `./advisor` (archivos no existen)
+- `apps/web/app/(dashboard)/cobracheck/routes/page.tsx:26` — `lucide-react` no está en `package.json` (falta agregar dependencia o quitar el import de `Calendar`)
+- `apps/web/app/(dashboard)/cobracheck/routes/page.tsx:475` — `CobraMovement` no tiene la propiedad `client` (el query hace join `client:cobra_clients(name)` pero el tipo no lo refleja)
+- `apps/web/app/api/checkia/detectar.ts:25` — usa `cookies().get(...)` sin `await`; en Next.js 15 `cookies()` es async
+
+Como CobraCheck está pausado, ninguno de estos bloquea a GastoCheck — quedan para cuando se retome.
+
+### 🎯 Próximos pasos
+1. `eas login` (pendiente, requiere sesión interactiva del usuario)
+2. Verificar secrets de Edge Functions en Supabase Dashboard (`GEMINI_API_KEY`, `STRIPE_*`, `WHATSAPP_TOKEN`)
+3. Aplicar migraciones SQL pendientes: `20260630_viaticos_trip_columns.sql` y `20260630_fix_reembolsos_receipts_columns.sql`
+
+---
+
 ## HISTORIAL DE COMMITS (hoy)
 ```
 b35e54e feat(permisos): matriz centralizada de roles en GastoCheck
