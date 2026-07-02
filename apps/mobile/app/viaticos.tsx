@@ -183,6 +183,7 @@ export default function ViaticosScreen() {
         .from('viaticos')
         .insert({
           company_id:     companyId,
+          employee_id:    userId,
           created_by:     userId,
           person_id:      userId,
           destination:    destination.trim(),
