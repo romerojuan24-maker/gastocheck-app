@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Platform, Modal,
+  ScrollView, ActivityIndicator, Alert, Platform, Modal, Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -64,6 +64,7 @@ export default function GastoCheckHome() {
   const [teamCount,     setTeamCount]    = useState(0);
 
   // Active tab per role (survives data refresh)
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [adminTab,  setAdminTab]  = useState(1);
   const [contTab,   setContTab]   = useState(0);
   const [compTab,   setCompTab]   = useState(0);
@@ -108,7 +109,7 @@ export default function GastoCheckHome() {
       if (isAdmin && member.company_id) {
         const tenDaysAgo = new Date();
         tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-        const [{ count: oc }, { count: tc }, { data: mlist }] = await Promise.all([
+        const [{ count: oc }, { count: tc }, { data: mlist }, { data: co }] = await Promise.all([
           supabase
             .from('policies')
             .select('id', { count: 'exact', head: true })
@@ -126,9 +127,15 @@ export default function GastoCheckHome() {
             .eq('company_id', member.company_id)
             .eq('status', 'active')
             .order('role'),
+          supabase
+            .from('companies')
+            .select('name')
+            .eq('id', member.company_id)
+            .maybeSingle(),
         ]);
         setOverdueAdv(oc ?? 0);
         setTeamCount(tc ?? 0);
+        setCompanyName((co as any)?.name ?? null);
         setMembers((mlist ?? []).map((m: any) => ({
           user_id:   m.user_id,
           role:      m.role,
@@ -264,6 +271,44 @@ export default function GastoCheckHome() {
         { text: 'Cancelar', style: 'cancel' as const },
       ]
     );
+  }
+
+  function inviteCode() {
+    if (!companyId) return '--------';
+    return companyId.replace(/-/g, '').substring(0, 8).toUpperCase();
+  }
+
+  async function shareInvite(role: 'admin' | 'comprador' | 'accountant') {
+    if (!companyId) return;
+    const code = inviteCode();
+    const name = companyName ?? 'la empresa';
+    const ROLE_INFO = {
+      admin: {
+        label:   'Admin',
+        accesos: 'Acceso completo de administrador: gestiona la empresa, cuentas bancarias, equipo de trabajo, flotilla y toda la configuración.',
+      },
+      accountant: {
+        label:   'Contador',
+        accesos: 'Acceso completo contable: clasifica cuentas, valida CFDI en SAT, genera pólizas, exporta a CONTPAQi/CSV, y reportes de operación.',
+      },
+      comprador: {
+        label:   'Comprador',
+        accesos: 'Captura tickets con cámara, genera reembolsos, consulta comprobantes propios y ve los proveedores de la empresa.',
+      },
+    };
+    const { label, accesos } = ROLE_INFO[role];
+    const msg =
+      `Hola! Te invito a unirte a *${name}* en GastoCheck como *${label}*.\n\n` +
+      `📋 *${label} — Tus accesos:*\n${accesos}\n\n` +
+      `*Para unirte en 3 pasos:*\n` +
+      `1️⃣ Descarga GastoCheck:\n` +
+      `   📱 iOS: https://apps.apple.com/app/gastocheck\n` +
+      `   🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck\n\n` +
+      `2️⃣ Regístrate con tu nombre y correo\n\n` +
+      `3️⃣ Ingresa el código de empresa: *${code}*\n` +
+      `   (Tu rol como ${label} ya estará asignado)\n\n` +
+      `¡Listo! Estarás dentro de *${name}* en GastoCheck. 🎉`;
+    try { await Share.share({ message: msg }); } catch { /* cancelado */ }
   }
 
   function confirmRemoveMember(m: { user_id: string; role: string; full_name: string | null }) {
@@ -667,9 +712,29 @@ export default function GastoCheckHome() {
                 </TouchableOpacity>
               ))
             )}
-            <NavCard icon="➕" title="Invitar Nuevo Miembro"
-              sub="Admin, Contador o Comprador — invitación por WhatsApp"
-              onPress={() => router.push('/administracion' as any)} />
+            {/* ── Invitar ────────────────────────────────── */}
+            <View style={{ marginTop: 20 }}>
+              <Text style={[s.tabTitle, { fontSize: 16, marginBottom: 8 }]}>Invitar al Equipo</Text>
+              <View style={s.codeBox}>
+                <Text style={s.codeLabel}>Código de empresa</Text>
+                <Text style={s.codeValue}>{inviteCode()}</Text>
+              </View>
+              {([
+                { role: 'admin'      as const, icon: '👑', label: 'Admin',    desc: 'Acceso completo: empresa, equipo, cuentas bancarias y configuración.',       color: BRAND.navy   },
+                { role: 'accountant' as const, icon: '🧮', label: 'Contador', desc: 'Clasifica cuentas, valida CFDI, genera pólizas y exporta a CONTPAQi.',      color: BRAND.purple },
+                { role: 'comprador'  as const, icon: '🛒', label: 'Comprador',desc: 'Captura tickets, genera reembolsos y consulta proveedores.',                color: BRAND.green  },
+              ]).map(({ role, icon, label, desc, color }) => (
+                <View key={role} style={[s.roleCard, { borderLeftColor: color }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.roleCardTitle}>{icon} {label}</Text>
+                    <Text style={s.roleCardDesc}>{desc}</Text>
+                  </View>
+                  <TouchableOpacity style={[s.roleInviteBtn, { backgroundColor: color }]} onPress={() => shareInvite(role)}>
+                    <Text style={s.roleInviteBtnText}>Invitar</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
           </ScrollView>
         )}
 
@@ -721,7 +786,7 @@ export default function GastoCheckHome() {
         onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
         onClose={() => setShowSwitcher(false)} />
       <BottomBar tabs={ADMIN_TABS} active={adminTab}
-        onSelect={(i) => { if (i === 0) router.push('/administracion' as any); else setAdminTab(i); }}
+        onSelect={(i) => { if (i === 0) router.push('/empresas' as any); else setAdminTab(i); }}
         color={BRAND.navy} />
     </View>
   );
@@ -1021,4 +1086,14 @@ const s = StyleSheet.create({
   memberAvatar:     { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   memberAvatarText: { fontSize: 18, fontWeight: '800' },
   memberName:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+
+  // Invite section (Admin Equipo tab)
+  codeBox:           { backgroundColor: BRAND.gray, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 4 },
+  codeLabel:         { fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase' },
+  codeValue:         { fontSize: 26, fontWeight: '800', color: BRAND.navy, letterSpacing: 4, marginTop: 4 },
+  roleCard:          { backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderLeftWidth: 4, borderWidth: 1, borderColor: '#E0E0E0' },
+  roleCardTitle:     { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  roleCardDesc:      { fontSize: 12, color: '#607D8B', lineHeight: 16 },
+  roleInviteBtn:     { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 70, alignItems: 'center' },
+  roleInviteBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

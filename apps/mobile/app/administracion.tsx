@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   TextInput, Alert, ActivityIndicator, Switch,
-  Share, Modal, FlatList,
+  Modal, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
@@ -263,47 +263,6 @@ export default function AdministracionScreen() {
     ]);
   }
 
-  function inviteCode() {
-    if (!company) return '--------';
-    return company.id.replace(/-/g, '').substring(0, 8).toUpperCase();
-  }
-
-  async function shareInvite(role: 'admin' | 'comprador' | 'accountant') {
-    if (!company) return;
-    const code = inviteCode();
-
-    const ROLE_INFO = {
-      admin: {
-        label:   'Admin',
-        accesos: 'Acceso completo de administrador: gestiona la empresa, cuentas bancarias, equipo de trabajo, flotilla y toda la configuración.',
-      },
-      accountant: {
-        label:   'Contador',
-        accesos: 'Acceso completo contable: clasifica cuentas, valida CFDI en SAT, genera pólizas, exporta a CONTPAQi/CSV, y reportes de operación.',
-      },
-      comprador: {
-        label:   'Comprador',
-        accesos: 'Captura tickets con cámara, genera reembolsos, consulta comprobantes propios y ve los proveedores de la empresa.',
-      },
-    };
-
-    const { label, accesos } = ROLE_INFO[role];
-    const msg =
-      `Hola! Te invito a unirte a *${company.name}* en GastoCheck como *${label}*.\n\n` +
-      `📋 *${label} — Tus accesos:*\n${accesos}\n\n` +
-      `*Para unirte en 3 pasos:*\n` +
-      `1️⃣ Descarga GastoCheck:\n` +
-      `   📱 iOS: https://apps.apple.com/app/gastocheck\n` +
-      `   🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck\n\n` +
-      `2️⃣ Regístrate con tu nombre y correo\n\n` +
-      `3️⃣ Ingresa el código de empresa: *${code}*\n` +
-      `   (Tu rol como ${label} ya estará asignado)\n\n` +
-      `¡Listo! Estarás dentro de *${company.name}* en GastoCheck. 🎉`;
-    try {
-      await Share.share({ message: msg });
-    } catch { /* cancelado */ }
-  }
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
@@ -344,58 +303,6 @@ export default function AdministracionScreen() {
           {userRole === 'owner' && (
             <Text style={[styles.planWarning, { color: BRAND.green }]}>Sin límite (eres propietario)</Text>
           )}
-        </View>
-      </View>
-
-      {/* ── Invitar al Equipo ── */}
-      <SectionHeader title="Invitar al Equipo" />
-      <View style={styles.inviteCard}>
-        <Text style={styles.inviteTitle}>📲 Invitar por WhatsApp</Text>
-        <Text style={styles.inviteHint}>
-          Elige el rol antes de compartir — el mensaje explicará claramente los accesos que tendrá.
-        </Text>
-        <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>Código de empresa</Text>
-          <Text style={styles.codeValue}>{inviteCode()}</Text>
-        </View>
-
-        {/* Rol: Admin */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.navy }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>👑 Admin</Text>
-            <Text style={styles.roleCardDesc}>
-              Acceso completo: empresa, equipo, cuentas bancarias y toda la configuración.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.navy }]} onPress={() => shareInvite('admin')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Rol: Contador */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.purple ?? '#7C4DFF' }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>🧮 Contador</Text>
-            <Text style={styles.roleCardDesc}>
-              Clasifica cuentas contables, valida CFDI, genera pólizas y exporta a CONTPAQi.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.purple ?? '#7C4DFF' }]} onPress={() => shareInvite('accountant')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Rol: Comprador */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.green }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>🛒 Comprador</Text>
-            <Text style={styles.roleCardDesc}>
-              Captura tickets, genera reembolsos, consulta comprobantes y proveedores.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.green }]} onPress={() => shareInvite('comprador')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
