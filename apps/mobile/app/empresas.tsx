@@ -83,11 +83,8 @@ export default function EmpresasScreen() {
 
     setCreating(true);
     try {
-      // Refrescar sesión y verificar que devolvió token válido.
-      // Si el refresh falla, auth.uid() en Postgres devuelve null y la RLS bloquea el INSERT.
-      const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
-      const user = refreshed?.session?.user ?? refreshed?.user;
-      if (refreshErr || !user) {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) {
         Alert.alert('Sesión expirada', 'Cierra y vuelve a abrir la app para continuar.');
         return;
       }
