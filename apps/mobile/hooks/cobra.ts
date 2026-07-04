@@ -13,7 +13,9 @@ export function useCobrador() {
         .from('company_members')
         .select('company_id, role')
         .eq('user_id', data.user.id)
-        .single()
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
         .then(({ data: member, error: err }) => {
           if (err || !member) {
             setError('No se pudo cargar el usuario')

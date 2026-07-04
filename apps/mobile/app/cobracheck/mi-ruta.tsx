@@ -575,7 +575,7 @@ export default function MiRutaCobraScreen() {
                               Saldo: $ {item.current_balance.toLocaleString('es-MX')}
                             </Text>
                           </View>
-                          <Text style={styles.riskBadge} style={[
+                          <Text style={[
                             styles.riskBadge,
                             { color: item.risk_score >= 70 ? BRAND.red : item.risk_score >= 40 ? '#FF9800' : BRAND.green }
                           ]}>
