@@ -268,14 +268,14 @@ export default function AdministracionScreen() {
     return company.id.replace(/-/g, '').substring(0, 8).toUpperCase();
   }
 
-  async function shareInvite(role: 'supervisor' | 'comprador' | 'accountant') {
+  async function shareInvite(role: 'admin' | 'comprador' | 'accountant') {
     if (!company) return;
     const code = inviteCode();
 
     const ROLE_INFO = {
-      supervisor: {
-        label:   'Supervisor',
-        accesos: 'Autoriza gastos del equipo, revisa reembolsos, supervisa pólizas y reportes de todos los compradores.',
+      admin: {
+        label:   'Admin',
+        accesos: 'Acceso completo de administrador: gestiona la empresa, cuentas bancarias, equipo de trabajo, flotilla y toda la configuración.',
       },
       accountant: {
         label:   'Contador',
@@ -344,6 +344,58 @@ export default function AdministracionScreen() {
           {userRole === 'owner' && (
             <Text style={[styles.planWarning, { color: BRAND.green }]}>Sin límite (eres propietario)</Text>
           )}
+        </View>
+      </View>
+
+      {/* ── Invitar al Equipo ── */}
+      <SectionHeader title="Invitar al Equipo" />
+      <View style={styles.inviteCard}>
+        <Text style={styles.inviteTitle}>📲 Invitar por WhatsApp</Text>
+        <Text style={styles.inviteHint}>
+          Elige el rol antes de compartir — el mensaje explicará claramente los accesos que tendrá.
+        </Text>
+        <View style={styles.codeBox}>
+          <Text style={styles.codeLabel}>Código de empresa</Text>
+          <Text style={styles.codeValue}>{inviteCode()}</Text>
+        </View>
+
+        {/* Rol: Admin */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.navy }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>👑 Admin</Text>
+            <Text style={styles.roleCardDesc}>
+              Acceso completo: empresa, equipo, cuentas bancarias y toda la configuración.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.navy }]} onPress={() => shareInvite('admin')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rol: Contador */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.purple ?? '#7C4DFF' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>🧮 Contador</Text>
+            <Text style={styles.roleCardDesc}>
+              Clasifica cuentas contables, valida CFDI, genera pólizas y exporta a CONTPAQi.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.purple ?? '#7C4DFF' }]} onPress={() => shareInvite('accountant')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Rol: Comprador */}
+        <View style={[styles.roleCard, { borderLeftColor: BRAND.green }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.roleCardTitle}>🛒 Comprador</Text>
+            <Text style={styles.roleCardDesc}>
+              Captura tickets, genera reembolsos, consulta comprobantes y proveedores.
+            </Text>
+          </View>
+          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.green }]} onPress={() => shareInvite('comprador')}>
+            <Text style={styles.roleInviteBtnText}>Invitar</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -417,66 +469,6 @@ export default function AdministracionScreen() {
           ? <ActivityIndicator color="#fff" />
           : <Text style={styles.saveBtnText}>Guardar datos fiscales</Text>}
       </TouchableOpacity>
-
-      {/* ── Compradores ── */}
-      <SectionHeader title="Compradores" />
-      <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/gastadores' as any)}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.actionCardTitle}>👤 Mis Compradores</Text>
-          <Text style={styles.actionCardHint}>Gestionar usuarios activos e inactivos</Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
-      </TouchableOpacity>
-
-      <View style={styles.inviteCard}>
-        <Text style={styles.inviteTitle}>📲 Invitar por WhatsApp</Text>
-        <Text style={styles.inviteHint}>
-          Elige el rol antes de compartir — el mensaje explicará claramente los accesos que tendrá.
-        </Text>
-        <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>Código de empresa</Text>
-          <Text style={styles.codeValue}>{inviteCode()}</Text>
-        </View>
-
-        {/* Rol: Supervisor */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.blue }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>📋 Supervisor</Text>
-            <Text style={styles.roleCardDesc}>
-              Autoriza gastos del equipo, revisa reembolsos y supervisa pólizas.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.blue }]} onPress={() => shareInvite('supervisor')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Rol: Contador */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.purple ?? '#7C4DFF' }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>🧮 Contador</Text>
-            <Text style={styles.roleCardDesc}>
-              Clasifica cuentas contables, valida CFDI, genera pólizas y exporta a CONTPAQi.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.purple ?? '#7C4DFF' }]} onPress={() => shareInvite('accountant')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Rol: Comprador */}
-        <View style={[styles.roleCard, { borderLeftColor: BRAND.green }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.roleCardTitle}>🛒 Comprador</Text>
-            <Text style={styles.roleCardDesc}>
-              Captura tickets, sus pólizas y comprobantes propios, reembolsos y proveedores de la empresa.
-            </Text>
-          </View>
-          <TouchableOpacity style={[styles.roleInviteBtn, { backgroundColor: BRAND.green }]} onPress={() => shareInvite('comprador')}>
-            <Text style={styles.roleInviteBtnText}>Invitar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* ── Cuentas Bancarias ── */}
       <SectionHeader title="Cuentas Bancarias" />

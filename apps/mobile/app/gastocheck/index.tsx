@@ -28,9 +28,15 @@ const ROLE_LABEL: Record<string, string> = {
   admin:            '🔑 Admin',
   accountant:       '📊 Contador',
   contador_general: '📊 Contador',
-  supervisor:       '👁 Supervisor',
+  supervisor:       '📊 Supervisor',
   spender:          '🛍 Comprador',
   comprador:        '🛍 Comprador',
+};
+
+const getMemberColor = (role: string): string => {
+  if (['owner', 'admin'].includes(role)) return BRAND.navy;
+  if (['accountant', 'contador_general', 'supervisor'].includes(role)) return BRAND.blue;
+  return BRAND.green;
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -63,6 +69,9 @@ export default function GastoCheckHome() {
   const [compTab,   setCompTab]   = useState(0);
   const [viewMode,     setViewMode]    = useState<'admin' | 'comprador' | 'contador'>('admin');
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [userId,     setUserId]     = useState<string | null>(null);
+  const [companyId,  setCompanyId]  = useState<string | null>(null);
+  const [members,    setMembers]    = useState<Array<{ user_id: string; role: string; full_name: string | null }>>([]);
 
   useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -73,6 +82,7 @@ export default function GastoCheckHome() {
       const user = session?.user;
       if (!user) { setLoading(false); return; }
       setUserEmail(user.email ?? null);
+      setUserId(user.id);
 
       const { data: member } = await supabase
         .from('company_members')
@@ -83,6 +93,7 @@ export default function GastoCheckHome() {
 
       if (!member) { setLoading(false); return; }
       setUserRole(member.role);
+      setCompanyId(member.company_id);
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -97,7 +108,7 @@ export default function GastoCheckHome() {
       if (isAdmin && member.company_id) {
         const tenDaysAgo = new Date();
         tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-        const [{ count: oc }, { count: tc }] = await Promise.all([
+        const [{ count: oc }, { count: tc }, { data: mlist }] = await Promise.all([
           supabase
             .from('policies')
             .select('id', { count: 'exact', head: true })
@@ -109,9 +120,20 @@ export default function GastoCheckHome() {
             .select('user_id', { count: 'exact', head: true })
             .eq('company_id', member.company_id)
             .eq('status', 'active'),
+          supabase
+            .from('company_members')
+            .select('user_id, role, profiles:user_id(full_name)')
+            .eq('company_id', member.company_id)
+            .eq('status', 'active')
+            .order('role'),
         ]);
         setOverdueAdv(oc ?? 0);
         setTeamCount(tc ?? 0);
+        setMembers((mlist ?? []).map((m: any) => ({
+          user_id:   m.user_id,
+          role:      m.role,
+          full_name: (m.profiles as any)?.full_name ?? null,
+        })));
       }
 
       if (isSupervisor && !isAdmin && member.company_id) {
@@ -204,6 +226,63 @@ export default function GastoCheckHome() {
         },
       },
     ]);
+  }
+
+  function showMemberOptions(m: { user_id: string; role: string; full_name: string | null }) {
+    const name = m.full_name ?? '(sin nombre)';
+    const isSelf = m.user_id === userId;
+    Alert.alert(
+      name,
+      `Rol: ${ROLE_LABEL[m.role] ?? m.role}`,
+      [
+        ...(!isSelf ? [{ text: '🔄 Cambiar rol', onPress: () => changeMemberRole(m) }] : []),
+        ...(!isSelf ? [{ text: '🚫 Quitar del equipo', style: 'destructive' as const, onPress: () => confirmRemoveMember(m) }] : []),
+        { text: 'Cancelar', style: 'cancel' as const },
+      ]
+    );
+  }
+
+  function changeMemberRole(m: { user_id: string; role: string; full_name: string | null }) {
+    if (!companyId) return;
+    const opts = [
+      { role: 'admin',     label: '👑 Admin' },
+      { role: 'accountant', label: '📊 Contador' },
+      { role: 'comprador', label: '🛍 Comprador' },
+    ].filter((o) => o.role !== m.role);
+    Alert.alert(
+      `Cambiar rol de ${m.full_name ?? '...'}`,
+      'Selecciona el nuevo rol:',
+      [
+        ...opts.map((o) => ({
+          text: o.label,
+          onPress: async () => {
+            await supabase.from('company_members').update({ role: o.role })
+              .eq('user_id', m.user_id).eq('company_id', companyId);
+            loadData();
+          },
+        })),
+        { text: 'Cancelar', style: 'cancel' as const },
+      ]
+    );
+  }
+
+  function confirmRemoveMember(m: { user_id: string; role: string; full_name: string | null }) {
+    if (!companyId) return;
+    Alert.alert(
+      '¿Quitar del equipo?',
+      `${m.full_name ?? '(sin nombre)'} perderá acceso a esta empresa.`,
+      [
+        { text: 'Cancelar', style: 'cancel' as const },
+        {
+          text: 'Quitar', style: 'destructive' as const,
+          onPress: async () => {
+            await supabase.from('company_members').update({ status: 'inactive' })
+              .eq('user_id', m.user_id).eq('company_id', companyId);
+            loadData();
+          },
+        },
+      ]
+    );
   }
 
   // ── Shared components ───────────────────────────────────────────────────────
@@ -339,9 +418,6 @@ export default function GastoCheckHome() {
                 </TouchableOpacity>
               )}
 
-              <NavCard icon="✈️" title="Viáticos"
-                sub="Gastos de viaje: renta, comidas, hospedaje"
-                onPress={() => router.push('/viaticos' as any)} />
             </ScrollView>
           )}
 
@@ -496,9 +572,6 @@ export default function GastoCheckHome() {
               <BigCard icon="📑" title="Mis Pólizas"
                 sub="Crear, revisar y autorizar pólizas de gastos"
                 bg={BRAND.blue} onPress={() => router.push('/polizas' as any)} />
-              <NavCard icon="🔍" title="Panel Supervisor"
-                sub="Vista completa: gastos, anticipos y equipo"
-                onPress={() => router.push('/supervisor' as any)} />
             </ScrollView>
           )}
 
@@ -560,11 +633,8 @@ export default function GastoCheckHome() {
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Empresa</Text>
             <BigCard icon="🏢" title="Datos de Empresa"
-              sub="RFC, nombre, sector y configuración general"
+              sub="RFC, nombre, sector, moneda y configuración"
               bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
-            <NavCard icon="✉️" title="Invitaciones"
-              sub="Invitar compradores, contadores y supervisores"
-              onPress={() => router.push('/administracion' as any)} />
             <NavCard icon="🏦" title="Cuentas Bancarias"
               sub="Registra y administra las cuentas de la empresa"
               onPress={() => router.push('/administracion' as any)} />
@@ -574,22 +644,44 @@ export default function GastoCheckHome() {
         {adminTab === 1 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Equipo</Text>
-            {teamCount > 0 && (
-              <View style={[s.alertCard, { borderColor: BRAND.navy + '30', backgroundColor: BRAND.navy + '08' }]}>
-                <Text style={[s.alertCardTitle, { color: BRAND.navy }]}>
-                  👥 {teamCount} miembro{teamCount !== 1 ? 's' : ''} activo{teamCount !== 1 ? 's' : ''}
-                </Text>
-              </View>
+            {members.length === 0 ? (
+              <EmptyState icon="👥" title="Sin miembros"
+                sub="Invita a tu equipo con el botón de abajo" />
+            ) : (
+              members.map((m) => (
+                <TouchableOpacity
+                  key={m.user_id}
+                  style={s.memberRow}
+                  onPress={() => showMemberOptions(m)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[s.memberAvatar, { backgroundColor: getMemberColor(m.role) + '18' }]}>
+                    <Text style={[s.memberAvatarText, { color: getMemberColor(m.role) }]}>
+                      {(m.full_name ?? m.user_id).charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.memberName}>
+                      {m.full_name ?? '(sin nombre)'}{m.user_id === userId ? '  (tú)' : ''}
+                    </Text>
+                    <View style={[s.pill, {
+                      backgroundColor: getMemberColor(m.role) + '18',
+                      marginTop: 4, alignSelf: 'flex-start',
+                    }]}>
+                      <Text style={[s.pillText, { color: getMemberColor(m.role) }]}>
+                        {ROLE_LABEL[m.role] ?? m.role}
+                      </Text>
+                    </View>
+                  </View>
+                  {m.user_id !== userId && (
+                    <Text style={{ fontSize: 18, color: '#B0BEC5' }}>···</Text>
+                  )}
+                </TouchableOpacity>
+              ))
             )}
-            <BigCard icon="👥" title="Compradores"
-              sub="Saldos, anticipos y balances del equipo"
-              bg={BRAND.navy} onPress={() => router.push('/admin-panel' as any)} />
-            <NavCard icon="➕" title="Invitar Miembro"
-              sub="Agregar comprador, contador o supervisor"
+            <NavCard icon="➕" title="Invitar Nuevo Miembro"
+              sub="Admin, Contador o Comprador — invitación por WhatsApp"
               onPress={() => router.push('/administracion' as any)} />
-            <NavCard icon="🧮" title="Panel Supervisor"
-              sub="Gastos, anticipos y solicitudes del equipo"
-              onPress={() => router.push('/supervisor' as any)} />
           </ScrollView>
         )}
 
@@ -933,4 +1025,10 @@ const s = StyleSheet.create({
   switcherLabel:     { fontSize: 16, fontWeight: '700', color: BRAND.navy },
   switcherSub:       { fontSize: 12, color: '#90A4AE', marginTop: 2 },
   switcherCheck:     { fontSize: 20, fontWeight: '800' },
+
+  // Member list (Admin Equipo tab)
+  memberRow:        { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  memberAvatar:     { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  memberAvatarText: { fontSize: 18, fontWeight: '800' },
+  memberName:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
 });
