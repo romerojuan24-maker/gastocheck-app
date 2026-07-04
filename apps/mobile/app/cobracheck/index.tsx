@@ -1,139 +1,273 @@
-import { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
-import { BRAND } from '@gastocheck/shared';
+import React, { useEffect, useState } from 'react'
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Linking,
+  Dimensions,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useCobrador } from '../../hooks/cobra'
+import { formatCurrency } from '@gastocheck/shared'
 
-export default function CobraCheckHome() {
-  const router     = useRouter();
-  const navigation = useNavigation();
+// Hooks
+import { useRoute, useMovementCapture, useDailyReport } from './hooks'
 
-  useEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
+// Componentes
+import {
+  RouteList,
+  ClientDetail,
+  ScannerModal,
+  MovementForm,
+  ReportSummary,
+} from './components'
+
+// Tipos
+import type { RouteClient, Movement, ScannerResult } from './types'
+
+// ============================================================================
+// MAIN SCREEN: CobraCheck — Mi Ruta de Cobranza
+// ============================================================================
+
+export default function CobraCheckScreen() {
+  const insets = useSafeAreaInsets()
+  const { user } = useCobrador()
+  const today = new Date().toISOString().split('T')[0]
+  const { route, loading: routeLoading } = useRoute(user?.id || '', today)
+  const { capture } = useMovementCapture()
+  const { generate } = useDailyReport()
+
+  const [selectedClient, setSelectedClient] = useState<RouteClient | null>(null)
+  const [showClientDetail, setShowClientDetail] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [showMovementForm, setShowMovementForm] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [scanResult, setScanResult] = useState<ScannerResult | null>(null)
+  const [movements, setMovements] = useState<Movement[]>([])
+  const [reportLoading, setReportLoading] = useState(false)
+
+  // Estadísticas
+  const stats = {
+    clientsVisited: movements.filter((m) => m.status !== 'pending').length,
+    totalCollected: movements
+      .filter((m) => m.status === 'paid')
+      .reduce((sum, m) => sum + m.amount, 0),
+    cashDeposits: movements
+      .filter((m) => m.status === 'paid' && m.method === 'cash')
+      .reduce((sum, m) => sum + m.amount, 0),
+    promises: movements.filter((m) => m.status === 'promise').length,
+  }
+
+  const handleSelectClient = (client: RouteClient) => {
+    setSelectedClient(client)
+    setShowClientDetail(true)
+  }
+
+  const handleOpenMaps = (lat: number, lng: number) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir Google Maps')
+    })
+  }
+
+  const handleScanResult = (result: ScannerResult) => {
+    setScanResult(result)
+    setShowScanner(false)
+    setShowMovementForm(true)
+  }
+
+  const handleSubmitMovement = async (data: Partial<Movement>) => {
+    const movement = await capture({
+      ...data,
+      actor_id: user?.id || '',
+    } as Omit<Movement, 'id' | 'created_at'>)
+
+    if (movement) {
+      setMovements([...movements, movement])
+      setScanResult(null)
+      Alert.alert('Éxito', 'Intento registrado')
+    }
+  }
+
+  const handleSubmitReport = async () => {
+    if (!user) return
+    setReportLoading(true)
+    try {
+      const report = await generate(user.id, today)
+      if (report) {
+        Alert.alert('Éxito', 'Reporte enviado al supervisor')
+        setShowReport(false)
+        setMovements([])
+      }
+    } finally {
+      setReportLoading(false)
+    }
+  }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BRAND.gray }}
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
-      {/* ── Header CobraCheck ── */}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <View style={styles.circleTopRight} />
-        <View style={styles.circleBottomLeft} />
-
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.replace('/')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backBtnText}>‹ CHECK SUITE</Text>
-        </TouchableOpacity>
-
-        <View style={styles.brandRow}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>🎯</Text>
+        <View>
+          <Text style={styles.headerTitle}>Mi Ruta</Text>
+          <Text style={styles.headerDate}>
+            {new Date().toLocaleDateString('es-MX', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </Text>
+        </View>
+        <View style={styles.headerStats}>
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatValue}>{stats.clientsVisited}</Text>
+            <Text style={styles.headerStatLabel}>Visitados</Text>
           </View>
-          <View style={{ marginLeft: 14 }}>
-            <Text style={styles.brandTitle}>CobraCheck</Text>
-            <Text style={styles.brandTagline}>Controla lo que te deben</Text>
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatValue}>
+              {formatCurrency(stats.totalCollected)}
+            </Text>
+            <Text style={styles.headerStatLabel}>Cobrado</Text>
           </View>
         </View>
       </View>
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-        <MenuBtn
-          icon="🗺️"
-          label="Mi ruta de hoy"
-          hint="Ruta optimizada de cobros del día"
-          bg={BRAND.cobra}
-          textColor="#fff"
-          onPress={() => router.push('/cobracheck/mi-ruta' as any)}
-          large
+      <ScrollView style={styles.content}>
+        <Text style={styles.sectionTitle}>Clientes Hoy ({route.length})</Text>
+        <RouteList
+          clients={route}
+          onSelectClient={handleSelectClient}
+          loading={routeLoading}
         />
-        <MenuBtn
-          icon="📋"
-          label="Tareas diarias"
-          hint="Facturas a cobrar hoy"
-          onPress={() => router.push('/cobracheck/tareas-diarias' as any)}
-        />
-        <MenuBtn
-          icon="👤"
-          label="Clientes"
-          hint="Cartera asignada y saldos"
-          onPress={() => router.push('/cobracheck/clientes' as any)}
-        />
-        <MenuBtn
-          icon="📜"
-          label="Historial de cobros"
-          hint="Movimientos registrados"
-          onPress={() => router.push('/cobracheck/historial' as any)}
-        />
+
+        <View style={styles.spacer} />
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.largeButton, styles.buttonSecondary]}
+          onPress={() => setShowReport(true)}
+        >
+          <Text style={styles.largeButtonText}>📊 Reporte Diario</Text>
+        </TouchableOpacity>
       </View>
-    </ScrollView>
-  );
+
+      {selectedClient && (
+        <ClientDetail
+          client={selectedClient}
+          visible={showClientDetail}
+          onClose={() => setShowClientDetail(false)}
+          onOpenMaps={handleOpenMaps}
+          onStartMovement={() => setShowMovementForm(true)}
+          onScanTicket={() => setShowScanner(true)}
+        />
+      )}
+
+      <ScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScanResult={handleScanResult}
+      />
+
+      {selectedClient && (
+        <MovementForm
+          client={selectedClient}
+          scanResult={scanResult}
+          visible={showMovementForm}
+          onClose={() => {
+            setShowMovementForm(false)
+            setScanResult(null)
+          }}
+          onSubmit={handleSubmitMovement}
+        />
+      )}
+
+      <ReportSummary
+        visible={showReport}
+        onClose={() => setShowReport(false)}
+        onSubmit={handleSubmitReport}
+        stats={stats}
+        loading={reportLoading}
+      />
+    </View>
+  )
 }
 
-function MenuBtn({
-  icon, label, hint, onPress, bg, textColor, large = false,
-}: {
-  icon: string; label: string; hint: string;
-  onPress: () => void; bg?: string; textColor?: string; large?: boolean;
-}) {
-  const bgColor = bg ?? '#fff';
-  const tc = textColor ?? BRAND.navy;
-  const hc = textColor ? 'rgba(255,255,255,0.75)' : '#90A4AE';
-  const arrowColor = textColor ?? BRAND.cobra;
-  return (
-    <TouchableOpacity
-      style={[styles.menuBtn, large && styles.menuBtnLarge, { backgroundColor: bgColor }]}
-      onPress={onPress}
-      activeOpacity={0.82}
-    >
-      <Text style={[styles.menuBtnIcon, large && { fontSize: 36 }]}>{icon}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.menuBtnLabel, { color: tc }, large && { fontSize: 19 }]}>{label}</Text>
-        <Text style={[styles.menuBtnHint, { color: hc }]}>{hint}</Text>
-      </View>
-      <Text style={{ fontSize: 22, color: arrowColor }}>›</Text>
-    </TouchableOpacity>
-  );
-}
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
   header: {
-    backgroundColor: BRAND.cobra,
-    paddingTop: 58, paddingBottom: 26, paddingHorizontal: 20,
-    overflow: 'hidden', position: 'relative',
+    backgroundColor: '#182535',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  circleTopRight: {
-    position: 'absolute', top: -40, right: -40,
-    width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#f1f5f9',
   },
-  circleBottomLeft: {
-    position: 'absolute', bottom: -30, left: -30,
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+  headerDate: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
   },
-  backBtn:     { position: 'absolute', top: 58, left: 16, padding: 8 },
-  backBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-
-  brandRow:    { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
-  icon:        { width: 52, height: 52, borderRadius: 14, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
-  iconText:    { fontSize: 26 },
-  brandTitle:  { fontSize: 24, fontWeight: '900', color: '#fff' },
-  brandTagline:{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-
-  menuBtn: {
-    borderRadius: 16, padding: 16, marginTop: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4,
+  headerStats: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  menuBtnLarge: { padding: 20, marginTop: 12 },
-  menuBtnIcon:  { fontSize: 28 },
-  menuBtnLabel: { fontSize: 16, fontWeight: '700' },
-  menuBtnHint:  { fontSize: 12, marginTop: 2 },
-});
+  headerStat: {
+    alignItems: 'center',
+  },
+  headerStatValue: {
+    color: '#36BF6A',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerStatLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  content: {
+    flex: 1,
+    paddingVertical: 8,
+  },
+  sectionTitle: {
+    color: '#f1f5f9',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  spacer: {
+    height: 16,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  largeButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonSecondary: {
+    backgroundColor: '#1e293b',
+  },
+  largeButtonText: {
+    color: '#cbd5e1',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+})
