@@ -64,7 +64,7 @@ export default function GastoCheckHome() {
   const [teamCount,     setTeamCount]    = useState(0);
 
   // Active tab per role (survives data refresh)
-  const [adminTab,  setAdminTab]  = useState(0);
+  const [adminTab,  setAdminTab]  = useState(1);
   const [contTab,   setContTab]   = useState(0);
   const [compTab,   setCompTab]   = useState(0);
   const [viewMode,     setViewMode]    = useState<'admin' | 'comprador' | 'contador'>('admin');
@@ -629,18 +629,6 @@ export default function GastoCheckHome() {
       <PillBar accentColor={BRAND.navy} />
 
       <View style={{ flex: 1 }}>
-        {adminTab === 0 && (
-          <ScrollView contentContainerStyle={s.pad}>
-            <Text style={s.tabTitle}>Empresa</Text>
-            <BigCard icon="🏢" title="Datos de Empresa"
-              sub="RFC, nombre, sector, moneda y configuración"
-              bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
-            <NavCard icon="🏦" title="Cuentas Bancarias"
-              sub="Registra y administra las cuentas de la empresa"
-              onPress={() => router.push('/administracion' as any)} />
-          </ScrollView>
-        )}
-
         {adminTab === 1 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Equipo</Text>
@@ -732,7 +720,9 @@ export default function GastoCheckHome() {
       <ViewSwitcherModal visible={showSwitcher} current={viewMode}
         onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
         onClose={() => setShowSwitcher(false)} />
-      <BottomBar tabs={ADMIN_TABS} active={adminTab} onSelect={setAdminTab} color={BRAND.navy} />
+      <BottomBar tabs={ADMIN_TABS} active={adminTab}
+        onSelect={(i) => { if (i === 0) router.push('/administracion' as any); else setAdminTab(i); }}
+        color={BRAND.navy} />
     </View>
   );
 }
