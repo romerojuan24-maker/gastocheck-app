@@ -769,13 +769,13 @@ export default function GastoCheckHome() {
             {overdueAdv > 0 && (
               <TouchableOpacity
                 style={[s.alertCard, { borderColor: BRAND.red + '40', backgroundColor: BRAND.red + '10' }]}
-                onPress={() => router.push('/herramientas' as any)} activeOpacity={0.85}
+                onPress={() => router.push('/supervisor' as any)} activeOpacity={0.85}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[s.alertCardTitle, { color: BRAND.red }]}>
                     ⚠️ {overdueAdv} anticipo{overdueAdv !== 1 ? 's' : ''} sin comprobar (+10 días)
                   </Text>
-                  <Text style={s.alertCardSub}>Ver en Reportes → Anticipos sin comprobar</Text>
+                  <Text style={s.alertCardSub}>Toca para ver anticipos vencidos del equipo</Text>
                 </View>
                 <Text style={{ fontSize: 20, color: BRAND.red }}>›</Text>
               </TouchableOpacity>
@@ -795,6 +795,12 @@ export default function GastoCheckHome() {
             <NavCard icon="📑" title="Pólizas"
               sub="Crear, revisar y autorizar pólizas de gastos"
               onPress={() => router.push('/polizas' as any)} />
+            <NavCard icon="📅" title="Eventos y viáticos"
+              sub="Presupuesto por evento o comisión del equipo"
+              onPress={() => router.push('/events' as any)} />
+            <NavCard icon="📁" title="Relaciones de gastos"
+              sub="Agrupa comprobantes para contabilidad y exportación"
+              onPress={() => router.push('/batches' as any)} />
           </ScrollView>
         )}
 
