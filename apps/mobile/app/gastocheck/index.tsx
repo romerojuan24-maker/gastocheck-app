@@ -144,7 +144,7 @@ export default function GastoCheckHome() {
         })));
       }
 
-      if (isSupervisor && !isAdmin && member.company_id) {
+      if (isSupervisor && member.company_id) {
         const [{ count: rc }, { count: ac }] = await Promise.all([
           supabase
             .from('reimbursements')

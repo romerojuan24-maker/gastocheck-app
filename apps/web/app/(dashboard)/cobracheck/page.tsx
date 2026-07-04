@@ -52,8 +52,8 @@ export default function CobraCheckPage() {
         return
       }
 
-      // Solo admin puede ver CobraCheck
-      if (member.role !== 'admin' && member.role !== 'owner' && member.role !== 'superadmin') {
+      // Admin, owner, superadmin y accountant pueden ver CobraCheck
+      if (member.role !== 'admin' && member.role !== 'owner' && member.role !== 'superadmin' && member.role !== 'accountant') {
         setUnauthorized(true)
         return
       }
