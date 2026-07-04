@@ -55,7 +55,6 @@ export default function AdministracionScreen() {
   const [company,   setCompany]   = useState<CompanyData | null>(null);
   const [memberCount, setMemberCount] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'admin' | 'comprador' | 'contador'>('admin');
 
   // Campos editables
   const [fName,            setFName]            = useState('');
@@ -154,13 +153,7 @@ export default function AdministracionScreen() {
     }
   }, [router]);
 
-  useEffect(() => {
-    load();
-    loadBankAccounts();
-    AsyncStorage.getItem('gastocheck_viewMode').then((saved) => {
-      if (saved === 'admin' || saved === 'comprador' || saved === 'contador') setViewMode(saved);
-    });
-  }, [load]);
+  useEffect(() => { load(); loadBankAccounts(); }, [load]);
 
   // Buscar CP en copomex cuando tiene 5 dígitos
   async function handleCpChange(value: string) {
@@ -270,12 +263,6 @@ export default function AdministracionScreen() {
     ]);
   }
 
-  async function switchView(mode: 'admin' | 'comprador' | 'contador') {
-    await AsyncStorage.setItem('gastocheck_viewMode', mode);
-    setViewMode(mode);
-    router.back();
-  }
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray }}>
@@ -286,29 +273,6 @@ export default function AdministracionScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-
-      {/* ── Vista del panel (solo admin/owner) ── */}
-      {(userRole === 'owner' || userRole === 'admin') && (
-        <View style={styles.viewSwitcherCard}>
-          <Text style={styles.viewSwitcherTitle}>Vista del panel</Text>
-          <Text style={styles.viewSwitcherSub}>Simula la experiencia de otro rol</Text>
-          <View style={styles.viewSwitcherRow}>
-            {([
-              { mode: 'admin'     as const, icon: '👑', label: 'Admin',    color: BRAND.navy   },
-              { mode: 'contador'  as const, icon: '📊', label: 'Contador', color: BRAND.blue   },
-              { mode: 'comprador' as const, icon: '🛒', label: 'Comprador', color: BRAND.green  },
-            ]).map(({ mode, icon, label, color }) => (
-              <TouchableOpacity
-                key={mode}
-                style={[styles.viewChip, viewMode === mode && { backgroundColor: color, borderColor: color }]}
-                onPress={() => switchView(mode)}
-              >
-                <Text style={[styles.viewChipText, viewMode === mode && { color: '#fff' }]}>{icon} {label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
 
       {/* ── Empresa seleccionada + botón cambiar ── */}
       <View style={styles.companyHeader}>
