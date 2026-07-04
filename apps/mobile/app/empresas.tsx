@@ -136,10 +136,6 @@ export default function EmpresasScreen() {
   async function handleSelect(id: string) {
     setSelectedId(id);
     await AsyncStorage.setItem('selectedCompanyId', id);
-  }
-
-  async function handleOpenAdmin() {
-    if (!selectedId) return;
     router.push('/administracion');
   }
 
@@ -158,7 +154,7 @@ export default function EmpresasScreen() {
         {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.title}>Mis Empresas</Text>
-          <Text style={styles.hint}>Selecciona una empresa para administrarla</Text>
+          <Text style={styles.hint}>Toca una empresa para administrarla</Text>
         </View>
 
         {/* ── Lista de empresas ── */}
@@ -201,14 +197,6 @@ export default function EmpresasScreen() {
 
         {/* ── Botones de acción ── */}
         <View style={{ gap: 10, marginTop: 20 }}>
-          <TouchableOpacity
-            style={[styles.btnPrimary, !selectedId && { opacity: 0.6 }]}
-            onPress={handleOpenAdmin}
-            disabled={!selectedId}
-          >
-            <Text style={styles.btnText}>⚙️ Administrar Empresa Seleccionada</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowCreate(true)}>
             <Text style={styles.btnSecondaryText}>+ Crear Nueva Empresa</Text>
           </TouchableOpacity>
