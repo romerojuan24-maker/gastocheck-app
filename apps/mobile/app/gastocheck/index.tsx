@@ -335,7 +335,7 @@ export default function GastoCheckHome() {
           onPress: async () => {
             const { error } = await supabase
               .from('company_members')
-              .update({ status: 'inactive' })
+              .update({ status: 'disabled' })
               .eq('user_id', m.user_id)
               .eq('company_id', companyId);
             if (error) {
