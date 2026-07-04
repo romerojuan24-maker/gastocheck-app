@@ -36,14 +36,14 @@ export default function TareasDiarias() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#0f172a' },
   header: { backgroundColor: '#182535', padding: 16, alignItems: 'center' },
   title: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 12, marginHorizontal: 12, marginVertical: 6, borderRadius: 8 },
+  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', padding: 12, marginHorizontal: 12, marginVertical: 6, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: '#36BF6A' },
   left: { flex: 1 },
-  name: { fontWeight: '600', color: '#182535' },
+  name: { fontWeight: '600', color: '#f1f5f9' },
   balance: { fontWeight: 'bold', color: '#36BF6A', marginTop: 4 },
   right: { gap: 8 },
   swipeBtn: { backgroundColor: '#36BF6A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
-  swipeBtnText: { color: '#fff', fontWeight: 'bold' },
+  swipeBtnText: { color: '#0f172a', fontWeight: 'bold' },
 })

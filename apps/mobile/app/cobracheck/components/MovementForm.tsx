@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import type { RouteClient, Movement, ScannerResult } from '../types'
+import DatePickerField from '../../../components/DatePickerField'
 
 interface MovementFormProps {
   client: RouteClient
@@ -153,16 +154,11 @@ export function MovementForm({
             )}
 
             {movementType === 'promise' && (
-              <>
-                <Text style={styles.formLabel}>Fecha de Promesa</Text>
-                <TextInput
-                  style={styles.largeInput}
-                  placeholder="YYYY-MM-DD"
-                  value={promiseDate}
-                  onChangeText={setPromiseDate}
-                  placeholderTextColor="#475569"
-                />
-              </>
+              <DatePickerField
+                label="Fecha de Promesa"
+                value={promiseDate}
+                onChange={setPromiseDate}
+              />
             )}
 
             <Text style={styles.formLabel}>Notas</Text>

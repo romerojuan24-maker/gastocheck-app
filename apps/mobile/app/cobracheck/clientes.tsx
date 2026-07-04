@@ -34,14 +34,14 @@ export default function CobraClientes() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#0f172a' },
   header: { backgroundColor: '#182535', padding: 16, alignItems: 'center' },
   title: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  card: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fff', padding: 12, marginHorizontal: 12, marginVertical: 6, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#36BF6A' },
+  card: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: 12, marginHorizontal: 12, marginVertical: 6, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#36BF6A' },
   info: { flex: 1 },
-  name: { fontWeight: '600', color: '#182535' },
-  rfc: { fontSize: 12, color: '#999', marginTop: 2 },
+  name: { fontWeight: '600', color: '#f1f5f9' },
+  rfc: { fontSize: 12, color: '#64748b', marginTop: 2 },
   right: { alignItems: 'flex-end' },
   amount: { fontWeight: 'bold', color: '#36BF6A' },
-  score: { fontSize: 12, color: '#999', marginTop: 2 },
+  score: { fontSize: 12, color: '#64748b', marginTop: 2 },
 })
