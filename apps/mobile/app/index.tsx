@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant'];
-const DEV_EMAIL = 'danielbenco1@gmail.com';
+const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'collector'];
 
 export default function CheckSuiteHome() {
   const router     = useRouter();
@@ -51,13 +51,11 @@ export default function CheckSuiteHome() {
     );
   }
 
-  const isDevUser   = userEmail === DEV_EMAIL;
   const isCollector = userRole === 'collector';
   const isManager   = userRole ? MANAGER_ROLES.includes(userRole) : false;
-  // Dev: lógica completa por rol. Resto: solo GastoCheck
-  const showGasto   = isDevUser ? !isCollector : true;
-  const showCobra   = isDevUser && (isCollector || isManager);
-  const showMore    = isDevUser && isManager;
+  const showGasto   = !isCollector;
+  const showCobra   = userRole ? COBRA_ROLES.includes(userRole) : false;
+  const showMore    = isManager;
 
   return (
     <ScrollView
