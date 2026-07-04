@@ -816,6 +816,40 @@ export default function GastoCheckHome() {
           </ScrollView>
         )}
 
+        {adminTab === 0 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Empresa</Text>
+
+            {/* ── Vista del panel ── */}
+            <Text style={s.sectionLabel}>Vista del panel</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+              {([
+                { mode: 'admin'     as const, icon: '👑', label: 'Admin',    color: BRAND.navy   },
+                { mode: 'contador'  as const, icon: '📊', label: 'Contador', color: BRAND.blue   },
+                { mode: 'comprador' as const, icon: '🛒', label: 'Comprador',color: BRAND.green  },
+              ]).map(({ mode, icon, label, color }) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[s.viewModeChip, viewMode === mode && { backgroundColor: color, borderColor: color }]}
+                  onPress={() => { setViewMode(mode); AsyncStorage.setItem('gastocheck_viewMode', mode); }}
+                >
+                  <Text style={[s.viewModeChipText, viewMode === mode && { color: '#fff' }]}>{icon}</Text>
+                  <Text style={[s.viewModeChipText, viewMode === mode && { color: '#fff' }]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ── Empresa ── */}
+            <Text style={s.sectionLabel}>Empresa</Text>
+            <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
+              sub="Datos fiscales, cuentas bancarias y plan"
+              bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
+            <NavCard icon="🔀" title="Cambiar empresa"
+              sub="Seleccionar o crear otra empresa"
+              onPress={() => router.push('/empresas' as any)} />
+          </ScrollView>
+        )}
+
         {adminTab === 4 && <ProfileTab accent={BRAND.navy} />}
       </View>
 
@@ -823,7 +857,7 @@ export default function GastoCheckHome() {
         onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
         onClose={() => setShowSwitcher(false)} />
       <BottomBar tabs={ADMIN_TABS} active={adminTab}
-        onSelect={(i) => { if (i === 0) router.push('/empresas' as any); else setAdminTab(i); }}
+        onSelect={(i) => setAdminTab(i)}
         color={BRAND.navy} />
     </View>
   );
@@ -1133,4 +1167,7 @@ const s = StyleSheet.create({
   roleCardDesc:      { fontSize: 12, color: '#607D8B', lineHeight: 16 },
   roleInviteBtn:     { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 70, alignItems: 'center' },
   roleInviteBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  sectionLabel:      { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
+  viewModeChip:      { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#CFD8DC', backgroundColor: '#F5F7FA', gap: 2 },
+  viewModeChipText:  { fontSize: 12, fontWeight: '700', color: BRAND.navy },
 });
