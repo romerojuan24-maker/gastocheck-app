@@ -1,8 +1,9 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native'
-import { useCobraClients } from '../../hooks/cobra'
-import { useCobrador } from '../../hooks/cobra'
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { useCobraClients, useCobrador } from '../../hooks/cobra'
+import { useRouter } from 'expo-router'
 
 export default function TareasDiarias() {
+  const router = useRouter()
   const { user } = useCobrador()
   const { clients } = useCobraClients(user?.company_id || '')
   const tareas = clients.filter(c => c.risk_score >= 70).slice(0, 10)
@@ -16,13 +17,16 @@ export default function TareasDiarias() {
         data={tareas}
         keyExtractor={t => t.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/cobracheck/mi-ruta')}
+          >
             <View style={styles.left}>
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.balance}>${item.current_balance.toLocaleString('es-MX')}</Text>
             </View>
             <View style={styles.right}>
-              <TouchableOpacity style={styles.swipeBtn}><Text style={styles.swipeBtnText}>→ ✓</Text></TouchableOpacity>
+              <View style={styles.swipeBtn}><Text style={styles.swipeBtnText}>→ ✓</Text></View>
             </View>
           </TouchableOpacity>
         )}

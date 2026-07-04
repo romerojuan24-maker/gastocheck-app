@@ -15,7 +15,7 @@ import { formatCurrency } from '@gastocheck/shared'
 interface ReportSummaryProps {
   visible: boolean
   onClose: () => void
-  onSubmit: () => void
+  onSubmit: (depositAmount?: number, depositReference?: string) => void
   stats: {
     clientsVisited: number
     totalCollected: number
@@ -40,7 +40,8 @@ export function ReportSummary({
       Alert.alert('Error', 'Ingresa referencia del depósito')
       return
     }
-    onSubmit()
+    const amount = depositAmount ? parseFloat(depositAmount) : undefined
+    onSubmit(amount, depositReference || undefined)
   }
 
   return (

@@ -26,30 +26,30 @@ export function MovementForm({
   onClose,
   onSubmit,
 }: MovementFormProps) {
-  const [status, setStatus] = useState<'paid' | 'unpaid' | 'promise'>('paid')
-  const [amount, setAmount] = useState(
+  const [movementType, setMovementType] = useState<'collected' | 'not_paid' | 'promise'>('collected')
+  const [collectedAmount, setCollectedAmount] = useState(
     scanResult?.amount ? scanResult.amount.toString() : ''
   )
   const [method, setMethod] = useState<'cash' | 'transfer' | 'check' | 'card'>(
     'cash'
   )
-  const [reason, setReason] = useState('')
+  const [reasonNotPaid, setReasonNotPaid] = useState('')
   const [promiseDate, setPromiseDate] = useState('')
   const [notes, setNotes] = useState('')
 
   const handleSubmit = () => {
-    if (!amount) {
-      Alert.alert('Error', 'Ingresa el monto')
+    if (movementType === 'collected' && !collectedAmount) {
+      Alert.alert('Error', 'Ingresa el monto cobrado')
       return
     }
 
     const data: Partial<Movement> = {
       client_id: client.id,
-      status,
-      amount: parseFloat(amount),
-      method: status === 'paid' ? method : undefined,
-      unpaid_reason: status === 'unpaid' ? reason : undefined,
-      promise_date: status === 'promise' ? promiseDate : undefined,
+      movement_type: movementType,
+      collected_amount: collectedAmount ? parseFloat(collectedAmount) : undefined,
+      method: movementType === 'collected' ? method : undefined,
+      reason_not_paid: movementType === 'not_paid' ? reasonNotPaid : undefined,
+      promise_date: movementType === 'promise' ? promiseDate : undefined,
       notes: notes || undefined,
     }
 
@@ -78,107 +78,66 @@ export function MovementForm({
             <Text style={styles.formLabel}>Cliente</Text>
             <Text style={styles.formValue}>{client.name}</Text>
 
-            <Text style={styles.formLabel}>Monto</Text>
-            <TextInput
-              style={styles.largeInput}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              value={amount}
-              onChangeText={setAmount}
-              placeholderTextColor="#475569"
-            />
-
-            <Text style={styles.formLabel}>Estado</Text>
+            <Text style={styles.formLabel}>Resultado</Text>
             <View style={styles.statusButtonGroup}>
               <TouchableOpacity
-                style={[
-                  styles.statusButton,
-                  status === 'paid' && styles.statusButtonActive,
-                ]}
-                onPress={() => setStatus('paid')}
+                style={[styles.statusButton, movementType === 'collected' && styles.statusButtonActive]}
+                onPress={() => setMovementType('collected')}
               >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    status === 'paid' && styles.statusButtonTextActive,
-                  ]}
-                >
+                <Text style={[styles.statusButtonText, movementType === 'collected' && styles.statusButtonTextActive]}>
                   ✓ Pagó
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.statusButton,
-                  status === 'unpaid' && styles.statusButtonActive,
-                ]}
-                onPress={() => setStatus('unpaid')}
+                style={[styles.statusButton, movementType === 'not_paid' && styles.statusButtonActive]}
+                onPress={() => setMovementType('not_paid')}
               >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    status === 'unpaid' && styles.statusButtonTextActive,
-                  ]}
-                >
+                <Text style={[styles.statusButtonText, movementType === 'not_paid' && styles.statusButtonTextActive]}>
                   ✕ No Pagó
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.statusButton,
-                  status === 'promise' && styles.statusButtonActive,
-                ]}
-                onPress={() => setStatus('promise')}
+                style={[styles.statusButton, movementType === 'promise' && styles.statusButtonActive]}
+                onPress={() => setMovementType('promise')}
               >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    status === 'promise' && styles.statusButtonTextActive,
-                  ]}
-                >
+                <Text style={[styles.statusButtonText, movementType === 'promise' && styles.statusButtonTextActive]}>
                   🤝 Promesa
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {status === 'paid' && (
+            {movementType === 'collected' && (
               <>
+                <Text style={styles.formLabel}>Monto Cobrado</Text>
+                <TextInput
+                  style={styles.largeInput}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  value={collectedAmount}
+                  onChangeText={setCollectedAmount}
+                  placeholderTextColor="#475569"
+                />
+
                 <Text style={styles.formLabel}>Método de Pago</Text>
                 <View style={styles.methodButtonGroup}>
-                  {(['cash', 'transfer', 'check', 'card'] as const).map(
-                    (m) => (
-                      <TouchableOpacity
-                        key={m}
-                        style={[
-                          styles.methodButton,
-                          method === m && styles.methodButtonActive,
-                        ]}
-                        onPress={() => setMethod(m)}
-                      >
-                        <Text
-                          style={[
-                            styles.methodButtonText,
-                            method === m &&
-                              styles.methodButtonTextActive,
-                          ]}
-                        >
-                          {m === 'cash'
-                            ? '💵'
-                            : m === 'transfer'
-                              ? '💳'
-                              : m === 'check'
-                                ? '📄'
-                                : '🏦'}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  )}
+                  {(['cash', 'transfer', 'check', 'card'] as const).map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.methodButton, method === m && styles.methodButtonActive]}
+                      onPress={() => setMethod(m)}
+                    >
+                      <Text style={[styles.methodButtonText, method === m && styles.methodButtonTextActive]}>
+                        {m === 'cash' ? '💵' : m === 'transfer' ? '💳' : m === 'check' ? '📄' : '🏦'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </>
             )}
 
-            {status === 'unpaid' && (
+            {movementType === 'not_paid' && (
               <>
                 <Text style={styles.formLabel}>Motivo</Text>
                 <TextInput
@@ -186,14 +145,14 @@ export function MovementForm({
                   placeholder="Motivo de no pago"
                   multiline
                   numberOfLines={3}
-                  value={reason}
-                  onChangeText={setReason}
+                  value={reasonNotPaid}
+                  onChangeText={setReasonNotPaid}
                   placeholderTextColor="#475569"
                 />
               </>
             )}
 
-            {status === 'promise' && (
+            {movementType === 'promise' && (
               <>
                 <Text style={styles.formLabel}>Fecha de Promesa</Text>
                 <TextInput

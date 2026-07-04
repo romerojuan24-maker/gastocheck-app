@@ -12,47 +12,33 @@ export function useDailyReport() {
         setLoading(true)
         setError(null)
 
-        const { data, error: err } = await supabase
-          .from('cobra_daily_reports')
-          .select(
-            `
-            *,
-            cobra_movements (
-              id,
-              status,
-              amount,
-              method,
-              unpaid_reason,
-              promise_date
-            )
-          `
-          )
-          .eq('actor_id', actorId)
-          .eq('report_date', date)
-          .single()
+        // Compute report from cobra_movements (no separate daily_reports table)
+        const { data: movements, error: err } = await supabase
+          .from('cobra_movements')
+          .select('id, movement_type, collected_amount, promise_date, client_id, user_id')
+          .eq('user_id', actorId)
+          .gte('route_point_ts', `${date}T00:00:00`)
+          .lte('route_point_ts', `${date}T23:59:59`)
 
-        if (err && err.code !== 'PGRST116') throw err
+        if (err) throw err
 
-        if (!data) {
-          const { data: newReport, error: createErr } = await supabase
-            .from('cobra_daily_reports')
-            .insert([
-              {
-                actor_id: actorId,
-                report_date: date,
-                clients_visited: 0,
-                total_collected: 0,
-                promises_made: 0,
-              },
-            ])
-            .select()
-            .single()
+        const movs = movements || []
+        const collected = movs.filter((m: any) => m.movement_type === 'collected')
+        const promises = movs.filter((m: any) => m.movement_type === 'promise')
+        const uniqueClients = new Set(movs.map((m: any) => m.client_id)).size
 
-          if (createErr) throw createErr
-          return newReport as DailyReport
+        const report: DailyReport = {
+          actor_id: actorId,
+          report_date: date,
+          clients_visited: uniqueClients,
+          total_collected: collected.reduce((sum: number, m: any) => sum + (m.collected_amount || 0), 0),
+          cash_deposits: [],
+          promises_made: promises.length,
+          movements: [],
+          created_at: new Date().toISOString(),
         }
 
-        return data as DailyReport
+        return report
       } catch (err: any) {
         setError(err.message)
         return null

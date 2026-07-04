@@ -8,59 +8,57 @@ export function useRoute(actorId: string, date: string) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchRoute = useCallback(async () => {
+    if (!actorId || !date) {
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       setError(null)
 
-      const { data, error: err } = await supabase
-        .from('daily_routes')
-        .select(
-          `
-          id,
-          client_id,
-          sequence,
-          distance_km,
-          eta_minutes,
-          status,
-          cobra_clients (
-            id,
-            name,
-            lat,
-            lng,
-            address,
-            phone,
-            office_hours
-          ),
-          cobra_invoices (
-            id,
-            amount,
-            status
-          )
-        `
-        )
+      // Get today's assigned route
+      const { data: routeData, error: routeErr } = await supabase
+        .from('cobra_routes')
+        .select('id, clients_assigned, status')
         .eq('actor_id', actorId)
-        .eq('route_date', date)
-        .order('sequence', { ascending: true })
+        .eq('assigned_date', date)
+        .maybeSingle()
 
-      if (err) throw err
+      if (routeErr) throw routeErr
+      if (!routeData || !routeData.clients_assigned?.length) {
+        setRoute([])
+        return
+      }
 
-      const clients: RouteClient[] = (data || []).map((route: any) => ({
-        id: route.cobra_clients.id,
-        name: route.cobra_clients.name,
-        lat: route.cobra_clients.lat,
-        lng: route.cobra_clients.lng,
-        address: route.cobra_clients.address,
-        phone: route.cobra_clients.phone,
-        office_hours: route.cobra_clients.office_hours,
-        distance: route.distance_km,
-        eta: route.eta_minutes,
-        status: route.status,
-        invoices_count: route.cobra_invoices.length,
-        total_amount: route.cobra_invoices.reduce(
-          (sum: number, inv: any) => sum + inv.amount,
-          0
-        ),
-      }))
+      // Fetch clients assigned to this route
+      const { data: clientsData, error: clientsErr } = await supabase
+        .from('cobra_clients')
+        .select('id, name, phone, current_balance, risk_score, status')
+        .in('id', routeData.clients_assigned)
+        .eq('status', 'active')
+
+      if (clientsErr) throw clientsErr
+
+      // Fetch pending invoices for these clients
+      const { data: invoicesData, error: invErr } = await supabase
+        .from('cobra_invoices')
+        .select('id, client_id, total_amount, status')
+        .in('client_id', routeData.clients_assigned)
+        .in('status', ['pending', 'overdue'])
+
+      if (invErr) throw invErr
+
+      const clients: RouteClient[] = (clientsData || []).map((c: any) => {
+        const clientInvoices = (invoicesData || []).filter((inv: any) => inv.client_id === c.id)
+        return {
+          id: c.id,
+          name: c.name,
+          phone: c.phone ?? undefined,
+          status: 'pending' as const,
+          invoices_count: clientInvoices.length,
+          total_amount: clientInvoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0),
+        }
+      })
 
       setRoute(clients)
     } catch (err: any) {
@@ -71,8 +69,8 @@ export function useRoute(actorId: string, date: string) {
   }, [actorId, date])
 
   useEffect(() => {
-    if (actorId && date) fetchRoute()
-  }, [actorId, date, fetchRoute])
+    fetchRoute()
+  }, [fetchRoute])
 
   return { route, loading, error, refetch: fetchRoute }
 }

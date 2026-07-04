@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { useCobraClients, useCobrador } from '../../hooks/cobra'
 
 export default function CobraClientes() {
@@ -14,7 +14,10 @@ export default function CobraClientes() {
         data={clients}
         keyExtractor={c => c.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => Alert.alert(item.name, `RFC: ${item.rfc}\nSaldo: $${item.current_balance.toLocaleString('es-MX')}\nRiesgo: ${item.risk_score}`)}
+          >
             <View style={styles.info}>
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.rfc}>{item.rfc}</Text>

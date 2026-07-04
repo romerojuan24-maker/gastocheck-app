@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Linking,
   Alert,
 } from 'react-native'
 import { formatCurrency } from '@gastocheck/shared'
@@ -28,6 +29,13 @@ export function ClientDetail({
   onStartMovement,
   onScanTicket,
 }: ClientDetailProps) {
+  const handleCallPhone = () => {
+    if (!client.phone) return
+    Linking.openURL(`tel:${client.phone}`).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir el marcador')
+    )
+  }
+
   return (
     <Modal
       visible={visible}
@@ -58,7 +66,7 @@ export function ClientDetail({
             {client.phone && (
               <View style={styles.detailSection}>
                 <Text style={styles.detailSectionTitle}>Teléfono</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={handleCallPhone}>
                   <Text style={[styles.detailText, styles.linkText]}>
                     {client.phone}
                   </Text>
@@ -91,12 +99,14 @@ export function ClientDetail({
           </ScrollView>
 
           <View style={styles.detailActions}>
-            <TouchableOpacity
-              style={[styles.largeButton, styles.buttonSecondary]}
-              onPress={() => onOpenMaps(client.lat, client.lng)}
-            >
-              <Text style={styles.largeButtonText}>📍 Google Maps</Text>
-            </TouchableOpacity>
+            {client.lat != null && client.lng != null && (
+              <TouchableOpacity
+                style={[styles.largeButton, styles.buttonSecondary]}
+                onPress={() => onOpenMaps(client.lat!, client.lng!)}
+              >
+                <Text style={styles.largeButtonText}>📍 Google Maps</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.largeButton, styles.buttonSecondary]}

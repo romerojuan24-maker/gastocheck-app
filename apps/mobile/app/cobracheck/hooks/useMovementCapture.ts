@@ -7,7 +7,7 @@ export function useMovementCapture() {
   const [error, setError] = useState<string | null>(null)
 
   const capture = useCallback(
-    async (data: Omit<Movement, 'id' | 'created_at'>) => {
+    async (data: Omit<Movement, 'id'>) => {
       try {
         setLoading(true)
         setError(null)
@@ -17,7 +17,7 @@ export function useMovementCapture() {
           .insert([
             {
               ...data,
-              movement_date: new Date().toISOString(),
+              route_point_ts: data.route_point_ts ?? new Date().toISOString(),
             },
           ])
           .select()
