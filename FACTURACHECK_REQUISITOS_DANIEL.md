@@ -154,25 +154,48 @@ ls apps/mobile/app/  # debe existir
 ✓ Verificar: Soft delete habilitado
 ```
 
-**MIÉRCOLES - VIERNES: Facturama Integration**
+**MIÉRCOLES - VIERNES: PAC Integration (Flexible)**
 
 ```typescript
-// supabase/functions/stamp-cfdi/index.ts
+// services/pac/types.ts — ABSTRACCIÓN PAC (agnóstica)
+export interface PACProvider {
+  name: 'facturama' | 'facturapi' | 'senhub' | 'facturaporti'
+  stampCfdi(xml: string): Promise<{ uuid: string; xml: string }>
+  distributeEmail(uuid: string, email: string): Promise<boolean>
+  distributeWhatsApp(uuid: string, phone: string): Promise<boolean>
+  validateRfc(rfc: string): Promise<boolean>
+}
 
+// services/pac/factory.ts
+export class PACFactory {
+  static getPAC(provider: string = process.env.PAC_PROVIDER): PACProvider {
+    // Default: Facturama (maduro + documentado)
+    // Fallback: Facturapi
+    // Future: SenHub, FacturoPorTi, FACTUROO (si API disponible)
+  }
+}
+
+// supabase/functions/stamp-cfdi/index.ts
 export async function stampCfdi(xml: string, companyId: string) {
-  // 1. Conectar a Facturama API (sandbox)
-  // 2. Validar XML antes de enviar
-  // 3. POST XML a Facturama
+  const pac = PACFactory.getPAC(process.env.PAC_PROVIDER) // agnóstico
+  
+  // 1. Validar XML antes de enviar
+  // 2. Conectar a PAC (sea Facturama, Facturapi, etc)
+  // 3. POST XML a PAC
   // 4. Recibir UUID + XML timbrado
   // 5. Guardar XML en bucket
   // 6. Actualizar cfdi_documents (status='timbrado')
   // 7. Retornar resultado
 
-  ✓ Tests: Puede timbrar sin errores
+  ✓ Tests: Puede timbrar sin errores (cualquier PAC)
   ✓ Tests: Retorna UUID válido
   ✓ Tests: XML guardado en bucket
 }
 ```
+
+**Default**: Facturama (PAC certificado, API madura)  
+**Swappable**: SenHub, Facturapi, FacturaPorTi (en production)  
+**Pending**: FACTUROO (esperar respuesta API capabilities)
 
 **VIERNES: UI Base Components**
 
