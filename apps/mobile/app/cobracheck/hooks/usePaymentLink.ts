@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Share } from 'react-native'
+import { Share, Linking } from 'react-native'
 import { supabase } from '../../../lib/supabase'
 import type { CobraPaymentLink } from '../types'
 
@@ -60,7 +60,6 @@ export function usePaymentLink() {
     if (phone) {
       const clean = phone.replace(/\D/g, '')
       const waUrl = `https://wa.me/52${clean}?text=${encodeURIComponent(message)}`
-      const { Linking } = require('react-native')
       await Linking.openURL(waUrl).catch(() => Share.share({ message }))
     } else {
       await Share.share({ message })

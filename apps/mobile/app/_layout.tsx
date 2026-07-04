@@ -162,7 +162,8 @@ export default function Layout() {
       <Stack.Screen name="depositos"         options={{ title: 'Mis Depósitos' }} />
       <Stack.Screen name="reembolso"         options={{ title: 'Reembolso' }} />
       <Stack.Screen name="cobracheck/mi-ruta"       options={{ title: 'Mi Ruta' }} />
-      <Stack.Screen name="cobracheck/tareas-diarias" options={{ title: 'Tareas Diarias' }} />
+      <Stack.Screen name="cobracheck/tareas-diarias"  options={{ title: 'Tareas Diarias' }} />
+      <Stack.Screen name="cobracheck/recordatorios"   options={{ title: 'Recordatorios' }} />
       <Stack.Screen name="cobracheck/clientes"       options={{ title: 'Clientes' }} />
       <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
       <Stack.Screen name="cobracheck/page"           options={{ title: 'CobraCheck' }} />
