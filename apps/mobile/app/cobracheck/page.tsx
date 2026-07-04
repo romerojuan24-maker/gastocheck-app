@@ -35,9 +35,9 @@ export default function CobraCheckDashboard() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.btn}
-          onPress={() => router.push('/cobracheck/recordatorios')}
+          onPress={() => router.push('/cobracheck/tareas-diarias')}
         >
-          <Text style={styles.btnText}>🔔 Recordatorios</Text>
+          <Text style={styles.btnText}>☎️ Clientes Prioritarios</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.btn}
