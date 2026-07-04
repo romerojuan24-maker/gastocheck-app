@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 import type { BankAccount, BankTransaction } from '../types'
 
 export function useBancoAccounts(companyId: string) {
