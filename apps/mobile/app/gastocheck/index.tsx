@@ -11,6 +11,7 @@ import {
   computeBalance, BRAND, APP_VERSION,
   type Expense, type Policy, type Advance,
 } from '@gastocheck/shared';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
@@ -200,7 +201,18 @@ export default function GastoCheckHome() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => {
+    loadData();
+    AsyncStorage.getItem('gastocheck_viewMode').then((saved) => {
+      if (saved === 'admin' || saved === 'comprador' || saved === 'contador') {
+        setViewMode(saved);
+      }
+    });
+  }, [loadData]));
+
+  useEffect(() => {
+    AsyncStorage.setItem('gastocheck_viewMode', viewMode);
+  }, [viewMode]);
 
   if (loading) {
     return (
@@ -321,8 +333,15 @@ export default function GastoCheckHome() {
         {
           text: 'Quitar', style: 'destructive' as const,
           onPress: async () => {
-            await supabase.from('company_members').update({ status: 'inactive' })
-              .eq('user_id', m.user_id).eq('company_id', companyId);
+            const { error } = await supabase
+              .from('company_members')
+              .update({ status: 'inactive' })
+              .eq('user_id', m.user_id)
+              .eq('company_id', companyId);
+            if (error) {
+              Alert.alert('Error al quitar', error.message);
+              return;
+            }
             loadData();
           },
         },
@@ -542,7 +561,7 @@ export default function GastoCheckHome() {
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
-          onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
+          onSelect={(m) => { setViewMode(m); AsyncStorage.setItem('gastocheck_viewMode', m); setShowSwitcher(false); }}
           onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={COMP_TABS} active={compTab} onSelect={setCompTab} color={BRAND.green} />
       </View>
@@ -617,6 +636,12 @@ export default function GastoCheckHome() {
               <BigCard icon="📑" title="Mis Pólizas"
                 sub="Crear, revisar y autorizar pólizas de gastos"
                 bg={BRAND.blue} onPress={() => router.push('/polizas' as any)} />
+              <NavCard icon="📁" title="Relaciones de gastos"
+                sub="Agrupa comprobantes para contabilidad y exportación"
+                onPress={() => router.push('/batches' as any)} />
+              <NavCard icon="📤" title="Exportar a sistema contable"
+                sub="Genera pólizas para CONTPAQi, Aspel COI o Excel"
+                onPress={() => router.push('/batches' as any)} />
             </ScrollView>
           )}
 
@@ -628,7 +653,7 @@ export default function GastoCheckHome() {
                 bg={BRAND.blue} onPress={() => router.push('/supervisor' as any)} />
               <BigCard icon="🔖" title="Catálogo Contable"
                 sub="Cuentas contables y clasificación de gastos"
-                bg={BRAND.navy} onPress={() => router.push('/herramientas' as any)} />
+                bg={BRAND.navy} onPress={() => router.push('/catalogo-cuentas' as any)} />
             </ScrollView>
           )}
 
@@ -637,12 +662,12 @@ export default function GastoCheckHome() {
               <Text style={s.tabTitle}>Reportes</Text>
               <BigCard icon="📊" title="Centro de Reportes"
                 sub="Egresos, anticipos, pólizas y exportación"
-                bg={BRAND.blue} onPress={() => router.push('/herramientas' as any)} />
+                bg={BRAND.blue} onPress={() => router.push('/reportes' as any)} />
               <View style={s.gridRow}>
-                <GridTile icon="💰" label="Anticipos sin comprobar" onPress={() => router.push('/herramientas' as any)} />
-                <GridTile icon="🧮" label="Egresos por comprador" onPress={() => router.push('/herramientas' as any)} />
-                <GridTile icon="📤" label="Exportar contable" onPress={() => router.push('/herramientas' as any)} />
-                <GridTile icon="⚠️" label="Gastos rechazados" onPress={() => router.push('/herramientas' as any)} />
+                <GridTile icon="💰" label="Anticipos sin comprobar" onPress={() => router.push('/supervisor' as any)} />
+                <GridTile icon="🧮" label="Egresos por comprador" onPress={() => router.push('/reportes' as any)} />
+                <GridTile icon="📤" label="Exportar contable" onPress={() => router.push('/batches' as any)} />
+                <GridTile icon="⚠️" label="Gastos rechazados" onPress={() => router.push('/supervisor' as any)} />
               </View>
             </ScrollView>
           )}
@@ -651,7 +676,7 @@ export default function GastoCheckHome() {
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
-          onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
+          onSelect={(m) => { setViewMode(m); AsyncStorage.setItem('gastocheck_viewMode', m); setShowSwitcher(false); }}
           onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={CONT_TABS} active={contTab} onSelect={setContTab} color={BRAND.blue} />
       </View>
@@ -758,9 +783,15 @@ export default function GastoCheckHome() {
             <BigCard icon="💰" title="Anticipos Activos"
               sub="Saldos por comprador y control de anticipos"
               bg={BRAND.navy} onPress={() => router.push('/admin-panel' as any)} />
+            <NavCard icon="👥" title="Movimientos del Equipo"
+              sub="Gastos, reembolsos y comprobantes de todos los compradores"
+              onPress={() => router.push('/supervisor' as any)} />
+            <NavCard icon="💵" title="Depósitos"
+              sub="Registrar fondeo o anticipo a un comprador"
+              onPress={() => router.push('/depositos' as any)} />
             <NavCard icon="📊" title="Reportes"
               sub="Egresos totales, anticipos y pólizas"
-              onPress={() => router.push('/herramientas' as any)} />
+              onPress={() => router.push('/reportes' as any)} />
             <NavCard icon="📑" title="Pólizas"
               sub="Crear, revisar y autorizar pólizas de gastos"
               onPress={() => router.push('/polizas' as any)} />
@@ -770,12 +801,18 @@ export default function GastoCheckHome() {
         {adminTab === 3 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Flotilla</Text>
-            <BigCard icon="🚗" title="Vehículos"
-              sub="Control, alertas y mantenimiento de flotilla"
-              bg={BRAND.navy} onPress={() => router.push('/herramientas' as any)} />
-            <NavCard icon="🔧" title="Herramientas"
-              sub="Configuraciones avanzadas y utilerías"
-              onPress={() => router.push('/herramientas' as any)} />
+            <BigCard icon="📊" title="Dashboard Flotilla"
+              sub="KPIs, alertas de combustible y mantenimiento predictivo"
+              bg={BRAND.navy} onPress={() => router.push('/fleet-dashboard' as any)} />
+            <NavCard icon="🚗" title="Vehículos"
+              sub="Alta, estado, kilometraje y tipo de unidades"
+              onPress={() => router.push('/fleet-vehicles' as any)} />
+            <NavCard icon="👤" title="Operadores"
+              sub="Conductores y asignaciones de vehículos"
+              onPress={() => router.push('/fleet-operators' as any)} />
+            <NavCard icon="🗺️" title="Rutas del Equipo"
+              sub="Recorridos del día de cada operador o comprador"
+              onPress={() => router.push('/rutas-equipo' as any)} />
           </ScrollView>
         )}
 
@@ -845,7 +882,7 @@ function BottomBar({
   color: string;
 }) {
   return (
-    <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 26 : 10 }]}>
+    <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
       {tabs.map((t, i) => {
         const isActive = active === i;
         return (

@@ -131,16 +131,7 @@ export default function HerramientasScreen() {
         />
       )}
 
-      {/* ── Control de ruta ── */}
-      {canSeeRouteAdmin && (
-        <ToolBtn
-          icon="🗺"
-          title="Rutas del equipo"
-          hint="Consulta el recorrido del día de cada mensajero o comprador"
-          accent="#00838F"
-          onPress={() => router.push('/rutas-equipo' as any)}
-        />
-      )}
+      {/* ── Control de ruta (solo para operadores / compradores) ── */}
       {canSeeRouteField && (
         <ToolBtn
           icon="📍"
@@ -171,15 +162,6 @@ export default function HerramientasScreen() {
           />
         </>
       )}
-
-      {/* ── Configuración (todos los roles) ── */}
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Configuración</Text>
-      <ToolBtn
-        icon="⚙️"
-        title="Ajustes generales"
-        hint="Cuenta, notificaciones, versión y actualizaciones"
-        onPress={() => router.push('/settings')}
-      />
     </ScrollView>
   );
 }
