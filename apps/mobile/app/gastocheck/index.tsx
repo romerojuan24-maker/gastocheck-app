@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Platform,
+  ScrollView, ActivityIndicator, Alert, Platform, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -61,6 +61,8 @@ export default function GastoCheckHome() {
   const [adminTab,  setAdminTab]  = useState(0);
   const [contTab,   setContTab]   = useState(0);
   const [compTab,   setCompTab]   = useState(0);
+  const [viewMode,     setViewMode]    = useState<'admin' | 'comprador' | 'contador'>('admin');
+  const [showSwitcher, setShowSwitcher] = useState(false);
 
   useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -181,6 +183,7 @@ export default function GastoCheckHome() {
 
   const isAdmin      = userRole ? ADMIN_ROLES.includes(userRole) : false;
   const isSupervisor = userRole ? SUPERVISOR_ROLES.includes(userRole) : false;
+  const displayAs = isAdmin ? viewMode : (!isSupervisor ? 'comprador' : 'contador');
 
   const balance = policy
     ? computeBalance(
@@ -205,8 +208,8 @@ export default function GastoCheckHome() {
 
   // ── Shared components ───────────────────────────────────────────────────────
 
-  function TopBar({ accent, rightIcon, onRight }: {
-    accent: string; rightIcon?: string; onRight?: () => void;
+  function TopBar({ accent, rightIcon, onRight, onSwitcher }: {
+    accent: string; rightIcon?: string; onRight?: () => void; onSwitcher?: () => void;
   }) {
     return (
       <View style={s.topBar}>
@@ -217,9 +220,16 @@ export default function GastoCheckHome() {
           <Text style={s.topBarWordA}>Gasto</Text>
           <Text style={[s.topBarWordB, { color: accent }]}>Check</Text>
         </View>
-        <TouchableOpacity onPress={onRight ?? (() => router.push('/settings'))} style={s.topBarRight} activeOpacity={0.7}>
-          <Text style={{ fontSize: 20 }}>{rightIcon ?? '⚙️'}</Text>
-        </TouchableOpacity>
+        <View style={s.topBarRightGroup}>
+          {onSwitcher && (
+            <TouchableOpacity onPress={onSwitcher} style={s.topBarIcon} activeOpacity={0.7}>
+              <Text style={{ fontSize: 20 }}>👁</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={onRight ?? (() => router.push('/settings'))} style={s.topBarIcon} activeOpacity={0.7}>
+            <Text style={{ fontSize: 20 }}>{rightIcon ?? '⚙️'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -286,11 +296,17 @@ export default function GastoCheckHome() {
     { icon: '👤', label: 'Perfil',      badge: 0 },
   ];
 
-  if (!isSupervisor) {
+  if (displayAs === 'comprador') {
     return (
       <View style={s.screen}>
-        <TopBar accent={BRAND.green} />
+        <TopBar accent={BRAND.green} onSwitcher={isAdmin ? () => setShowSwitcher(true) : undefined} />
         <PillBar accentColor={BRAND.green} />
+        {isAdmin && viewMode !== 'admin' && (
+          <TouchableOpacity style={[s.previewBanner, { backgroundColor: BRAND.green }]}
+            onPress={() => setShowSwitcher(true)} activeOpacity={0.85}>
+            <Text style={s.previewBannerText}>👁 VISTA COMPRADOR · Toca para cambiar</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ flex: 1 }}>
           {compTab === 0 && (
@@ -404,6 +420,9 @@ export default function GastoCheckHome() {
           {compTab === 4 && <ProfileTab accent={BRAND.green} />}
         </View>
 
+        <ViewSwitcherModal visible={showSwitcher} current={viewMode}
+          onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
+          onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={COMP_TABS} active={compTab} onSelect={setCompTab} color={BRAND.green} />
       </View>
     );
@@ -421,11 +440,17 @@ export default function GastoCheckHome() {
     { icon: '👤', label: 'Perfil',     badge: 0 },
   ];
 
-  if (!isAdmin) {
+  if (displayAs === 'contador') {
     return (
       <View style={s.screen}>
-        <TopBar accent={BRAND.blue} rightIcon="🔄" onRight={loadData} />
+        <TopBar accent={BRAND.blue} rightIcon="🔄" onRight={loadData} onSwitcher={isAdmin ? () => setShowSwitcher(true) : undefined} />
         <PillBar accentColor={BRAND.blue} />
+        {isAdmin && viewMode !== 'admin' && (
+          <TouchableOpacity style={[s.previewBanner, { backgroundColor: BRAND.blue }]}
+            onPress={() => setShowSwitcher(true)} activeOpacity={0.85}>
+            <Text style={s.previewBannerText}>👁 VISTA CONTADOR · Toca para cambiar</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ flex: 1 }}>
           {contTab === 0 && (
@@ -507,6 +532,9 @@ export default function GastoCheckHome() {
           {contTab === 4 && <ProfileTab accent={BRAND.blue} />}
         </View>
 
+        <ViewSwitcherModal visible={showSwitcher} current={viewMode}
+          onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
+          onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={CONT_TABS} active={contTab} onSelect={setContTab} color={BRAND.blue} />
       </View>
     );
@@ -524,7 +552,7 @@ export default function GastoCheckHome() {
 
   return (
     <View style={s.screen}>
-      <TopBar accent={BRAND.navy} rightIcon="🔄" onRight={loadData} />
+      <TopBar accent={BRAND.navy} rightIcon="🔄" onRight={loadData} onSwitcher={() => setShowSwitcher(true)} />
       <PillBar accentColor={BRAND.navy} />
 
       <View style={{ flex: 1 }}>
@@ -609,8 +637,53 @@ export default function GastoCheckHome() {
         {adminTab === 4 && <ProfileTab accent={BRAND.navy} />}
       </View>
 
+      <ViewSwitcherModal visible={showSwitcher} current={viewMode}
+        onSelect={(m) => { setViewMode(m); setShowSwitcher(false); }}
+        onClose={() => setShowSwitcher(false)} />
       <BottomBar tabs={ADMIN_TABS} active={adminTab} onSelect={setAdminTab} color={BRAND.navy} />
     </View>
+  );
+}
+
+// ── ViewSwitcherModal ─────────────────────────────────────────────────────────
+
+function ViewSwitcherModal({
+  visible, current, onSelect, onClose,
+}: {
+  visible: boolean;
+  current: 'admin' | 'comprador' | 'contador';
+  onSelect: (m: 'admin' | 'comprador' | 'contador') => void;
+  onClose: () => void;
+}) {
+  const OPTIONS: { key: 'admin' | 'comprador' | 'contador'; icon: string; label: string; sub: string; color: string }[] = [
+    { key: 'admin',     icon: '👑', label: 'Admin',     sub: 'Empresa, equipo y configuración', color: BRAND.navy  },
+    { key: 'contador',  icon: '📊', label: 'Contador',  sub: 'Pólizas, pendientes y reportes',  color: BRAND.blue  },
+    { key: 'comprador', icon: '🛍', label: 'Comprador', sub: 'Captura de tickets y reembolsos', color: BRAND.green },
+  ];
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={s.modalOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={s.modalSheet}>
+          <View style={s.modalHandle} />
+          <Text style={s.modalTitle}>Vista del Panel</Text>
+          {OPTIONS.map(({ key, icon, label, sub, color }) => (
+            <TouchableOpacity
+              key={key}
+              style={[s.switcherOption, current === key && { borderColor: color, backgroundColor: color + '12' }]}
+              onPress={() => onSelect(key)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 30 }}>{icon}</Text>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={[s.switcherLabel, current === key && { color }]}>{label}</Text>
+                <Text style={s.switcherSub}>{sub}</Text>
+              </View>
+              {current === key && <Text style={[s.switcherCheck, { color }]}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Modal>
   );
 }
 
@@ -846,4 +919,18 @@ const s = StyleSheet.create({
   empty:      { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: BRAND.navy, marginBottom: 6 },
   emptySub:   { fontSize: 14, color: '#90A4AE', textAlign: 'center', lineHeight: 20 },
+
+  // View switcher
+  previewBanner:     { paddingVertical: 7, alignItems: 'center' },
+  previewBannerText: { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  topBarRightGroup:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 8 },
+  topBarIcon:        { padding: 4 },
+  modalOverlay:      { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalSheet:        { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, gap: 10 },
+  modalHandle:       { width: 40, height: 4, backgroundColor: '#D0D8E4', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  modalTitle:        { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 8 },
+  switcherOption:    { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1.5, borderColor: '#EEF2F7' },
+  switcherLabel:     { fontSize: 16, fontWeight: '700', color: BRAND.navy },
+  switcherSub:       { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  switcherCheck:     { fontSize: 20, fontWeight: '800' },
 });
