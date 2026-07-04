@@ -125,6 +125,11 @@ export function useCobrador(): UseCobrador {
 
         if (err) throw err
 
+        // Solo cobradores, supervisores y admins pueden acceder a CobraCheck
+        if (!['collector', 'supervisor', 'admin', 'owner', 'superadmin'].includes(member.role)) {
+          throw new Error(`Acceso denegado: Solo cobradores pueden usar CobraCheck (tienes rol: ${member.role})`)
+        }
+
         setUser({
           id: member.id,
           name: member.member_name,
