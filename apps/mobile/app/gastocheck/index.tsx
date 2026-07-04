@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react';
+// GastoCheck — home con navegación por rol (Comprador / Contador / Admin)
+import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Image,
+  ScrollView, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
-import { computeBalance, BRAND, APP_VERSION, type Expense, type Policy, type Advance } from '@gastocheck/shared';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  computeBalance, BRAND, APP_VERSION,
+  type Expense, type Policy, type Advance,
+} from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
+
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const ADMIN_ROLES      = ['owner', 'admin'];
 const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
@@ -16,30 +23,54 @@ const SUPERVISOR_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contado
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
+const ROLE_LABEL: Record<string, string> = {
+  owner:            '👑 Admin',
+  admin:            '🔑 Admin',
+  accountant:       '📊 Contador',
+  contador_general: '📊 Contador',
+  supervisor:       '👁 Supervisor',
+  spender:          '🛍 Comprador',
+  comprador:        '🛍 Comprador',
+};
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+
 export default function GastoCheckHome() {
   const router     = useRouter();
   const navigation = useNavigation();
-  const [loading,      setLoading]      = useState(true);
-  const [userRole,     setUserRole]     = useState<string | null>(null);
-  const [policy,       setPolicy]       = useState<Policy | null>(null);
-  const [advances,     setAdvances]     = useState<Pick<Advance, 'amount'>[]>([]);
-  const [expenses,     setExpenses]     = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [pendingTotal, setPendingTotal] = useState(0);
-  const [overdueAdv,   setOverdueAdv]  = useState(0);
 
-  useEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
+  const [loading,       setLoading]      = useState(true);
+  const [userRole,      setUserRole]     = useState<string | null>(null);
+  const [userName,      setUserName]     = useState<string | null>(null);
+  const [userEmail,     setUserEmail]    = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  // Comprador balance data
+  const [policy,        setPolicy]       = useState<Policy | null>(null);
+  const [advances,      setAdvances]     = useState<Pick<Advance, 'amount'>[]>([]);
+  const [expenses,      setExpenses]     = useState<Pick<Expense, 'id' | 'provider_name' | 'total' | 'status'>[]>([]);
+  const [pendingCount,  setPendingCount] = useState(0);
+  const [pendingTotal,  setPendingTotal] = useState(0);
 
-  async function loadData() {
+  // Badge counts
+  const [overdueAdv,    setOverdueAdv]   = useState(0);
+  const [pendingReimb,  setPendingReimb] = useState(0);
+  const [pendingAdvReq, setPendingAdvReq] = useState(0);
+  const [teamCount,     setTeamCount]    = useState(0);
+
+  // Active tab per role (survives data refresh)
+  const [adminTab,  setAdminTab]  = useState(0);
+  const [contTab,   setContTab]   = useState(0);
+  const [compTab,   setCompTab]   = useState(0);
+
+  useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { session: homeSession } } = await supabase.auth.getSession();
-      const user = homeSession?.user;
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) { setLoading(false); return; }
+      setUserEmail(user.email ?? null);
 
       const { data: member } = await supabase
         .from('company_members')
@@ -47,20 +78,58 @@ export default function GastoCheckHome() {
         .eq('user_id', user.id)
         .eq('status', 'active')
         .maybeSingle();
-      if (member?.role) setUserRole(member.role);
 
-      if (member?.company_id && ADMIN_ROLES.includes(member.role)) {
+      if (!member) { setLoading(false); return; }
+      setUserRole(member.role);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      setUserName((profile as any)?.full_name ?? null);
+
+      const isAdmin      = ADMIN_ROLES.includes(member.role);
+      const isSupervisor = SUPERVISOR_ROLES.includes(member.role);
+
+      if (isAdmin && member.company_id) {
         const tenDaysAgo = new Date();
         tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-        const { count: oc } = await supabase
-          .from('policies')
-          .select('id', { count: 'exact', head: true })
-          .eq('company_id', member.company_id)
-          .eq('status', 'open')
-          .lt('created_at', tenDaysAgo.toISOString());
+        const [{ count: oc }, { count: tc }] = await Promise.all([
+          supabase
+            .from('policies')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', member.company_id)
+            .eq('status', 'open')
+            .lt('created_at', tenDaysAgo.toISOString()),
+          supabase
+            .from('company_members')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('company_id', member.company_id)
+            .eq('status', 'active'),
+        ]);
         setOverdueAdv(oc ?? 0);
+        setTeamCount(tc ?? 0);
       }
 
+      if (isSupervisor && !isAdmin && member.company_id) {
+        const [{ count: rc }, { count: ac }] = await Promise.all([
+          supabase
+            .from('reimbursements')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', member.company_id)
+            .eq('status', 'pending_auth'),
+          supabase
+            .from('advance_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', member.company_id)
+            .eq('status', 'pending'),
+        ]);
+        setPendingReimb(rc ?? 0);
+        setPendingAdvReq(ac ?? 0);
+      }
+
+      // Balance (all roles — comprador & admin might have personal advances)
       const { data: policies } = await supabase
         .from('policies')
         .select('*')
@@ -86,8 +155,6 @@ export default function GastoCheckHome() {
         setExpenses(expData ?? []);
       }
 
-      checkMonthEndReminder().catch(() => null);
-
       const { data: pendingR, count } = await supabase
         .from('receipts')
         .select('total_amount', { count: 'exact' })
@@ -95,18 +162,14 @@ export default function GastoCheckHome() {
         .eq('status', 'captured');
       setPendingCount(count ?? 0);
       setPendingTotal((pendingR ?? []).reduce((s, r) => s + ((r as any).total_amount ?? 0), 0));
+
+      checkMonthEndReminder().catch(() => null);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  const balance = policy
-    ? computeBalance(
-        { opening_balance: policy.opening_balance },
-        advances,
-        expenses.map((e) => ({ total: e.total, status: e.status })),
-      )
-    : null;
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   if (loading) {
     return (
@@ -119,293 +182,668 @@ export default function GastoCheckHome() {
   const isAdmin      = userRole ? ADMIN_ROLES.includes(userRole) : false;
   const isSupervisor = userRole ? SUPERVISOR_ROLES.includes(userRole) : false;
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BRAND.gray }}
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
-      {/* ── Header estilo splash ── */}
-      <View style={styles.splashHeader}>
-        <View style={styles.circleTopRight} />
-        <View style={styles.circleBottomLeft} />
+  const balance = policy
+    ? computeBalance(
+        { opening_balance: policy.opening_balance },
+        advances,
+        expenses.map((e) => ({ total: e.total, status: e.status })),
+      )
+    : null;
 
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.replace('/')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backBtnText}>‹ CHECK SUITE</Text>
+  async function signOut() {
+    Alert.alert('Cerrar sesión', '¿Estás seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar sesión', style: 'destructive',
+        onPress: async () => {
+          await supabase.auth.signOut();
+          router.replace('/login' as any);
+        },
+      },
+    ]);
+  }
+
+  // ── Shared components ───────────────────────────────────────────────────────
+
+  function TopBar({ accent, rightIcon, onRight }: {
+    accent: string; rightIcon?: string; onRight?: () => void;
+  }) {
+    return (
+      <View style={s.topBar}>
+        <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
+          <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => router.push('/settings')}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 22 }}>⚙️</Text>
-        </TouchableOpacity>
-
-        <View style={styles.splashContent}>
-          <Image source={require('../../assets/icon.png')} style={styles.splashIcon} />
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <View style={styles.splashTitleRow}>
-              <Text style={styles.splashTitleGasto}>Gasto</Text>
-              <Text style={styles.splashTitleCheck}>Check</Text>
-            </View>
-            <Text style={styles.splashTagline}>
-              Tus gastos claros.{' '}
-              <Text style={{ color: BRAND.green }}>Tus saldos bajo control.</Text>
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <Text style={styles.versionText}>{APP_VERSION}</Text>
-              {userRole && (
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 }}>
-                    {userRole === 'owner'            ? '👑 Admin' :
-                     userRole === 'admin'            ? '🔑 Admin' :
-                     userRole === 'accountant'       ? '📊 Contador' :
-                     userRole === 'contador_general' ? '📊 Contador' :
-                     userRole === 'supervisor'       ? '👁 Supervisor' :
-                     userRole === 'spender'          ? '🛍 Comprador' :
-                     userRole}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+        <View style={s.topBarCenter}>
+          <Text style={s.topBarWordA}>Gasto</Text>
+          <Text style={[s.topBarWordB, { color: accent }]}>Check</Text>
         </View>
+        <TouchableOpacity onPress={onRight ?? (() => router.push('/settings'))} style={s.topBarRight} activeOpacity={0.7}>
+          <Text style={{ fontSize: 20 }}>{rightIcon ?? '⚙️'}</Text>
+        </TouchableOpacity>
       </View>
+    );
+  }
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-        <TrialBanner onUpgrade={() => router.push('/settings')} />
+  function PillBar({ accentColor }: { accentColor: string }) {
+    const pendingAlert = isAdmin
+      ? (overdueAdv > 0 ? `⚠️ ${overdueAdv} anticipo${overdueAdv !== 1 ? 's' : ''} vencido${overdueAdv !== 1 ? 's' : ''}` : null)
+      : isSupervisor
+        ? (pendingReimb + pendingAdvReq > 0 ? `● ${pendingReimb + pendingAdvReq} pendiente${pendingReimb + pendingAdvReq !== 1 ? 's' : ''}` : null)
+        : (pendingCount > 0 ? `● ${pendingCount} ticket${pendingCount !== 1 ? 's' : ''} sin reembolso` : null);
 
-        {/* ── Alerta admin: anticipos vencidos ── */}
-        {isAdmin && overdueAdv > 0 && (
+    const alertColor = (isAdmin || isSupervisor) ? BRAND.red : BRAND.orange;
+
+    return (
+      <View style={s.pillBar}>
+        <View style={[s.pill, { backgroundColor: accentColor + '15' }]}>
+          <Text style={[s.pillText, { color: accentColor }]}>
+            {ROLE_LABEL[userRole ?? ''] ?? userRole}
+          </Text>
+        </View>
+        {pendingAlert && (
           <TouchableOpacity
-            style={styles.overdueCard}
-            onPress={() => router.push('/herramientas' as any)}
-            activeOpacity={0.85}
+            style={[s.pill, { backgroundColor: alertColor + '15' }]}
+            onPress={() => { if (isAdmin) setAdminTab(2); else if (isSupervisor) setContTab(0); else setCompTab(1); }}
+            activeOpacity={0.8}
           >
-            <Text style={styles.overdueIcon}>⚠️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.overdueTitle}>
-                {overdueAdv} anticipo{overdueAdv !== 1 ? 's' : ''} sin comprobar ({'>'}10 días)
-              </Text>
-              <Text style={styles.overdueHint}>Ver en Reportes → Anticipos sin comprobar</Text>
-            </View>
-            <Text style={{ color: BRAND.red, fontSize: 18 }}>›</Text>
+            <Text style={[s.pillText, { color: alertColor }]}>{pendingAlert}</Text>
           </TouchableOpacity>
         )}
-
-        {/* ── Saldo de anticipo ── */}
-        {balance ? (
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.balanceLabel}>Saldo disponible</Text>
-                <Text style={styles.balanceAmount}>{money(balance.available)}</Text>
-                {pendingTotal > 0 && (
-                  <View style={styles.balanceDualRow}>
-                    <Text style={styles.balanceDualLabel}>Con comprobantes pendientes</Text>
-                    <Text style={styles.balanceDualAmount}>
-                      {money(balance.available - pendingTotal)}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.policyName}>{policy?.name ?? 'Mi anticipo'}</Text>
-              </View>
-              <View style={styles.balanceStats}>
-                <Stat label="Anticipos"     value={money(balance.advances)} />
-                <Stat label="Autorizado"    value={money(balance.authorizedSpent)} color={BRAND.green} />
-                <Stat label="Por comprobar" value={money(balance.pendingToVerify)} color={BRAND.orange} />
-              </View>
-            </View>
-          </View>
-        ) : pendingCount > 0 ? (
-          <View style={styles.pendingCard}>
-            <Text style={styles.pendingCardTitle}>
-              {pendingCount} comprobante{pendingCount !== 1 ? 's' : ''} sin reembolso
-            </Text>
-            <Text style={styles.pendingCardHint}>
-              Total: {money(pendingTotal)} · Solicita tu reembolso desde Mis Comprobantes
-            </Text>
-          </View>
-        ) : null}
-
-        {/* ── Menú principal ── */}
-        <MenuBtn
-          icon="📷"
-          label="Capturar ticket"
-          hint="La IA lo analiza y asigna folio automático"
-          bg={BRAND.green}
-          textColor="#fff"
-          onPress={() => router.push('/capture')}
-          large
-        />
-        <MenuBtn
-          icon="🧾"
-          label="Mis comprobantes"
-          hint={
-            pendingCount > 0
-              ? `${pendingCount} listo${pendingCount !== 1 ? 's' : ''} para reembolso`
-              : 'Historial de tickets escaneados'
-          }
-          onPress={() => router.push('/receipts')}
-        />
-        <MenuBtn
-          icon="📋"
-          label="Mis Reembolsos"
-          hint="Crea, arma y envía reembolsos al contador — R-0001, R-0002…"
-          onPress={() => router.push('/mis-reembolsos' as any)}
-        />
-        <MenuBtn
-          icon="📋"
-          label="Mis pólizas"
-          hint={isAdmin ? 'Crear, revisar y autorizar gastos' : 'Crear póliza e integrar comprobantes'}
-          onPress={() => router.push('/polizas' as any)}
-        />
-        <MenuBtn
-          icon="✈️"
-          label="Viáticos"
-          hint="Registra gastos de viaje: renta, presentaciones, comidas, hospedaje"
-          onPress={() => router.push('/viaticos' as any)}
-        />
-        {isSupervisor && (
-          <MenuBtn
-            icon="🧮"
-            label="Panel Contador"
-            hint="Reembolsos, anticipos, pólizas y gastos del equipo"
-            onPress={() => router.push('/supervisor' as any)}
-          />
-        )}
-        <MenuBtn
-          icon="🔧"
-          label="Herramientas"
-          hint="Reportes, búsqueda de proveedores y ajustes"
-          onPress={() => router.push('/herramientas' as any)}
-        />
-        {isAdmin && (
-          <MenuBtn
-            icon="🛡️"
-            label="Panel Administrador"
-            hint="Anticipos, compradores, balances y control general"
-            bg={BRAND.navy}
-            textColor="#fff"
-            onPress={() => router.push('/admin-panel' as any)}
-          />
-        )}
-        {isAdmin && (
-          <MenuBtn
-            icon="🏢"
-            label="Alta Empresa"
-            hint="Empresa, compradores, cuentas bancarias y perfil"
-            onPress={() => router.push('/administracion' as any)}
-          />
-        )}
       </View>
-    </ScrollView>
-  );
-}
+    );
+  }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  function ProfileTab({ accent }: { accent: string }) {
+    const initial = (userName ?? userEmail ?? '?').charAt(0).toUpperCase();
+    return (
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <View style={s.profileCard}>
+          <View style={[s.avatar, { backgroundColor: accent + '20' }]}>
+            <Text style={[s.avatarText, { color: accent }]}>{initial}</Text>
+          </View>
+          <Text style={s.profileName}>{userName ?? '(sin nombre)'}</Text>
+          <Text style={s.profileEmail}>{userEmail ?? ''}</Text>
+          <View style={[s.pill, { backgroundColor: accent + '15', marginTop: 8 }]}>
+            <Text style={[s.pillText, { color: accent }]}>{ROLE_LABEL[userRole ?? ''] ?? userRole}</Text>
+          </View>
+        </View>
+        <TrialBanner onUpgrade={() => router.push('/settings')} />
+        <NavCard icon="⚙️" title="Configuración" sub="Notificaciones, cuenta y preferencias"
+          onPress={() => router.push('/settings')} />
+        <NavCard icon="🚪" title="Cerrar sesión" sub="" onPress={signOut} danger />
+        <Text style={s.versionLabel}>{APP_VERSION}</Text>
+      </ScrollView>
+    );
+  }
+
+  // ── ══ COMPRADOR ══ ─────────────────────────────────────────────────────────
+
+  const COMP_TABS = [
+    { icon: '📷', label: 'Capturar',    badge: 0 },
+    { icon: '📋', label: 'Gastos',      badge: pendingCount },
+    { icon: '💰', label: 'Saldo',       badge: 0 },
+    { icon: '🏪', label: 'Proveedores', badge: 0 },
+    { icon: '👤', label: 'Perfil',      badge: 0 },
+  ];
+
+  if (!isSupervisor) {
+    return (
+      <View style={s.screen}>
+        <TopBar accent={BRAND.green} />
+        <PillBar accentColor={BRAND.green} />
+
+        <View style={{ flex: 1 }}>
+          {compTab === 0 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <TouchableOpacity style={[s.heroBtn, { backgroundColor: BRAND.green }]}
+                onPress={() => router.push('/capture')} activeOpacity={0.88}>
+                <Text style={{ fontSize: 52 }}>📷</Text>
+                <Text style={s.heroBtnTitle}>Capturar Ticket</Text>
+                <Text style={s.heroBtnSub}>La IA analiza y registra automáticamente</Text>
+              </TouchableOpacity>
+
+              <View style={s.miniRow}>
+                <MiniCard icon="🧾" label="Sin reembolso"
+                  value={pendingCount > 0 ? `${pendingCount} ticket${pendingCount !== 1 ? 's' : ''}` : 'Al corriente'}
+                  color={pendingCount > 0 ? BRAND.orange : BRAND.green}
+                  onPress={() => router.push('/receipts')} />
+                <MiniCard icon="📋" label="Reembolsos" value="Ver todos"
+                  color={BRAND.blue} onPress={() => router.push('/mis-reembolsos' as any)} />
+              </View>
+
+              {pendingCount > 0 && (
+                <TouchableOpacity style={s.alertCard} onPress={() => router.push('/receipts')} activeOpacity={0.85}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.alertCardTitle, { color: BRAND.orange }]}>
+                      {pendingCount} comprobante{pendingCount !== 1 ? 's' : ''} listos para reembolso
+                    </Text>
+                    <Text style={s.alertCardSub}>Total: {money(pendingTotal)} · Ver mis comprobantes →</Text>
+                  </View>
+                  <Text style={{ fontSize: 20, color: BRAND.orange }}>›</Text>
+                </TouchableOpacity>
+              )}
+
+              <NavCard icon="✈️" title="Viáticos"
+                sub="Gastos de viaje: renta, comidas, hospedaje"
+                onPress={() => router.push('/viaticos' as any)} />
+            </ScrollView>
+          )}
+
+          {compTab === 1 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Mis Gastos</Text>
+              <BigCard icon="📋" title="Mis Reembolsos"
+                sub="Crea y envía reembolsos al contador"
+                bg={BRAND.blue} onPress={() => router.push('/mis-reembolsos' as any)} />
+              <BigCard icon="🧾" title="Mis Comprobantes"
+                sub={pendingCount > 0
+                  ? `${pendingCount} listo${pendingCount !== 1 ? 's' : ''} para reembolso`
+                  : 'Historial de tickets escaneados'}
+                bg={BRAND.navy} onPress={() => router.push('/receipts')} />
+              <NavCard icon="📄" title="Mis Pólizas"
+                sub="Crear póliza e integrar comprobantes"
+                onPress={() => router.push('/polizas' as any)} />
+              <NavCard icon="✈️" title="Viáticos"
+                sub="Gastos de viaje: renta, comidas, hospedaje"
+                onPress={() => router.push('/viaticos' as any)} />
+            </ScrollView>
+          )}
+
+          {compTab === 2 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Mi Saldo</Text>
+              {balance ? (
+                <>
+                  <View style={s.balanceCard}>
+                    <Text style={s.balanceLabel}>Saldo disponible</Text>
+                    <Text style={s.balanceAmount}>{money(balance.available)}</Text>
+                    {pendingTotal > 0 && (
+                      <View style={s.balanceDual}>
+                        <Text style={s.balanceDualLabel}>Con comprobantes pendientes:</Text>
+                        <Text style={s.balanceDualValue}>{money(balance.available - pendingTotal)}</Text>
+                      </View>
+                    )}
+                    <Text style={s.balancePolicyName}>{policy?.name ?? 'Mi anticipo'}</Text>
+                  </View>
+                  <View style={s.statsRow}>
+                    <StatPill icon="⬆️" label="Anticipos" value={money(balance.advances)} />
+                    <StatPill icon="✅" label="Autorizado" value={money(balance.authorizedSpent)} color={BRAND.green} />
+                    <StatPill icon="⏳" label="Pendiente" value={money(balance.pendingToVerify)} color={BRAND.orange} />
+                  </View>
+                </>
+              ) : (
+                <EmptyState icon="💳" title="Sin anticipo activo"
+                  sub="Solicita un anticipo a tu contador o supervisor" />
+              )}
+              {pendingCount > 0 && (
+                <TouchableOpacity style={s.alertCard} onPress={() => router.push('/receipts')} activeOpacity={0.85}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.alertCardTitle, { color: BRAND.orange }]}>
+                      {pendingCount} comprobante{pendingCount !== 1 ? 's' : ''} sin reembolso
+                    </Text>
+                    <Text style={s.alertCardSub}>Total: {money(pendingTotal)} · Solicita tu reembolso →</Text>
+                  </View>
+                  <Text style={{ fontSize: 20, color: BRAND.orange }}>›</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+
+          {compTab === 3 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Proveedores</Text>
+              <TouchableOpacity style={[s.heroBtn, { backgroundColor: BRAND.blue }]}
+                onPress={() => router.push('/item-search' as any)} activeOpacity={0.88}>
+                <Text style={{ fontSize: 48 }}>🏪</Text>
+                <Text style={s.heroBtnTitle}>¿Dónde compro?</Text>
+                <Text style={s.heroBtnSub}>Busca proveedores por producto, giro o distancia</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+
+          {compTab === 4 && <ProfileTab accent={BRAND.green} />}
+        </View>
+
+        <BottomBar tabs={COMP_TABS} active={compTab} onSelect={setCompTab} color={BRAND.green} />
+      </View>
+    );
+  }
+
+  // ── ══ CONTADOR ══ ──────────────────────────────────────────────────────────
+
+  const contBadge = pendingReimb + pendingAdvReq;
+
+  const CONT_TABS = [
+    { icon: '📥', label: 'Pendientes', badge: contBadge },
+    { icon: '📑', label: 'Pólizas',    badge: 0 },
+    { icon: '➕', label: 'Otros',      badge: 0 },
+    { icon: '📊', label: 'Reportes',   badge: 0 },
+    { icon: '👤', label: 'Perfil',     badge: 0 },
+  ];
+
+  if (!isAdmin) {
+    return (
+      <View style={s.screen}>
+        <TopBar accent={BRAND.blue} rightIcon="🔄" onRight={loadData} />
+        <PillBar accentColor={BRAND.blue} />
+
+        <View style={{ flex: 1 }}>
+          {contTab === 0 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              {contBadge === 0 ? (
+                <EmptyState icon="✅" title="Todo al día" sub="No hay items pendientes por revisar" />
+              ) : (
+                <View style={[s.alertCard, { borderColor: BRAND.red + '30', backgroundColor: BRAND.red + '08' }]}>
+                  <Text style={{ fontSize: 26, marginRight: 12 }}>🔔</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.alertCardTitle, { color: BRAND.red }]}>
+                      {contBadge} item{contBadge !== 1 ? 's' : ''} por revisar
+                    </Text>
+                    <Text style={s.alertCardSub}>Reembolsos y solicitudes esperan tu atención</Text>
+                  </View>
+                </View>
+              )}
+
+              <CounterCard icon="📋" title="Reembolsos"
+                sub={pendingReimb > 0 ? `${pendingReimb} por autorizar` : 'Sin reembolsos pendientes'}
+                badge={pendingReimb}
+                onPress={() => router.push('/supervisor/reembolsos' as any)} />
+              <CounterCard icon="✈️" title="Viáticos"
+                sub="Aprobar gastos de viaje del equipo"
+                badge={0}
+                onPress={() => router.push('/supervisor/viaticos-aprobacion' as any)} />
+              <CounterCard icon="💰" title="Anticipos"
+                sub={pendingAdvReq > 0
+                  ? `${pendingAdvReq} solicitud${pendingAdvReq !== 1 ? 'es' : ''} pendiente${pendingAdvReq !== 1 ? 's' : ''}`
+                  : 'Solicitudes de anticipo del equipo'}
+                badge={pendingAdvReq}
+                onPress={() => router.push('/supervisor' as any)} />
+              <CounterCard icon="🧾" title="Gastos del Equipo"
+                sub="Autorizar y clasificar comprobantes"
+                badge={0}
+                onPress={() => router.push('/supervisor' as any)} />
+            </ScrollView>
+          )}
+
+          {contTab === 1 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Pólizas</Text>
+              <BigCard icon="📑" title="Mis Pólizas"
+                sub="Crear, revisar y autorizar pólizas de gastos"
+                bg={BRAND.blue} onPress={() => router.push('/polizas' as any)} />
+              <NavCard icon="🔍" title="Panel Supervisor"
+                sub="Vista completa: gastos, anticipos y equipo"
+                onPress={() => router.push('/supervisor' as any)} />
+            </ScrollView>
+          )}
+
+          {contTab === 2 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Otros Gastos</Text>
+              <BigCard icon="➕" title="Captura Manual"
+                sub="Registrar gasto sin comprobante digital"
+                bg={BRAND.blue} onPress={() => router.push('/supervisor' as any)} />
+              <BigCard icon="🔖" title="Catálogo Contable"
+                sub="Cuentas contables y clasificación de gastos"
+                bg={BRAND.navy} onPress={() => router.push('/herramientas' as any)} />
+            </ScrollView>
+          )}
+
+          {contTab === 3 && (
+            <ScrollView contentContainerStyle={s.pad}>
+              <Text style={s.tabTitle}>Reportes</Text>
+              <BigCard icon="📊" title="Centro de Reportes"
+                sub="Egresos, anticipos, pólizas y exportación"
+                bg={BRAND.blue} onPress={() => router.push('/herramientas' as any)} />
+              <View style={s.gridRow}>
+                <GridTile icon="💰" label="Anticipos sin comprobar" onPress={() => router.push('/herramientas' as any)} />
+                <GridTile icon="🧮" label="Egresos por comprador" onPress={() => router.push('/herramientas' as any)} />
+                <GridTile icon="📤" label="Exportar contable" onPress={() => router.push('/herramientas' as any)} />
+                <GridTile icon="⚠️" label="Gastos rechazados" onPress={() => router.push('/herramientas' as any)} />
+              </View>
+            </ScrollView>
+          )}
+
+          {contTab === 4 && <ProfileTab accent={BRAND.blue} />}
+        </View>
+
+        <BottomBar tabs={CONT_TABS} active={contTab} onSelect={setContTab} color={BRAND.blue} />
+      </View>
+    );
+  }
+
+  // ── ══ ADMIN ══ ─────────────────────────────────────────────────────────────
+
+  const ADMIN_TABS = [
+    { icon: '🏢', label: 'Empresa',  badge: 0 },
+    { icon: '👥', label: 'Equipo',   badge: 0 },
+    { icon: '💳', label: 'Finanzas', badge: overdueAdv },
+    { icon: '🚗', label: 'Flotilla', badge: 0 },
+    { icon: '⚙️', label: 'Config',   badge: 0 },
+  ];
+
   return (
-    <View style={{ marginBottom: 4 }}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
+    <View style={s.screen}>
+      <TopBar accent={BRAND.navy} rightIcon="🔄" onRight={loadData} />
+      <PillBar accentColor={BRAND.navy} />
+
+      <View style={{ flex: 1 }}>
+        {adminTab === 0 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Empresa</Text>
+            <BigCard icon="🏢" title="Datos de Empresa"
+              sub="RFC, nombre, sector y configuración general"
+              bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
+            <NavCard icon="✉️" title="Invitaciones"
+              sub="Invitar compradores, contadores y supervisores"
+              onPress={() => router.push('/administracion' as any)} />
+            <NavCard icon="🏦" title="Cuentas Bancarias"
+              sub="Registra y administra las cuentas de la empresa"
+              onPress={() => router.push('/administracion' as any)} />
+          </ScrollView>
+        )}
+
+        {adminTab === 1 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Equipo</Text>
+            {teamCount > 0 && (
+              <View style={[s.alertCard, { borderColor: BRAND.navy + '30', backgroundColor: BRAND.navy + '08' }]}>
+                <Text style={[s.alertCardTitle, { color: BRAND.navy }]}>
+                  👥 {teamCount} miembro{teamCount !== 1 ? 's' : ''} activo{teamCount !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+            <BigCard icon="👥" title="Compradores"
+              sub="Saldos, anticipos y balances del equipo"
+              bg={BRAND.navy} onPress={() => router.push('/admin-panel' as any)} />
+            <NavCard icon="➕" title="Invitar Miembro"
+              sub="Agregar comprador, contador o supervisor"
+              onPress={() => router.push('/administracion' as any)} />
+            <NavCard icon="🧮" title="Panel Supervisor"
+              sub="Gastos, anticipos y solicitudes del equipo"
+              onPress={() => router.push('/supervisor' as any)} />
+          </ScrollView>
+        )}
+
+        {adminTab === 2 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Finanzas</Text>
+            {overdueAdv > 0 && (
+              <TouchableOpacity
+                style={[s.alertCard, { borderColor: BRAND.red + '40', backgroundColor: BRAND.red + '10' }]}
+                onPress={() => router.push('/herramientas' as any)} activeOpacity={0.85}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.alertCardTitle, { color: BRAND.red }]}>
+                    ⚠️ {overdueAdv} anticipo{overdueAdv !== 1 ? 's' : ''} sin comprobar (+10 días)
+                  </Text>
+                  <Text style={s.alertCardSub}>Ver en Reportes → Anticipos sin comprobar</Text>
+                </View>
+                <Text style={{ fontSize: 20, color: BRAND.red }}>›</Text>
+              </TouchableOpacity>
+            )}
+            <BigCard icon="💰" title="Anticipos Activos"
+              sub="Saldos por comprador y control de anticipos"
+              bg={BRAND.navy} onPress={() => router.push('/admin-panel' as any)} />
+            <NavCard icon="📊" title="Reportes"
+              sub="Egresos totales, anticipos y pólizas"
+              onPress={() => router.push('/herramientas' as any)} />
+            <NavCard icon="📑" title="Pólizas"
+              sub="Crear, revisar y autorizar pólizas de gastos"
+              onPress={() => router.push('/polizas' as any)} />
+          </ScrollView>
+        )}
+
+        {adminTab === 3 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Flotilla</Text>
+            <BigCard icon="🚗" title="Vehículos"
+              sub="Control, alertas y mantenimiento de flotilla"
+              bg={BRAND.navy} onPress={() => router.push('/herramientas' as any)} />
+            <NavCard icon="🔧" title="Herramientas"
+              sub="Configuraciones avanzadas y utilerías"
+              onPress={() => router.push('/herramientas' as any)} />
+          </ScrollView>
+        )}
+
+        {adminTab === 4 && <ProfileTab accent={BRAND.navy} />}
+      </View>
+
+      <BottomBar tabs={ADMIN_TABS} active={adminTab} onSelect={setAdminTab} color={BRAND.navy} />
     </View>
   );
 }
 
-function MenuBtn({
-  icon, label, hint, onPress, bg, textColor, large = false,
+// ── Shared UI Components ───────────────────────────────────────────────────────
+
+function BottomBar({
+  tabs, active, onSelect, color,
 }: {
-  icon: string; label: string; hint: string;
-  onPress: () => void; bg?: string; textColor?: string; large?: boolean;
+  tabs: { icon: string; label: string; badge: number }[];
+  active: number;
+  onSelect: (i: number) => void;
+  color: string;
 }) {
-  const bgColor = bg ?? '#fff';
-  const tc = textColor ?? BRAND.navy;
-  const hc = textColor ? 'rgba(255,255,255,0.75)' : '#90A4AE';
-  const arrowColor = textColor ?? BRAND.blue;
   return (
-    <TouchableOpacity
-      style={[styles.menuBtn, large && styles.menuBtnLarge, { backgroundColor: bgColor }]}
-      onPress={onPress}
-      activeOpacity={0.82}
-    >
-      <Text style={[styles.menuBtnIcon, large && { fontSize: 36 }]}>{icon}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.menuBtnLabel, { color: tc }, large && { fontSize: 19 }]}>{label}</Text>
-        <Text style={[styles.menuBtnHint, { color: hc }]}>{hint}</Text>
+    <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 26 : 10 }]}>
+      {tabs.map((t, i) => {
+        const isActive = active === i;
+        return (
+          <TouchableOpacity key={i} style={s.bottomTab} onPress={() => onSelect(i)} activeOpacity={0.7}>
+            {isActive && <View style={[s.activeStripe, { backgroundColor: color }]} />}
+            <View>
+              <Text style={[s.bottomIcon, isActive && s.bottomIconActive]}>{t.icon}</Text>
+              {t.badge > 0 && (
+                <View style={s.tabBadge}>
+                  <Text style={s.tabBadgeText}>{t.badge > 99 ? '99+' : String(t.badge)}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[s.bottomLabel, isActive && { color, fontWeight: '700' }]}>{t.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+function BigCard({ icon, title, sub, bg, onPress }: {
+  icon: string; title: string; sub: string; bg: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={[s.bigCard, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.85}>
+      <Text style={{ fontSize: 36 }}>{icon}</Text>
+      <View style={{ flex: 1, marginLeft: 14 }}>
+        <Text style={s.bigCardTitle}>{title}</Text>
+        <Text style={s.bigCardSub}>{sub}</Text>
       </View>
-      <Text style={{ fontSize: 22, color: arrowColor }}>›</Text>
+      <Text style={{ fontSize: 24, color: 'rgba(255,255,255,0.75)' }}>›</Text>
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
-  splashHeader: {
-    backgroundColor: '#F0FBF4',
-    paddingTop: 54, paddingBottom: 22, paddingHorizontal: 20,
-    overflow: 'hidden', position: 'relative',
-  },
-  circleTopRight: {
-    position: 'absolute', top: -40, right: -40,
-    width: 160, height: 160, borderRadius: 80,
-    backgroundColor: BRAND.green + '22',
-  },
-  circleBottomLeft: {
-    position: 'absolute', bottom: -30, left: -30,
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: '#7986CB22',
-  },
-  splashContent:    { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
-  splashIcon:       { width: 58, height: 58, borderRadius: 14 },
-  splashTitleRow:   { flexDirection: 'row', alignItems: 'baseline' },
-  splashTitleGasto: { fontSize: 30, fontWeight: '800', color: BRAND.navy },
-  splashTitleCheck: { fontSize: 30, fontWeight: '800', color: BRAND.green },
-  splashTagline:    { fontSize: 12, color: BRAND.navy + 'AA', marginTop: 3 },
-  versionText:      { fontSize: 10, color: BRAND.navy + '55', marginTop: 4 },
-  backBtn:          { position: 'absolute', top: 54, left: 16, padding: 8 },
-  backBtnText:      { fontSize: 14, fontWeight: '700', color: BRAND.csblue },
-  settingsBtn:      { position: 'absolute', top: 54, right: 16, padding: 8 },
+function NavCard({ icon, title, sub, onPress, danger }: {
+  icon: string; title: string; sub: string; onPress: () => void; danger?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[s.navCard, danger && { borderColor: BRAND.red + '40' }]}
+      onPress={onPress} activeOpacity={0.85}
+    >
+      <Text style={{ fontSize: 26 }}>{icon}</Text>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={[s.navCardTitle, danger && { color: BRAND.red }]}>{title}</Text>
+        {sub ? <Text style={s.navCardSub}>{sub}</Text> : null}
+      </View>
+      <Text style={{ fontSize: 20, color: danger ? BRAND.red : '#90A4AE' }}>›</Text>
+    </TouchableOpacity>
+  );
+}
 
-  balanceCard:       { backgroundColor: BRAND.navy, borderRadius: 20, padding: 20, marginBottom: 12 },
-  balanceRow:        { flexDirection: 'row', gap: 16 },
-  balanceLabel:      { color: 'rgba(255,255,255,0.55)', fontSize: 12 },
-  balanceAmount:     { color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 2 },
-  balanceDualRow:    { marginTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 8 },
-  balanceDualLabel:  { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
-  balanceDualAmount: { color: '#FFD54F', fontSize: 17, fontWeight: '700', marginTop: 2 },
-  policyName:        { color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 6 },
-  balanceStats:      { justifyContent: 'center', minWidth: 110 },
-  statLabel:         { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
-  statValue:         { color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 4 },
+function CounterCard({ icon, title, sub, badge, onPress }: {
+  icon: string; title: string; sub: string; badge: number; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={s.counterCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={s.counterLeft}>
+        <Text style={{ fontSize: 30 }}>{icon}</Text>
+        {badge > 0 && (
+          <View style={s.counterBadge}>
+            <Text style={s.counterBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.counterTitle}>{title}</Text>
+        <Text style={[s.counterSub, badge > 0 && { color: BRAND.red }]}>{sub}</Text>
+      </View>
+      <Text style={{ fontSize: 20, color: '#90A4AE' }}>›</Text>
+    </TouchableOpacity>
+  );
+}
 
-  pendingCard: {
-    backgroundColor: BRAND.orange + '15', borderRadius: 14, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: BRAND.orange + '40',
-  },
-  pendingCardTitle: { fontSize: 14, fontWeight: '700', color: BRAND.orange },
-  pendingCardHint:  { fontSize: 12, color: '#90A4AE', marginTop: 3 },
+function MiniCard({ icon, label, value, color, onPress }: {
+  icon: string; label: string; value: string; color: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={s.miniCard} onPress={onPress} activeOpacity={0.8}>
+      <Text style={{ fontSize: 22 }}>{icon}</Text>
+      <Text style={s.miniLabel}>{label}</Text>
+      <Text style={[s.miniValue, { color }]}>{value}</Text>
+    </TouchableOpacity>
+  );
+}
 
-  overdueCard: {
-    backgroundColor: BRAND.red + '12', borderRadius: 14, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: BRAND.red + '40',
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  overdueIcon:  { fontSize: 22 },
-  overdueTitle: { fontSize: 14, fontWeight: '700', color: BRAND.red },
-  overdueHint:  { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+function StatPill({ icon, label, value, color }: {
+  icon: string; label: string; value: string; color?: string;
+}) {
+  return (
+    <View style={s.statPill}>
+      <Text style={{ fontSize: 16, marginBottom: 4 }}>{icon}</Text>
+      <Text style={s.statLabel}>{label}</Text>
+      <Text style={[s.statValue, color ? { color } : null]}>{value}</Text>
+    </View>
+  );
+}
 
-  menuBtn: {
-    borderRadius: 16, padding: 16, marginTop: 10,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4,
-  },
-  menuBtnLarge:  { padding: 20, marginTop: 12 },
-  menuBtnIcon:   { fontSize: 28 },
-  menuBtnLabel:  { fontSize: 16, fontWeight: '700' },
-  menuBtnHint:   { fontSize: 12, marginTop: 2 },
+function GridTile({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.gridTile} onPress={onPress} activeOpacity={0.8}>
+      <Text style={{ fontSize: 26, marginBottom: 6 }}>{icon}</Text>
+      <Text style={s.gridLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function EmptyState({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+  return (
+    <View style={s.empty}>
+      <Text style={{ fontSize: 50, marginBottom: 12 }}>{icon}</Text>
+      <Text style={s.emptyTitle}>{title}</Text>
+      <Text style={s.emptySub}>{sub}</Text>
+    </View>
+  );
+}
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const TOP_INSET = Platform.OS === 'ios' ? 54 : 32;
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: BRAND.gray },
+
+  // Top bar
+  topBar:        { flexDirection: 'row', alignItems: 'center', paddingTop: TOP_INSET, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  topBarBack:    { paddingRight: 12 },
+  topBarBackText: { fontSize: 13, fontWeight: '700', color: BRAND.csblue },
+  topBarCenter:  { flex: 1, flexDirection: 'row', justifyContent: 'center' },
+  topBarWordA:   { fontSize: 21, fontWeight: '800', color: BRAND.navy },
+  topBarWordB:   { fontSize: 21, fontWeight: '800' },
+  topBarRight:   { paddingLeft: 12 },
+
+  // Pill bar (role + alerts)
+  pillBar:  { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, paddingVertical: 8, gap: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F2F4F8' },
+  pill:     { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  pillText: { fontSize: 11, fontWeight: '700' },
+
+  // Bottom nav
+  bottomBar:    { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8EDF2', paddingTop: 8 },
+  bottomTab:    { flex: 1, alignItems: 'center', gap: 2, paddingBottom: 2 },
+  activeStripe: { position: 'absolute', top: -8, left: '22%', right: '22%', height: 2, borderRadius: 2 },
+  bottomIcon:   { fontSize: 20, opacity: 0.42 },
+  bottomIconActive: { opacity: 1 },
+  bottomLabel:  { fontSize: 9, fontWeight: '500', color: '#9EAAB8' },
+  tabBadge:     { position: 'absolute', top: -5, right: -8, backgroundColor: BRAND.red, borderRadius: 8, minWidth: 15, height: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  tabBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+
+  // Content padding
+  pad:      { padding: 20, paddingBottom: 44 },
+  tabTitle: { fontSize: 22, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
+
+  // Hero button
+  heroBtn:      { borderRadius: 24, padding: 30, alignItems: 'center', marginBottom: 16 },
+  heroBtnTitle: { fontSize: 21, fontWeight: '800', color: '#fff', marginTop: 10 },
+  heroBtnSub:   { fontSize: 13, color: 'rgba(255,255,255,0.76)', marginTop: 4, textAlign: 'center' },
+
+  // Mini 2-col row
+  miniRow:   { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  miniCard:  { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 3 },
+  miniLabel: { fontSize: 10, color: '#9EAAB8', fontWeight: '600', marginTop: 4 },
+  miniValue: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+
+  // Alert / warn card
+  alertCard:      { borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: BRAND.orange + '40', backgroundColor: BRAND.orange + '10', flexDirection: 'row', alignItems: 'center' },
+  alertCardTitle: { fontSize: 14, fontWeight: '700' },
+  alertCardSub:   { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+
+  // Big colored card
+  bigCard:      { borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  bigCardTitle: { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  bigCardSub:   { fontSize: 12, color: 'rgba(255,255,255,0.70)', lineHeight: 17 },
+
+  // White nav card
+  navCard:      { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+  navCardTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  navCardSub:   { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+
+  // Counter card (for Pendientes tab)
+  counterCard:      { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 3 },
+  counterLeft:      { width: 46, alignItems: 'center', marginRight: 12 },
+  counterBadge:     { position: 'absolute', top: -6, right: -6, backgroundColor: BRAND.red, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  counterBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  counterTitle:     { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  counterSub:       { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+
+  // Balance card
+  balanceCard:     { backgroundColor: BRAND.navy, borderRadius: 20, padding: 24, marginBottom: 14 },
+  balanceLabel:    { color: 'rgba(255,255,255,0.5)', fontSize: 13 },
+  balanceAmount:   { color: '#fff', fontSize: 36, fontWeight: '800', marginTop: 4, marginBottom: 8 },
+  balanceDual:     { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.18)', paddingTop: 10, marginTop: 4 },
+  balanceDualLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 11 },
+  balanceDualValue: { color: '#FFD54F', fontSize: 18, fontWeight: '700', marginTop: 2 },
+  balancePolicyName: { color: 'rgba(255,255,255,0.28)', fontSize: 11, marginTop: 8 },
+
+  // Stat pills (under balance)
+  statsRow:  { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  statPill:  { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center' },
+  statLabel: { fontSize: 9, color: '#9EAAB8', fontWeight: '600', textAlign: 'center', marginBottom: 2 },
+  statValue: { fontSize: 12, fontWeight: '800', color: BRAND.navy, textAlign: 'center' },
+
+  // Report grid
+  gridRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  gridTile: { width: '47%', backgroundColor: '#fff', borderRadius: 14, padding: 18, alignItems: 'center', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 3 },
+  gridLabel: { fontSize: 12, fontWeight: '700', color: BRAND.navy, textAlign: 'center', marginTop: 4 },
+
+  // Profile
+  profileCard:    { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 16, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 3 },
+  avatar:         { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  avatarText:     { fontSize: 26, fontWeight: '800' },
+  profileName:    { fontSize: 18, fontWeight: '800', color: BRAND.navy },
+  profileEmail:   { fontSize: 13, color: '#90A4AE', marginTop: 2 },
+  versionLabel:   { textAlign: 'center', color: '#B0BEC5', fontSize: 11, marginTop: 24 },
+
+  // Empty state
+  empty:      { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: BRAND.navy, marginBottom: 6 },
+  emptySub:   { fontSize: 14, color: '#90A4AE', textAlign: 'center', lineHeight: 20 },
 });
