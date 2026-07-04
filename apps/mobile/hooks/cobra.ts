@@ -3,23 +3,35 @@ import { supabase } from '../lib/supabase'
 import type { CobraClient } from '@gastocheck/shared'
 
 export function useCobrador() {
-  const [user, setUser] = useState<{ id: string; company_id: string } | null>(null)
+  const [user, setUser] = useState<{ id: string; company_id: string; role: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
       supabase
         .from('company_members')
-        .select('company_id')
+        .select('company_id, role')
         .eq('user_id', data.user.id)
         .single()
-        .then(({ data: member }) => {
-          if (member) setUser({ id: data.user!.id, company_id: member.company_id })
+        .then(({ data: member, error: err }) => {
+          if (err || !member) {
+            setError('No se pudo cargar el usuario')
+            return
+          }
+
+          // Cobradores, supervisores, contadores y admins pueden acceder a CobraCheck
+          if (!['collector', 'supervisor', 'admin', 'owner', 'superadmin', 'accountant'].includes(member.role)) {
+            setError(`Acceso denegado: Tu rol no tiene acceso a CobraCheck (tienes rol: ${member.role})`)
+            return
+          }
+
+          setUser({ id: data.user!.id, company_id: member.company_id, role: member.role })
         })
     })
   }, [])
 
-  return { user }
+  return { user, error }
 }
 
 export function useCobraClients(companyId: string) {
