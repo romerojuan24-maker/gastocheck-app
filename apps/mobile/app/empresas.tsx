@@ -83,45 +83,17 @@ export default function EmpresasScreen() {
 
     setCreating(true);
     try {
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !user) {
-        Alert.alert('Sesión expirada', 'Cierra y vuelve a abrir la app para continuar.');
-        return;
-      }
-
-      // Crear empresa
-      const { data: company, error: errCo } = await supabase
-        .from('companies')
-        .insert([{
-          name: newName.trim(),
-          moneda: 'MXN',
-          plan: 'basico',
-          plan_seats: 2,
-          created_by: user.id,
-        }])
-        .select('id')
-        .single();
-
-      if (errCo) throw errCo;
-      if (!company) throw new Error('No se creó la empresa');
-
-      // Agregar usuario como owner
-      const { error: errMem } = await supabase
-        .from('company_members')
-        .insert([{
-          company_id: company.id,
-          user_id: user.id,
-          role: 'owner',
-          status: 'active',
-        }]);
-
-      if (errMem) throw errMem;
+      const { data: companyId, error } = await supabase.rpc('create_company_with_owner', {
+        p_name: newName.trim(),
+      });
+      if (error) throw error;
+      if (!companyId) throw new Error('No se creó la empresa');
 
       Alert.alert('✓ Creada', `Empresa "${newName}" creada exitosamente.`);
       setNewName('');
       setShowCreate(false);
-      setSelectedId(company.id);
-      await AsyncStorage.setItem('selectedCompanyId', company.id);
+      setSelectedId(companyId);
+      await AsyncStorage.setItem('selectedCompanyId', companyId);
       load();
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'No se pudo crear la empresa.');
