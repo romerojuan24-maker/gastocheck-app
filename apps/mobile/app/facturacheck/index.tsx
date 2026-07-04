@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 // Hooks
 import { useFacturaDocuments } from './hooks'

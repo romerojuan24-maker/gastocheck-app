@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 // Hooks
 import { useInventarioProducts, useInventarioAlerts, useInventarioMutations } from './hooks'
