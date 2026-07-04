@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Dimensions } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency } from '@gastocheck/shared'
 
 // Hooks
-import { useBancoAccounts, useBancoTransactions, useBancoClassify } from './hooks'
+import { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs } from './hooks'
 
 // Componentes
 import { AccountSelector, TransactionList, ClassifyModal, KpiCard } from './components'
@@ -17,13 +17,10 @@ export default function BancoCheckScreen() {
   const insets = useSafeAreaInsets()
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [tab, setTab] = useState<TransactionTab>('new')
+  const [tab, setTab] = useState<TransactionTab>('all')
   const [classifying, setClassifying] = useState<BankTransaction | null>(null)
 
-  const { accounts, loading: accountsLoading, refetch: refetchAccounts } = useBancoAccounts(companyId || '')
-  const { transactions, loading: txLoading, refetch: refetchTransactions } = useBancoTransactions(companyId || '', selectedAccountId || undefined)
-  const { classify, reset, saving } = useBancoClassify(companyId || '')
-
+  // Load auth + company
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return
@@ -38,12 +35,32 @@ export default function BancoCheckScreen() {
     })
   }, [])
 
+  // Load data
+  const { accounts, totalBalance, refetch: refetchAccounts } = useBancoAccounts(companyId || '')
+  const { transactions, refetch: refetchTransactions } = useBancoTransactions(companyId || '', selectedAccountId || undefined)
+  const { classify, reset, saving } = useBancoClassify(companyId || '')
+
+  // Set default account
   useEffect(() => {
     if (accounts.length > 0 && !selectedAccountId) {
       setSelectedAccountId(accounts[0].id)
     }
   }, [accounts, selectedAccountId])
 
+  // Calculate KPIs
+  const kpis = useBancoKPIs(transactions, accounts)
+
+  // Filter by tab
+  const filtered = transactions.filter(t => {
+    if (tab === 'all') return true
+    if (tab === 'pending') return ['new', 'pending_document', 'pending_invoice'].includes(t.status)
+    if (tab === 'reconciled') return t.status === 'reconciled'
+    if (tab === 'gastocheck') return t.source_module === 'gastocheck'
+    if (tab === 'cobracheck') return t.source_module === 'cobracheck'
+    return true
+  })
+
+  // Handlers
   const handleClassify = async (category: string) => {
     if (!classifying) return
     const status = category === 'personal' ? 'personal' : category === 'ignore' ? 'ignored' : 'explained'
@@ -67,32 +84,23 @@ export default function BancoCheckScreen() {
     }
   }
 
-  const filtered = transactions.filter(t => {
-    if (tab === 'new') return t.status === 'new'
-    if (tab === 'explained') return ['explained', 'personal', 'ignored', 'matched'].includes(t.status)
-    if (tab === 'pending') return ['pending_document', 'pending_invoice'].includes(t.status)
-    return true
-  })
-
-  const totalBalance = accounts.reduce((s, a) => s + (a.current_balance || 0), 0)
-  const unclassified = transactions.filter(t => t.status === 'new').length
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>🏦 BancoCheck</Text>
-        <Text style={styles.subtitle}>Reconciliación bancaria</Text>
+        <Text style={styles.subtitle}>Hub integral de tesorería</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* KPIs */}
+        {/* KPIs Grid */}
         <View style={styles.kpiGrid}>
-          <KpiCard label="Saldo total" value={formatCurrency(totalBalance)} color="#f1f5f9" />
-          <KpiCard label="Sin clasificar" value={unclassified} color="#00a650" />
-          <KpiCard label="Total importadas" value={transactions.length} color="#64748b" />
+          <KpiCard label="Saldo total" value={formatCurrency(kpis.totalBalance)} color="#f1f5f9" />
+          <KpiCard label="Hoy: Ingresos" value={formatCurrency(kpis.todayIncome)} color="#10b981" />
+          <KpiCard label="Hoy: Egresos" value={formatCurrency(kpis.todayExpense)} color="#ef4444" />
         </View>
 
-        {/* Selector de cuentas */}
+        {/* Account Selector */}
         {accounts.length > 0 && (
           <AccountSelector
             accounts={accounts}
@@ -101,22 +109,28 @@ export default function BancoCheckScreen() {
           />
         )}
 
-        {/* Tabs */}
+        {/* Tabs: Filtro por estado y fuente */}
         <View style={styles.tabs}>
-          {(['new', 'explained', 'pending'] as const).map(t => (
+          {([
+            { key: 'all', label: 'Todas' },
+            { key: 'pending', label: `Pendientes (${kpis.pendingReconcile})` },
+            { key: 'reconciled', label: 'Reconciliadas' },
+            { key: 'gastocheck', label: `Gastos (${kpis.fromGastoCheck})` },
+            { key: 'cobracheck', label: `Cobros (${kpis.fromCobraCheck})` },
+          ] as const).map(t => (
             <TouchableOpacity
-              key={t}
-              onPress={() => setTab(t)}
-              style={[styles.tab, tab === t && styles.tabActive]}
+              key={t.key}
+              onPress={() => setTab(t.key)}
+              style={[styles.tab, tab === t.key && styles.tabActive]}
             >
-              <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-                {t === 'new' ? 'Sin clasificar' : t === 'explained' ? 'Clasificadas' : 'Pendientes'}
+              <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>
+                {t.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Lista de transacciones */}
+        {/* Transaction List */}
         <View style={styles.listContainer}>
           <TransactionList
             transactions={filtered}
@@ -128,7 +142,7 @@ export default function BancoCheckScreen() {
         <View style={styles.spacer} />
       </ScrollView>
 
-      {/* Modal */}
+      {/* Modal: Clasificar/Editar */}
       <ClassifyModal
         transaction={classifying}
         onClose={() => setClassifying(null)}
@@ -140,63 +154,17 @@ export default function BancoCheckScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  header: {
-    backgroundColor: '#182535',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#f1f5f9',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  content: {
-    flex: 1,
-    paddingVertical: 8,
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 16,
-  },
-  tabs: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-    marginBottom: 16,
-  },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 4,
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#00a650',
-  },
-  tabText: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#00a650',
-  },
-  listContainer: {
-    paddingHorizontal: 16,
-  },
-  spacer: {
-    height: 16,
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  header: { backgroundColor: '#182535', paddingHorizontal: 16, paddingVertical: 14 },
+  title: { fontSize: 24, fontWeight: '700', color: '#f1f5f9' },
+  subtitle: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+  content: { flex: 1, paddingVertical: 8 },
+  kpiGrid: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 16 },
+  tabs: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#1e293b', marginBottom: 16, gap: 4 },
+  tab: { paddingVertical: 12, paddingHorizontal: 12 },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#10b981' },
+  tabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  tabTextActive: { color: '#10b981' },
+  listContainer: { paddingHorizontal: 16 },
+  spacer: { height: 80 },
 })
