@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION, formatCurrency } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -15,6 +16,7 @@ import { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs 
 
 // Componentes
 import { AccountSelector, TransactionList, ClassifyModal, KpiCard, ReconciliationTab, ImportTab } from './components'
+import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
 
 // Tipos
 import type { BankTransaction, TransactionTab } from './types'
@@ -22,10 +24,19 @@ import type { BankTransaction, TransactionTab } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BANCO_COLOR = '#FF6B35'  // Naranja banco
+const ADMIN_ROLES = ['owner', 'admin']
 
-const BANCO_TABS = [
+const CONTADOR_TABS = [
   { icon: '🏦', label: 'Cuentas',        badge: 0 },
   { icon: '📄', label: 'Transacciones',  badge: 0 },
+  { icon: '🔄', label: 'Reconciliación', badge: 0 },
+  { icon: '⚙️',  label: 'Importar',      badge: 0 },
+  { icon: '👤', label: 'Perfil',         badge: 0 },
+]
+
+const ADMIN_TABS = [
+  { icon: '🏢', label: 'Empresa',        badge: 0 },
+  { icon: '🏦', label: 'Cuentas',        badge: 0 },
   { icon: '🔄', label: 'Reconciliación', badge: 0 },
   { icon: '⚙️',  label: 'Importar',      badge: 0 },
   { icon: '👤', label: 'Perfil',         badge: 0 },
@@ -51,7 +62,9 @@ export default function BancoCheckHome() {
   const [userEmail,         setUserEmail]          = useState<string | null>(null)
   const [userRole,          setUserRole]           = useState<string | null>(null)
   const [companyId,         setCompanyId]          = useState<string | null>(null)
+  const [companyName,       setCompanyName]        = useState<string | null>(null)
   const [activeTab,         setActiveTab]          = useState(0)
+  const [viewMode,          setViewMode]           = useState<PanelViewMode>('admin')
   const [selectedAccountId, setSelectedAccountId]  = useState<string | null>(null)
   const [filterTab,         setFilterTab]          = useState<TransactionTab>('all')
   const [classifying,       setClassifying]        = useState<BankTransaction | null>(null)
@@ -76,6 +89,13 @@ export default function BancoCheckHome() {
       if (member) {
         setUserRole(member.role)
         setCompanyId(member.company_id)
+
+        const { data: co } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', member.company_id)
+          .maybeSingle()
+        setCompanyName((co as any)?.name ?? null)
       }
 
       const { data: profile } = await supabase
@@ -89,7 +109,13 @@ export default function BancoCheckHome() {
     }
   }, [])
 
-  useFocusEffect(useCallback(() => { loadUser(); setActiveTab(0) }, [loadUser]))
+  useFocusEffect(useCallback(() => {
+    loadUser()
+    setActiveTab(0)
+    AsyncStorage.getItem('bancocheck_viewMode').then((saved) => {
+      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
+    })
+  }, [loadUser]))
 
   // Load data
   const { accounts, refetch: refetchAccounts } = useBancoAccounts(companyId || '')
@@ -109,6 +135,16 @@ export default function BancoCheckHome() {
         <ActivityIndicator size="large" color={BANCO_COLOR} />
       </View>
     )
+  }
+
+  const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false
+  const displayAs: PanelViewMode = isAdmin ? viewMode : 'contador'
+  const BANCO_TABS = displayAs === 'admin' ? ADMIN_TABS : CONTADOR_TABS
+
+  const handleSelectMode = (mode: PanelViewMode) => {
+    setViewMode(mode)
+    AsyncStorage.setItem('bancocheck_viewMode', mode)
+    setActiveTab(0)
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -278,9 +314,10 @@ export default function BancoCheckHome() {
   }
 
   function BottomTabBar() {
+    const transaccionesIdx = displayAs === 'contador' ? 1 : -1
     const tabs = BANCO_TABS.map((t, i) => ({
       ...t,
-      badge: i === 1 ? kpis.pendingReconcile : 0,
+      badge: i === transaccionesIdx ? kpis.pendingReconcile : 0,
     }))
     return (
       <View style={[s.tabBar, { borderTopColor: BANCO_COLOR + '30', paddingBottom: insets.bottom || 8 }]}>
@@ -315,16 +352,40 @@ export default function BancoCheckHome() {
       <TopBar />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 0 && <CuentasTab />}
-        {activeTab === 1 && <TransaccionesTab />}
-        {activeTab === 2 && <ReconciliationTab companyId={companyId || ''} color={BANCO_COLOR} />}
-        {activeTab === 3 && (
-          <ImportTab
-            color={BANCO_COLOR}
-            onImported={() => { refetchAccounts(); refetchTransactions() }}
-          />
+        {displayAs === 'admin' ? (
+          <>
+            {activeTab === 0 && (
+              <EmpresaTab
+                companyName={companyName}
+                viewMode={viewMode}
+                onSelectMode={handleSelectMode}
+                color={BANCO_COLOR}
+              />
+            )}
+            {activeTab === 1 && <CuentasTab />}
+            {activeTab === 2 && <ReconciliationTab companyId={companyId || ''} color={BANCO_COLOR} />}
+            {activeTab === 3 && (
+              <ImportTab
+                color={BANCO_COLOR}
+                onImported={() => { refetchAccounts(); refetchTransactions() }}
+              />
+            )}
+            {activeTab === 4 && <ProfileTab />}
+          </>
+        ) : (
+          <>
+            {activeTab === 0 && <CuentasTab />}
+            {activeTab === 1 && <TransaccionesTab />}
+            {activeTab === 2 && <ReconciliationTab companyId={companyId || ''} color={BANCO_COLOR} />}
+            {activeTab === 3 && (
+              <ImportTab
+                color={BANCO_COLOR}
+                onImported={() => { refetchAccounts(); refetchTransactions() }}
+              />
+            )}
+            {activeTab === 4 && <ProfileTab />}
+          </>
         )}
-        {activeTab === 4 && <ProfileTab />}
       </View>
 
       <BottomTabBar />

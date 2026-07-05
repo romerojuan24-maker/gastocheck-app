@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -15,6 +16,7 @@ import { useFacturaDocuments } from './hooks'
 
 // Componentes
 import { DocumentList, DistributionTab, ReportsTab, SettingsTab } from './components'
+import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
 
 // Tipos
 import type { CfdiDocument } from './types'
@@ -22,10 +24,19 @@ import type { CfdiDocument } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FACTURA_COLOR = BRAND.purple  // '#7B1FA2'
+const ADMIN_ROLES = ['owner', 'admin']
 
-const FACTURA_TABS = [
+const CONTADOR_TABS = [
   { icon: '🧾', label: 'CFDIs',         badge: 0 },
   { icon: '📤', label: 'Distribución',  badge: 0 },
+  { icon: '📊', label: 'Reportes',      badge: 0 },
+  { icon: '⚙️',  label: 'Configuración',badge: 0 },
+  { icon: '👤', label: 'Perfil',        badge: 0 },
+]
+
+const ADMIN_TABS = [
+  { icon: '🏢', label: 'Empresa',       badge: 0 },
+  { icon: '🧾', label: 'CFDIs',         badge: 0 },
   { icon: '📊', label: 'Reportes',      badge: 0 },
   { icon: '⚙️',  label: 'Configuración',badge: 0 },
   { icon: '👤', label: 'Perfil',        badge: 0 },
@@ -40,13 +51,15 @@ export default function FacturaCheckHome() {
   const navigation = useNavigation()
   const insets     = useSafeAreaInsets()
 
-  const [loading,   setLoading]   = useState(true)
-  const [userName,  setUserName]  = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userRole,  setUserRole]  = useState<string | null>(null)
-  const [companyId, setCompanyId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState(0)
-  const [cfdiTab,   setCfdiTab]   = useState<CfdiTab>('received')
+  const [loading,     setLoading]     = useState(true)
+  const [userName,    setUserName]    = useState<string | null>(null)
+  const [userEmail,   setUserEmail]   = useState<string | null>(null)
+  const [userRole,    setUserRole]    = useState<string | null>(null)
+  const [companyId,   setCompanyId]   = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState<string | null>(null)
+  const [activeTab,   setActiveTab]   = useState(0)
+  const [viewMode,    setViewMode]    = useState<PanelViewMode>('admin')
+  const [cfdiTab,     setCfdiTab]     = useState<CfdiTab>('received')
 
   const { documents } = useFacturaDocuments(companyId || '')
 
@@ -70,6 +83,13 @@ export default function FacturaCheckHome() {
       if (member) {
         setUserRole(member.role)
         setCompanyId(member.company_id)
+
+        const { data: co } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', member.company_id)
+          .maybeSingle()
+        setCompanyName((co as any)?.name ?? null)
       }
 
       const { data: profile } = await supabase
@@ -83,7 +103,13 @@ export default function FacturaCheckHome() {
     }
   }, [])
 
-  useFocusEffect(useCallback(() => { loadUser(); setActiveTab(0) }, [loadUser]))
+  useFocusEffect(useCallback(() => {
+    loadUser()
+    setActiveTab(0)
+    AsyncStorage.getItem('facturacheck_viewMode').then((saved) => {
+      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
+    })
+  }, [loadUser]))
 
   if (loading) {
     return (
@@ -91,6 +117,16 @@ export default function FacturaCheckHome() {
         <ActivityIndicator size="large" color={FACTURA_COLOR} />
       </View>
     )
+  }
+
+  const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false
+  const displayAs: PanelViewMode = isAdmin ? viewMode : 'contador'
+  const FACTURA_TABS = displayAs === 'admin' ? ADMIN_TABS : CONTADOR_TABS
+
+  const handleSelectMode = (mode: PanelViewMode) => {
+    setViewMode(mode)
+    AsyncStorage.setItem('facturacheck_viewMode', mode)
+    setActiveTab(0)
   }
 
   const received = documents.filter(d => d.direction === 'received').length
@@ -213,9 +249,10 @@ export default function FacturaCheckHome() {
   }
 
   function BottomTabBar() {
+    const cfdisIdx = displayAs === 'admin' ? 1 : 0
     const tabs = FACTURA_TABS.map((t, i) => ({
       ...t,
-      badge: i === 0 ? problems : 0,
+      badge: i === cfdisIdx ? problems : 0,
     }))
     return (
       <View style={[s.tabBar, { borderTopColor: FACTURA_COLOR + '30', paddingBottom: insets.bottom || 8 }]}>
@@ -250,11 +287,30 @@ export default function FacturaCheckHome() {
       <TopBar />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 0 && <CfdisTab />}
-        {activeTab === 1 && <DistributionTab documents={documents} color={FACTURA_COLOR} />}
-        {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
-        {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
-        {activeTab === 4 && <ProfileTab />}
+        {displayAs === 'admin' ? (
+          <>
+            {activeTab === 0 && (
+              <EmpresaTab
+                companyName={companyName}
+                viewMode={viewMode}
+                onSelectMode={handleSelectMode}
+                color={FACTURA_COLOR}
+              />
+            )}
+            {activeTab === 1 && <CfdisTab />}
+            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
+            {activeTab === 4 && <ProfileTab />}
+          </>
+        ) : (
+          <>
+            {activeTab === 0 && <CfdisTab />}
+            {activeTab === 1 && <DistributionTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
+            {activeTab === 4 && <ProfileTab />}
+          </>
+        )}
       </View>
 
       <BottomTabBar />

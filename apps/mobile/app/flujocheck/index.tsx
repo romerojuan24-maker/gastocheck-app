@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -15,6 +16,7 @@ import { useFlujoBalance, useFlujoItems, useFlujoMutations } from './hooks'
 
 // Componentes
 import { CashFlowList, EditModal, KpiCards, CreditsTab, ProjectionTab, SettingsTab } from './components'
+import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
 
 // Tipos
 import type { CashFlowItem } from './types'
@@ -22,10 +24,19 @@ import type { CashFlowItem } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FLUJO_COLOR = BRAND.blue  // '#1565C0'
+const ADMIN_ROLES = ['owner', 'admin']
 
-const FLUJO_TABS = [
+const CONTADOR_TABS = [
   { icon: '📊', label: 'Flujo',      badge: 0 },
   { icon: '💳', label: 'Créditos',   badge: 0 },
+  { icon: '📈', label: 'Proyección', badge: 0 },
+  { icon: '⚙️',  label: 'Ajustes',   badge: 0 },
+  { icon: '👤', label: 'Perfil',     badge: 0 },
+]
+
+const ADMIN_TABS = [
+  { icon: '🏢', label: 'Empresa',    badge: 0 },
+  { icon: '📊', label: 'Flujo',      badge: 0 },
   { icon: '📈', label: 'Proyección', badge: 0 },
   { icon: '⚙️',  label: 'Ajustes',   badge: 0 },
   { icon: '👤', label: 'Perfil',     badge: 0 },
@@ -38,13 +49,15 @@ export default function FlujoCheckHome() {
   const navigation = useNavigation()
   const insets     = useSafeAreaInsets()
 
-  const [loading,   setLoading]   = useState(true)
-  const [userName,  setUserName]  = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userRole,  setUserRole]  = useState<string | null>(null)
-  const [companyId, setCompanyId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState(0)
-  const [editing,   setEditing]   = useState<Partial<CashFlowItem> | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [userName,    setUserName]    = useState<string | null>(null)
+  const [userEmail,   setUserEmail]   = useState<string | null>(null)
+  const [userRole,    setUserRole]    = useState<string | null>(null)
+  const [companyId,   setCompanyId]   = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState<string | null>(null)
+  const [activeTab,   setActiveTab]   = useState(0)
+  const [viewMode,    setViewMode]    = useState<PanelViewMode>('admin')
+  const [editing,     setEditing]     = useState<Partial<CashFlowItem> | null>(null)
 
   const { balance: currentBalance, refetch: refetchBalance } = useFlujoBalance(companyId || '')
   const { items, risk, projected, refetch: refetchItems } = useFlujoItems(companyId || '')
@@ -70,6 +83,13 @@ export default function FlujoCheckHome() {
       if (member) {
         setUserRole(member.role)
         setCompanyId(member.company_id)
+
+        const { data: co } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', member.company_id)
+          .maybeSingle()
+        setCompanyName((co as any)?.name ?? null)
       }
 
       const { data: profile } = await supabase
@@ -83,7 +103,13 @@ export default function FlujoCheckHome() {
     }
   }, [])
 
-  useFocusEffect(useCallback(() => { loadUser(); setActiveTab(0) }, [loadUser]))
+  useFocusEffect(useCallback(() => {
+    loadUser()
+    setActiveTab(0)
+    AsyncStorage.getItem('flujocheck_viewMode').then((saved) => {
+      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
+    })
+  }, [loadUser]))
 
   if (loading) {
     return (
@@ -91,6 +117,16 @@ export default function FlujoCheckHome() {
         <ActivityIndicator size="large" color={FLUJO_COLOR} />
       </View>
     )
+  }
+
+  const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false
+  const displayAs: PanelViewMode = isAdmin ? viewMode : 'contador'
+  const FLUJO_TABS = displayAs === 'admin' ? ADMIN_TABS : CONTADOR_TABS
+
+  const handleSelectMode = (mode: PanelViewMode) => {
+    setViewMode(mode)
+    AsyncStorage.setItem('flujocheck_viewMode', mode)
+    setActiveTab(0)
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -261,20 +297,48 @@ export default function FlujoCheckHome() {
       <TopBar />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 0 && <FlujoTab />}
-        {activeTab === 1 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
-        {activeTab === 2 && (
-          <ProjectionTab
-            currentBalance={currentBalance}
-            monthlyIncomeAvg={income}
-            monthlyExpenseAvg={expense}
-            color={FLUJO_COLOR}
-          />
+        {displayAs === 'admin' ? (
+          <>
+            {activeTab === 0 && (
+              <EmpresaTab
+                companyName={companyName}
+                viewMode={viewMode}
+                onSelectMode={handleSelectMode}
+                color={FLUJO_COLOR}
+              />
+            )}
+            {activeTab === 1 && <FlujoTab />}
+            {activeTab === 2 && (
+              <ProjectionTab
+                currentBalance={currentBalance}
+                monthlyIncomeAvg={income}
+                monthlyExpenseAvg={expense}
+                color={FLUJO_COLOR}
+              />
+            )}
+            {activeTab === 3 && (
+              <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
+            )}
+            {activeTab === 4 && <ProfileTab />}
+          </>
+        ) : (
+          <>
+            {activeTab === 0 && <FlujoTab />}
+            {activeTab === 1 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
+            {activeTab === 2 && (
+              <ProjectionTab
+                currentBalance={currentBalance}
+                monthlyIncomeAvg={income}
+                monthlyExpenseAvg={expense}
+                color={FLUJO_COLOR}
+              />
+            )}
+            {activeTab === 3 && (
+              <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
+            )}
+            {activeTab === 4 && <ProfileTab />}
+          </>
         )}
-        {activeTab === 3 && (
-          <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
-        )}
-        {activeTab === 4 && <ProfileTab />}
       </View>
 
       <BottomTabBar />
