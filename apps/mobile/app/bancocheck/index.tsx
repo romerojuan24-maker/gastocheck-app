@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs } from './hooks'
 
 // Componentes
-import { AccountSelector, TransactionList, ClassifyModal, KpiCard } from './components'
+import { AccountSelector, TransactionList, ClassifyModal, KpiCard, ReconciliationTab, ImportTab } from './components'
 
 // Tipos
 import type { BankTransaction, TransactionTab } from './types'
@@ -212,16 +212,6 @@ export default function BancoCheckHome() {
     )
   }
 
-  function ComingSoon({ title }: { title: string }) {
-    return (
-      <View style={s.comingSoon}>
-        <Text style={s.comingSoonIcon}>🚧</Text>
-        <Text style={s.comingSoonTitle}>{title}</Text>
-        <Text style={s.comingSoonSub}>Próximamente</Text>
-      </View>
-    )
-  }
-
   function CuentasTab() {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -327,8 +317,13 @@ export default function BancoCheckHome() {
       <View style={{ flex: 1 }}>
         {activeTab === 0 && <CuentasTab />}
         {activeTab === 1 && <TransaccionesTab />}
-        {activeTab === 2 && <ComingSoon title="Reconciliación" />}
-        {activeTab === 3 && <ComingSoon title="Importar" />}
+        {activeTab === 2 && <ReconciliationTab companyId={companyId || ''} color={BANCO_COLOR} />}
+        {activeTab === 3 && (
+          <ImportTab
+            color={BANCO_COLOR}
+            onImported={() => { refetchAccounts(); refetchTransactions() }}
+          />
+        )}
         {activeTab === 4 && <ProfileTab />}
       </View>
 
@@ -378,11 +373,6 @@ const s = StyleSheet.create({
   tabLabel:      { fontSize: 10, fontWeight: '600', textAlign: 'center' },
   badge:         { position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: BRAND.red, justifyContent: 'center', alignItems: 'center' },
   badgeText:     { fontSize: 9, fontWeight: '700', color: '#fff' },
-
-  comingSoon:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  comingSoonIcon:  { fontSize: 48 },
-  comingSoonTitle: { fontSize: 20, fontWeight: '700', color: BRAND.navy },
-  comingSoonSub:   { fontSize: 14, color: '#90A4AE' },
 
   profileCard:  { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
   avatar:       { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },

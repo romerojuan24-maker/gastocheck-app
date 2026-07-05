@@ -1,4 +1,4 @@
-export { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs } from './useBanco'
+export { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs, useBancoReconciliation } from './useBanco'
 export {
   useOCRExtraction,
   useBankAccountSync,
