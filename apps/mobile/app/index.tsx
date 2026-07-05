@@ -52,10 +52,9 @@ export default function CheckSuiteHome() {
   }
 
   const isCollector = userRole === 'collector';
-  const isManager   = userRole ? MANAGER_ROLES.includes(userRole) : false;
   const showGasto   = !isCollector;
   const showCobra   = userRole ? COBRA_ROLES.includes(userRole) : false;
-  const showMore    = isManager;
+  const showMore    = userRole ? ['owner', 'admin'].includes(userRole) : false;
 
   return (
     <ScrollView
