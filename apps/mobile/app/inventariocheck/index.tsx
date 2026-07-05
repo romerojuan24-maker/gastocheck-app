@@ -84,7 +84,7 @@ export default function InventarioCheckHome() {
     }
   }, [])
 
-  useFocusEffect(useCallback(() => { loadUser() }, [loadUser]))
+  useFocusEffect(useCallback(() => { loadUser(); setActiveTab(0) }, [loadUser]))
 
   if (loading) {
     return (

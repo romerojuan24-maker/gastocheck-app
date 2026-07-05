@@ -66,7 +66,7 @@ export default function GastoCheckHome() {
 
   // Active tab per role (survives data refresh)
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [adminTab,  setAdminTab]  = useState(1);
+  const [adminTab,  setAdminTab]  = useState(0);
   const [contTab,   setContTab]   = useState(0);
   const [compTab,   setCompTab]   = useState(0);
   const [viewMode,     setViewMode]    = useState<'admin' | 'comprador' | 'contador'>('admin');
@@ -203,6 +203,9 @@ export default function GastoCheckHome() {
 
   useFocusEffect(useCallback(() => {
     loadData();
+    setAdminTab(0);
+    setContTab(0);
+    setCompTab(0);
     AsyncStorage.getItem('gastocheck_viewMode').then((saved) => {
       if (saved === 'admin' || saved === 'comprador' || saved === 'contador') {
         setViewMode(saved);

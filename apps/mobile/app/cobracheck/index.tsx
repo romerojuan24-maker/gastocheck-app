@@ -40,7 +40,7 @@ export default function CobraCheckHome() {
   const [userId,      setUserId]     = useState<string | null>(null);
   const [members,     setMembers]    = useState<Array<{ user_id: string; role: string; full_name: string | null }>>([]);
 
-  const [adminTab, setAdminTab] = useState(3); // default: Cobranza
+  const [adminTab, setAdminTab] = useState(0); // default: Empresa
   const [contTab,  setContTab]  = useState(0); // default: Cobranza
   const [cobrTab,  setCobrTab]  = useState(0); // default: Mi Ruta
 
@@ -98,7 +98,12 @@ export default function CobraCheckHome() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => {
+    loadData();
+    setAdminTab(0);
+    setContTab(0);
+    setCobrTab(0);
+  }, [loadData]));
 
   if (loading) {
     return (

@@ -89,7 +89,7 @@ export default function BancoCheckHome() {
     }
   }, [])
 
-  useFocusEffect(useCallback(() => { loadUser() }, [loadUser]))
+  useFocusEffect(useCallback(() => { loadUser(); setActiveTab(0) }, [loadUser]))
 
   // Load data
   const { accounts, refetch: refetchAccounts } = useBancoAccounts(companyId || '')
