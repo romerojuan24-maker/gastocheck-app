@@ -401,6 +401,179 @@ CREATE INDEX idx_customer_confidence ON payment_collection_confidence(company_id
 CREATE INDEX idx_risk_level ON payment_collection_confidence(company_id, risk_level);
 ```
 
+### 11. TABLA: `credit_document_scan` (Captura documento original del crédito)
+
+```sql
+CREATE TABLE credit_document_scan (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payable_id UUID NOT NULL REFERENCES payables(id),
+  
+  -- Documento original
+  document_url TEXT,                       -- URL o path del PDF/imagen
+  document_type TEXT,                      -- 'pagaré', 'contrato', 'confirmación_correo', 'otro'
+  document_upload_date TIMESTAMP DEFAULT now(),
+  
+  -- OCR EXTRACCIÓN AUTOMÁTICA (Premisas del crédito)
+  extracted_data JSONB,                    -- JSON con todos los campos extraídos
+  
+  -- PREMISAS CLAVE (OCR fields principales)
+  original_amount_extracted DECIMAL(15,2),
+  interest_rate_extracted DECIMAL(5,4),
+  interest_type_extracted TEXT,            -- 'simple', 'compound', 'amortized', 'fixed_payment'
+  term_months_extracted INT,
+  start_date_extracted DATE,
+  end_date_extracted DATE,
+  payment_frequency_extracted TEXT,        -- 'monthly', 'biweekly', 'quarterly'
+  
+  -- REGLAS DE COMPORTAMIENTO ESPECÍFICAS
+  allows_early_payment BOOLEAN,            -- ¿Permite pagos anticipados?
+  early_payment_penalty DECIMAL(5,2),      -- % penalidad si paga anticipado
+  extra_payments_apply_to TEXT,            -- 'last_payments', 'principal', 'next_month', 'interest_only'
+  payment_calculation TEXT,                -- 'fixed_payment', 'amortized_balance', 'last_payment_balloon'
+  
+  -- PENALIDADES Y CONDICIONES ESPECIALES
+  late_payment_fee DECIMAL(15,2),          -- Comisión por pago vencido
+  late_payment_interest_increase DECIMAL(5,2), -- % aumento tasa si vencido
+  grace_period_days INT,                   -- Días de gracia sin penalidad
+  default_trigger_days_overdue INT,        -- Días para considerarse en default
+  
+  -- VALIDACIÓN
+  is_verified BOOLEAN DEFAULT false,       -- Admin verificó que OCR es correcto
+  verification_by_admin UUID,              -- Admin que verificó
+  verification_date TIMESTAMP,
+  verification_notes TEXT,                 -- Notas si OCR tuvo errores
+  
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_payable_document ON credit_document_scan(payable_id);
+```
+
+### 12. TABLA: `recurring_payments_estimated` (Pagos recurrentes + estimados)
+
+```sql
+CREATE TABLE recurring_payments_estimated (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id),
+  
+  -- Identificación
+  payment_name TEXT NOT NULL,              -- "SAT (Impuestos mensuales)", "CFE (Servicios)", etc.
+  payment_category TEXT,                   -- 'taxes', 'utilities', 'payroll', 'operational', 'rent', 'insurance'
+  
+  -- Frecuencia
+  frequency TEXT NOT NULL,                 -- 'monthly', 'biweekly', 'quarterly', 'annual', 'custom'
+  due_date_pattern TEXT,                   -- "día 10 de cada mes", "cada 15 días", etc.
+  
+  -- Montos
+  estimated_amount DECIMAL(15,2),
+  actual_amount_last_year DECIMAL(15,2),   -- Promedio real último año
+  variance_percentage DECIMAL(5,2),        -- % variación (si oscila)
+  
+  -- Proyección
+  is_fixed BOOLEAN,                        -- ¿Monto es fijo o varía?
+  variation_range_min DECIMAL(15,2),       -- Si varía, rango mín
+  variation_range_max DECIMAL(15,2),       -- Si varía, rango máx
+  
+  -- Estado
+  is_active BOOLEAN DEFAULT true,
+  notes TEXT,
+  
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_company_category ON recurring_payments_estimated(company_id, payment_category);
+CREATE INDEX idx_frequency ON recurring_payments_estimated(company_id, frequency);
+```
+
+### 13. TABLA: `annual_cash_flow_projection` (Proyección anual 12 meses)
+
+```sql
+CREATE TABLE annual_cash_flow_projection (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id),
+  
+  -- Período
+  year INT NOT NULL,
+  month INT NOT NULL,                      -- 1-12
+  month_start_date DATE,
+  month_end_date DATE,
+  
+  -- Proyecciones
+  opening_balance DECIMAL(15,2),           -- Saldo inicial mes
+  projected_inflows DECIMAL(15,2),         -- Ingresos esperados (CobraCheck + otros)
+  projected_outflows DECIMAL(15,2),        -- Egresos (GastoCheck + recurring)
+  projected_credit_payments DECIMAL(15,2), -- Total pagos créditos mes
+  projected_taxes_social DECIMAL(15,2),    -- Impuestos + IMSS
+  
+  closing_balance DECIMAL(15,2),           -- Saldo final mes (proyectado)
+  
+  -- Actuals (si mes ya terminó)
+  actual_inflows DECIMAL(15,2),
+  actual_outflows DECIMAL(15,2),
+  actual_closing_balance DECIMAL(15,2),
+  
+  -- Análisis
+  monthly_variance DECIMAL(15,2),          -- Diferencia proyectado vs actual
+  variance_percentage DECIMAL(5,2),
+  
+  -- Tendencia
+  is_positive_month BOOLEAN,               -- ¿Mes fue/será superávit?
+  health_status TEXT,                      -- 'healthy', 'tight', 'critical'
+  
+  -- Notas
+  notes TEXT,
+  
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_company_year ON annual_cash_flow_projection(company_id, year);
+CREATE INDEX idx_month ON annual_cash_flow_projection(company_id, year, month);
+CREATE INDEX idx_health ON annual_cash_flow_projection(company_id, health_status);
+```
+
+### 14. TABLA: `credit_payment_overdue_impact` (Impacto pagos vencidos)
+
+```sql
+CREATE TABLE credit_payment_overdue_impact (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payable_id UUID NOT NULL REFERENCES payables(id),
+  
+  -- Pago vencido
+  scheduled_payment_id UUID REFERENCES payment_schedule(id),
+  due_date DATE,
+  days_overdue INT,
+  
+  -- MONTOS IMPACTADOS
+  original_payment_amount DECIMAL(15,2),
+  late_payment_fee DECIMAL(15,2),          -- Comisión por atraso
+  additional_interest_accrued DECIMAL(15,2), -- Interés extra por atraso
+  total_impact_amount DECIMAL(15,2),       -- Todo junto
+  
+  -- IMPACTO EN CRÉDITO
+  credit_score_impact INT,                 -- Puntos perdidos (ej: -50 puntos)
+  credit_recovery_timeline_months INT,     -- Cuántos meses para recuperar score
+  
+  -- IMPACTO EN AMORTIZACIÓN
+  payoff_date_delay_days INT,              -- Cuántos días se extiende vencimiento
+  total_interest_cost_increase DECIMAL(15,2), -- Extra intereses por el atraso
+  
+  -- IMPACTO EN FUTURAS SOLICITUDES
+  future_credit_approval_impact TEXT,      -- "Rechazos esperados", "Tasa aumenta", etc.
+  
+  -- RECOMENDACIÓN RECUPERACIÓN
+  recovery_action TEXT,                    -- Qué hacer para recuperarse
+  recovery_timeline_days INT,              -- Cuántos días para recuperación
+  
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_payable_overdue ON credit_payment_overdue_impact(payable_id);
+```
+
 ---
 
 ## 🎨 UI: DASHBOARD SEMANAL DE FLUJO
@@ -698,12 +871,169 @@ SECCIÓN 6: PROYECCIÓN DE COBROS (Color AI: Verde/Amarillo/Rojo)
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
-SECCIÓN 7: CONTROLES ADICIONALES
+SECCIÓN 7: CAPTURA DOCUMENTO CRÉDITO (OCR Premisas)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📄 CARGAR DOCUMENTO DE CRÉDITO                                              │
+│                                                                              │
+│  Paso 1: Subir documento (PDF, JPG, PNG)                                    │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  [Selecciona archivo] o arrastra aquí                                 │ │
+│  │  (Pagaré, contrato, confirmación email)                               │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Paso 2: Sistema extrae datos automáticamente (OCR)                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  EXTRACCIÓN AUTOMÁTICA (Verificar si es correcto):                    │ │
+│  │                                                                        │ │
+│  │  Monto original:              $180,000 MXN  ☑️ Correcto              │ │
+│  │  Tasa de interés:              18% anual   ☑️ Correcto               │ │
+│  │  Tipo interés:                 Amortizado  ☑️ Correcto               │ │
+│  │  Plazo:                        60 meses    ☑️ Correcto               │ │
+│  │  Fecha inicio:                 2026-01-15  ☑️ Correcto               │ │
+│  │  Fecha vencimiento:            2031-01-15  ☑️ Correcto               │ │
+│  │  Frecuencia pago:              Mensual     ☑️ Correcto               │ │
+│  │                                                                        │ │
+│  │  🔍 REGLAS ESPECIALES:                                                │ │
+│  │  ├─ ¿Permite pago anticipado? ☑️ Sí                                  │ │
+│  │  ├─ Penalidad pago anticipado: 0.5%      ☑️ Correcto                │ │
+│  │  ├─ Pagos extra aplican a:     Últimos pagos ☑️ (reduce plazo)      │ │
+│  │  ├─ Comisión pago vencido:     $500       ☑️ Correcto               │ │
+│  │  ├─ Tasa aumenta si vencido:   +5%        ☑️ Correcto               │ │
+│  │  └─ Período de gracia:         5 días     ☑️ Correcto               │ │
+│  │                                                                        │ │
+│  │  ⚠️  DATOS NO RECONOCIDOS (OCR tuvo dudas):                           │ │
+│  │  ├─ Trigger default: [   30  ] días (OCR estimó 30, ajusta si necesario)
+│  │  └─ [Verificar documento original]                                   │ │
+│  │                                                                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  Paso 3: Admin verifica OCR                                                 │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  ☑️ Verificado: OCR correcto, puede usarse para simulaciones        │ │
+│  │  Verificado por: Juan Romero (2026-07-05 10:30am)                    │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  AHORA PUEDES:                                                              │
+│  ├─ Simular pago en cualquier momento: "¿Si pago $50K hoy?"              │ │
+│  ├─ Ver impacto en saldo y pagos futuros AUTOMÁTICAMENTE                 │ │
+│  ├─ El sistema respeta TODAS las reglas del crédito                      │ │
+│  └─ Cambiar monto/fecha → Resultado en tiempo real                       │ │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 8: PROYECCIÓN ANUAL 12 MESES (Tendencia Sana/Negativa)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📊 PROYECCIÓN FLUJO CAJA: AÑO 2026 (Mes a mes)                             │
+│                                                                              │
+│  SALUD GENERAL: 🟡 ESTABLE CON ADVERTENCIAS                                │
+│  ├─ Meses positivos: 9/12 (75%)                                            │
+│  ├─ Meses negativos: 3/12 (25%) ← Críticos: julio, septiembre, diciembre  │
+│  └─ Tendencia general: MEJORA (Jan: -$50K → Dec: +$120K)                  │
+│                                                                              │
+│  ╔════════════════════════════════════════════════════════════════════════╗ │
+│  ║  MES  │ SALDO INICIO │ INGRESOS │ EGRESOS │ CRÉDITOS │ SALDO FIN    ║ │
+│  ╠════════════════════════════════════════════════════════════════════════╣ │
+│  ║ ENE   │  $500,000    │ $280K    │ -$250K  │ -$80K    │ $450K   ✅   ║ │
+│  ║ FEB   │  $450,000    │ $300K    │ -$280K  │ -$80K    │ $390K   ✅   ║ │
+│  ║ MAR   │  $390,000    │ $350K    │ -$300K  │ -$80K    │ $360K   ✅   ║ │
+│  ║ ABR   │  $360,000    │ $320K    │ -$320K  │ -$80K    │ $280K   ✅   ║ │
+│  ║ MAY   │  $280,000    │ $250K    │ -$310K  │ -$80K    │ $140K   ⚠️   ║ │
+│  ║ JUN   │  $140,000    │ $380K    │ -$350K  │ -$80K    │ $90K    🔴   ║ │
+│  ║ JUL   │   $90,000    │ $200K    │ -$450K  │ -$100K   │ -$260K  🚨   ║ │
+│  ║       │              │          │ (Vacaciones) │      │           │   ║ │
+│  ║ AGO   │  -$260,000   │ $500K    │ -$280K  │ -$80K   │ -$120K  🚨   ║ │
+│  ║ SEP   │  -$120,000   │ $350K    │ -$320K  │ -$80K   │ -$170K  🚨   ║ │
+│  ║ OCT   │  -$170,000   │ $420K    │ -$300K  │ -$80K   │ -$130K  🔴   ║ │
+│  ║ NOV   │  -$130,000   │ $380K    │ -$310K  │ -$80K   │ -$140K  🔴   ║ │
+│  ║ DIC   │  -$140,000   │ $600K    │ -$400K  │ -$100K  │ -$40K   ⚠️    ║ │
+│  ║       │              │          │ (Aguinaldo) │      │           │   ║ │
+│  ╚════════════════════════════════════════════════════════════════════════╝ │
+│                                                                              │
+│  ANÁLISIS:                                                                   │
+│  ├─ ✅ PRIMER TRIMESTRE: Sano (ingresos > egresos)                         │
+│  ├─ ⚠️  SEGUNDO TRIMESTRE: Apriete (saldo baja pero positivo)              │
+│  ├─ 🚨 JULIO-NOVIEMBRE: CRÍTICO (flujo negativo)                           │
+│  │     └─ RAZÓN: Picos de gasto (vacaciones, nómina doble)                │
+│  │     └─ ACCIÓN: Busca línea crédito, reduce gastos, acelera cobros    │
+│  └─ 🟢 DICIEMBRE: Recuperación (bonificaciones, cobros años fin)           │
+│                                                                              │
+│  RECOMENDACIÓN ANUAL:                                                       │
+│  🟡 Flujo ESTABLE pero con ADVERTENCIAS críticas julio-noviembre           │
+│                                                                              │
+│  ACCIONES RECOMENDADAS:                                                     │
+│  1. JUNIO: Accumula $200K extra de colchón (aprovecha sobra)              │
+│  2. JULIO-SEPTIEMBRE: Usa colchón + busca línea crédito $300K            │
+│  3. OCTUBRE-NOVIEMBRE: Contiene gastos, acelera cobros                    │
+│  4. DICIEMBRE: Repone colchón para enero                                   │
+│                                                                              │
+│  SEÑAL BUENA: Año termina mejor de cómo empezó (-$40K → +$500K)           │
+│  SEÑAL ALERTA: 5 meses negativos (julio-noviembre) = Crisis operacional   │
+│                                                                              │
+│  📈 COMPARATIVA CON AÑO ANTERIOR:                                           │
+│  ├─ 2025: Tendencia negativa (-$200K año)                                  │
+│  └─ 2026: Tendencia positiva (+$500K año) ✅ MEJORA CLARA                 │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 9: ANÁLISIS PAGO VENCIDO (Impacto + Conciencia Plena)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ⚠️  IMPACTO PAGO VENCIDO: BBVA Crédito                                      │
+│                                                                              │
+│  Pago vencido:         2026-07-05 (18 días de atraso)                      │
+│  Monto original:       $12,000 MXN                                         │
+│                                                                              │
+│  ┌─ COSTO FINANCIERO DIRECTO:                                              │
+│  │  ├─ Comisión por atraso (BBVA):      $500                              │
+│  │  ├─ Interés extra acumulado:         $324 (18 días @ 18% anual)         │
+│  │  ├─ Aumento tasa interés crédito:    +5% (hasta 23% anual)              │
+│  │  └─ TOTAL COSTO INMEDIATO:           $824                               │
+│  │     (Además de seguir pagando $12K)                                     │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│  ┌─ IMPACTO CRÉDITO (SCORE):                                               │
+│  │  ├─ Puntos perdidos:                 -30 puntos                         │
+│  │  ├─ Score actual:                    720 → 690 (BAJO)                   │
+│  │  ├─ Tiempo recuperación:              ~2-3 meses de pagos puntuales     │
+│  │  └─ EFECTO: Rechazos probables próximas solicitudes crédito            │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│  ┌─ IMPACTO EN AMORTIZACIÓN:                                               │
+│  │  ├─ Saldo actual ANTES atraso:       $165,000                           │
+│  │  ├─ Saldo DESPUÉS penalties:         $165,324 (interés atraso)          │
+│  │  ├─ Payoff date: 2026-11-15 → 2026-11-22 (7 días más)                 │
+│  │  ├─ Interés total crédito AUMENTA:   +$200 (por estos 18 días)         │
+│  │  └─ EFECTO: Un mes extra de interés por cada 2 semanas de atraso       │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│  ┌─ IMPACTO EN FUTURAS SOLICITUDES:                                        │
+│  │  ├─ Créditos menores ($50K-100K):   Rechazos probables                 │
+│  │  ├─ Créditos medianos ($100K-500K): Tasas 5-10% más altas              │
+│  │  ├─ Créditos mayores (>$500K):      Rechazos seguros                   │
+│  │  └─ TIMELINE: Estos efectos duran 6-12 meses                            │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│  🚨 RECOMENDACIÓN INMEDIATA:                                                │
+│  └─ PAGA AHORA: $12,000 + $824 penalties = $12,824 HOY                     │
+│     └─ Cada día adicional suma $45 de interés extra                        │
+│     └─ Si esperas 30 días más: +$1,350 adicionales = $14,174 total       │
+│                                                                              │
+│  PLAN RECUPERACIÓN:                                                         │
+│  ├─ Hoy: Paga pago vencido + penalties ($12,824)                          │
+│  ├─ Próx 3 meses: Pagos puntuales sin falla                               │
+│  └─ Resultado: Score recuperado en 90 días, futuras solicitudes OK         │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 10: CONTROLES ADICIONALES
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
 │ [Histórico de Flujos] [Proyecciones Futuras] [Escenarios] [Reportes]       │
-│ [Integración Bancos] [Sync CobraCheck] [Sync GastoCheck] [Settings]         │
+│ [Captura Documentos Crédito] [OCR Premisas] [Simulación Pagos]             │
+│ [Proyección Anual 12 Meses] [Análisis Vencidos] [Alertas Tendencia]        │
 │ [Multi-Cuenta Transfers] [Cobros por Cliente (Color AI)] [Credit Health]   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -843,7 +1173,324 @@ function calculatePaymentConfidenceScore(
 }
 ```
 
-### 1. MULTI-ACCOUNT TRANSFER RECOMMENDATION (Movimientos entre cuentas)
+### 1. OCR EXTRACCIÓN PREMISAS CRÉDITO (Desde documento)
+
+```typescript
+async function extractCreditPremisesFromDocument(
+  documentFile: File
+): Promise<CreditDocumentExtracted> {
+  
+  // 1. CONVERTIR documento a texto (OCR)
+  const ocrText = await performOCR(documentFile) // Google Vision API o similar
+  
+  // 2. BUSCAR PATRONES Y EXTRAER DATOS
+  const extracted = {
+    // Montos
+    original_amount: extractPattern(ocrText, /(?:monto|capital|préstamo).*?(\$?[\d,]+\.?\d*)/i),
+    
+    // Tasas
+    interest_rate: extractPattern(ocrText, /(?:tasa|interés).*?(\d+\.?\d*)%/i),
+    interest_type: extractPattern(ocrText, /(?:simple|compuesto|amortizado|fijo)/i),
+    
+    // Plazo
+    term_months: extractPattern(ocrText, /(?:plazo|meses|durante).*?(\d+)\s*meses/i),
+    
+    // Fechas
+    start_date: extractPattern(ocrText, /(?:fecha de inicio|a partir de).*?(\d{1,2}\/\d{1,2}\/\d{4})/i),
+    end_date: extractPattern(ocrText, /(?:fecha de vencimiento|vence|hasta).*?(\d{1,2}\/\d{1,2}\/\d{4})/i),
+    
+    // Frecuencia pago
+    payment_frequency: extractPattern(ocrText, /(?:pago|cuota).*?(?:mensual|quincenal|semanal|anual)/i),
+    
+    // REGLAS ESPECIALES
+    allows_early_payment: ocrText.includes('pago anticipado') || ocrText.includes('sin penalidad'),
+    early_payment_penalty: extractPattern(ocrText, /pago anticipado.*?(\d+\.?\d*)%/i),
+    
+    // Comportamiento de pagos extra
+    extra_payments_apply_to: extractPattern(ocrText, 
+      /(?:pagos extra|pagos adicionales).*?(?:últimos|próximos|próximo|principal|interés)/i),
+    
+    // Tipo cálculo
+    payment_calculation: inferPaymentCalculationType(ocrText),
+    
+    // Penalidades
+    late_payment_fee: extractPattern(ocrText, /(?:comisión|mora|penalidad).*?(\$?[\d,]+\.?\d*)/i),
+    late_payment_interest_increase: extractPattern(ocrText, /(?:interés|tasa).*?atraso.*?(\d+\.?\d*)%/i),
+    grace_period_days: extractPattern(ocrText, /(?:gracia|tolerancia).*?(\d+)\s*días/i),
+    
+    // Trigger default
+    default_trigger_days_overdue: extractPattern(ocrText, /(?:incumplimiento|default).*?(\d+)\s*días/i) || 90
+  }
+  
+  return extracted
+}
+
+function inferPaymentCalculationType(text: string): string {
+  if (text.includes('cuota fija') || text.includes('pago fijo')) return 'fixed_payment'
+  if (text.includes('saldo insoluto') || text.includes('amortizado')) return 'amortized_balance'
+  if (text.includes('último pago') || text.includes('pago globo') || text.includes('balloon')) 
+    return 'last_payment_balloon'
+  return 'fixed_payment' // Default
+}
+```
+
+### 2. SIMULACIÓN PAGO RESPETANDO REGLAS ESPECÍFICAS (Por crédito)
+
+```typescript
+function simulatePaymentWithCreditRules(
+  credit: Credit,
+  paymentAmount: number,
+  creditRules: CreditDocumentExtracted
+): PaymentSimulationResult {
+  
+  let newBalance = credit.remainingBalance
+  let newPaymentSchedule = [...credit.paymentSchedule]
+  let impactSummary = ""
+  
+  // REGLA 1: ¿Permite pago anticipado?
+  if (paymentAmount > credit.currentMonthPayment && !creditRules.allows_early_payment) {
+    return {
+      success: false,
+      error: "Este crédito NO permite pagos anticipados",
+      recommendation: `Puedes pagar hasta ${credit.currentMonthPayment}, máximo permite pago actual`
+    }
+  }
+  
+  // REGLA 2: Si permite anticipado, ¿hay penalidad?
+  let penaltyApplied = 0
+  if (paymentAmount > credit.currentMonthPayment && creditRules.allows_early_payment && creditRules.early_payment_penalty > 0) {
+    penaltyApplied = newBalance * (creditRules.early_payment_penalty / 100)
+    impactSummary += `Penalidad pago anticipado: $${penaltyApplied}\n`
+  }
+  
+  // REGLA 3: ¿Cómo se aplica el pago extra?
+  let principalReduction = 0
+  
+  switch(creditRules.extra_payments_apply_to) {
+    case 'last_payments':
+      // Aplicar a últimos pagos → Reduce plazo, no principal
+      newPaymentSchedule = reduceTermByPaymentAmount(
+        newPaymentSchedule, 
+        paymentAmount - credit.currentMonthPayment
+      )
+      impactSummary += `Pago extra aplicado a últimos pagos: ${newPaymentSchedule.length - credit.paymentSchedule.length} meses menos\n`
+      break
+      
+    case 'principal':
+      // Aplicar a principal → Reduce saldo, siguientes pagos son menores
+      principalReduction = paymentAmount - credit.currentMonthPayment
+      newBalance -= principalReduction
+      newPaymentSchedule = recalculateAmortization(newBalance, credit)
+      impactSummary += `Pago extra aplicado a principal: $${principalReduction} reduce saldo\n`
+      break
+      
+    case 'interest_only':
+      // Aplicar solo a interés → Siguiente mes pagas menos interés
+      // (Depende del tipo: simple vs compound)
+      impactSummary += `Pago extra aplicado a interés: Próximo mes reduce cuota\n`
+      break
+      
+    default:
+      // Aplicar a siguiente mes
+      break
+  }
+  
+  // REGLA 4: Recalcular saldo y nueva vida del crédito
+  const newPayoffDate = calculateNewPayoffDate(newPaymentSchedule)
+  const monthsReduced = credit.originalPayoffMonths - newPaymentSchedule.length
+  const interestSaved = credit.originalInterestCost - calculateNewInterestCost(newPaymentSchedule)
+  
+  return {
+    success: true,
+    currentBalance: credit.remainingBalance,
+    balanceAfterPayment: Math.max(0, newBalance - penaltyApplied),
+    paymentAmount,
+    principalReduction,
+    penaltyApplied,
+    newPaymentSchedule,
+    newPayoffDate,
+    monthsReduced,
+    interestSaved,
+    impactSummary,
+    creditType: creditRules.payment_calculation
+  }
+}
+```
+
+### 3. CÁLCULO IMPACTO PAGOS VENCIDOS (Conciencia plena)
+
+```typescript
+function calculateOverduePaymentImpact(
+  credit: Credit,
+  daysOverdue: number,
+  creditRules: CreditDocumentExtracted
+): OverdueImpactAnalysis {
+  
+  // 1. COMISIÓN POR ATRASO
+  const lateFee = creditRules.late_payment_fee || 0
+  
+  // 2. INTERÉS EXTRA POR ATRASO
+  let extraInterest = 0
+  if (daysOverdue > creditRules.grace_period_days) {
+    const daysOverGrace = daysOverdue - creditRules.grace_period_days
+    const baseInterestRate = creditRules.interest_rate
+    const increasedRate = baseInterestRate * (1 + (creditRules.late_payment_interest_increase / 100))
+    
+    // Calcular interés extra sobre saldo pendiente
+    extraInterest = (credit.remainingBalance * increasedRate * daysOverGrace) / (365 * 100)
+  }
+  
+  // 3. IMPACTO CRÉDITO (Score)
+  let creditScoreImpact = 0
+  if (daysOverdue <= 30) creditScoreImpact = -10
+  else if (daysOverdue <= 60) creditScoreImpact = -30
+  else if (daysOverdue <= 90) creditScoreImpact = -60
+  else if (daysOverdue <= 180) creditScoreImpact = -100
+  else creditScoreImpact = -150
+  
+  const recoveryTimelinMonths = Math.ceil(daysOverdue / 30)
+  
+  // 4. IMPACTO EN AMORTIZACIÓN
+  const payoffDateDelay = Math.ceil(daysOverdue / 30) * 30 // Días adicionales
+  const totalInterestIncrease = extraInterest + lateFee
+  
+  // 5. IMPACTO EN FUTURAS SOLICITUDES
+  let futureImpact = "Normal"
+  if (daysOverdue > 30) futureImpact = "Posibles rechazos en créditos menores"
+  if (daysOverdue > 90) futureImpact = "Rechazos esperados, tasas muy altas"
+  if (daysOverdue > 180) futureImpact = "Prácticamente imposible obtener crédito"
+  
+  // 6. ACCIÓN RECUPERACIÓN
+  let recoveryAction = ""
+  if (daysOverdue <= 30) recoveryAction = "Paga AHORA para evitar penalidades mayores"
+  if (daysOverdue > 30 && daysOverdue <= 90) recoveryAction = "Contacta acreedor, negocia plan de pago"
+  if (daysOverdue > 90) recoveryAction = "CRÍTICO: Llamada urgente acreedor, riesgo legal"
+  
+  return {
+    daysOverdue,
+    lateFeeAmount: lateFee,
+    extraInterestAccrued: extraInterest,
+    totalImpactAmount: lateFee + extraInterest,
+    creditScoreImpact,
+    creditRecoveryMonths: recoveryTimelinMonths,
+    payoffDateDelayDays: payoffDateDelay,
+    totalInterestCostIncrease: totalInterestIncrease,
+    futureApprovalImpact: futureImpact,
+    recoveryActionRequired: recoveryAction,
+    recoveryTimelineDays: recoveryTimelinMonths * 30 + 30,
+    urgency: daysOverdue > 90 ? 'critical' : daysOverdue > 30 ? 'high' : 'medium'
+  }
+}
+```
+
+### 4. PROYECCIÓN ANUAL 12 MESES (Tendencia + Salud)
+
+```typescript
+function projectAnnualCashFlow(
+  company: Company,
+  year: number
+): AnnualCashFlowProjection {
+  
+  const months: MonthProjection[] = []
+  let cumulativeBalance = getOpeningBalance(company, year)
+  let healthTrend = 'unknown'
+  let months_positive = 0
+  let months_negative = 0
+  
+  for (let month = 1; month <= 12; month++) {
+    // 1. Ingresos proyectados (CobraCheck histórico + estimados)
+    const inflows = calculateMonthlyInflows(company, month)
+    
+    // 2. Egresos operacionales (GastoCheck + recurring)
+    const outflows = calculateMonthlyOutflows(company, month)
+    
+    // 3. Pagos de créditos
+    const creditPayments = calculateMonthlyCreditsPayment(company, month)
+    
+    // 4. Impuestos + Seguridad social
+    const taxesSocial = calculateMonthlyTaxesAndSocial(company, month)
+    
+    // 5. Saldo proyectado
+    const closingBalance = 
+      cumulativeBalance + inflows - outflows - creditPayments - taxesSocial
+    
+    // 6. Análisis
+    const isPositive = closingBalance > cumulativeBalance
+    const variance = closingBalance - cumulativeBalance
+    const variance_pct = (variance / Math.max(1, cumulativeBalance)) * 100
+    
+    // 7. Salud mes
+    let health_status = 'healthy'
+    if (closingBalance < 50000) health_status = 'critical'
+    else if (closingBalance < 100000) health_status = 'tight'
+    
+    months.push({
+      month,
+      openingBalance: cumulativeBalance,
+      inflows,
+      outflows,
+      creditPayments,
+      taxes: taxesSocial,
+      closingBalance,
+      isPositive,
+      variance,
+      variancePercentage: variance_pct,
+      healthStatus: health_status
+    })
+    
+    if (isPositive) months_positive++
+    else months_negative++
+    
+    cumulativeBalance = closingBalance
+  }
+  
+  // 8. Determinar TENDENCIA ANUAL
+  if (months_positive >= 10) healthTrend = 'healthy'
+  else if (months_positive >= 7) healthTrend = 'stable_with_warnings'
+  else if (months_positive >= 4) healthTrend = 'at_risk'
+  else healthTrend = 'critical'
+  
+  // 9. Proyectar año siguiente
+  const endOfYearBalance = months[11].closingBalance
+  const avgMonthlyVariance = months.reduce((s, m) => s + m.variance, 0) / 12
+  const projectedEndOfNextYear = endOfYearBalance + (avgMonthlyVariance * 12)
+  
+  return {
+    year,
+    months,
+    startBalance: months[0].openingBalance,
+    endBalance: endOfYearBalance,
+    totalInflows: months.reduce((s, m) => s + m.inflows, 0),
+    totalOutflows: months.reduce((s, m) => s + m.outflows, 0),
+    totalCreditsPayments: months.reduce((s, m) => s + m.creditPayments, 0),
+    totalTaxesSocial: months.reduce((s, m) => s + m.taxes, 0),
+    netFlow: endOfYearBalance - months[0].openingBalance,
+    healthTrend,
+    months_with_positive_flow: months_positive,
+    months_with_negative_flow: months_negative,
+    riskMonths: months.filter(m => m.healthStatus === 'critical' || m.healthStatus === 'tight'),
+    projectedNextYearEnd: projectedEndOfNextYear,
+    recommendation: generateAnnualRecommendation(healthTrend, months)
+  }
+}
+
+function generateAnnualRecommendation(trend: string, months: MonthProjection[]): string {
+  if (trend === 'healthy') 
+    return "✅ Flujo sano. Proyecta superávit consistente. Considera ahorrar para futuras contingencias."
+  
+  if (trend === 'stable_with_warnings')
+    return "🟡 Flujo estable pero con advertencias. Meses críticos: " + 
+           months.filter(m => m.healthStatus !== 'healthy').map(m => `mes ${m.month}`).join(', ') +
+           ". Refuerza cobros estos meses."
+  
+  if (trend === 'at_risk')
+    return "🔴 Flujo en riesgo. Más de la mitad del año con déficit. ACCIÓN REQUERIDA: Reduce gastos, acelera cobros, busca financiamiento."
+  
+  return "🚨 CRÍTICO. Tendencia muy negativa. Riesgo operacional alto. Busca consultoría financiera urgente."
+}
+```
+
+### 5. MULTI-ACCOUNT TRANSFER RECOMMENDATION (Movimientos entre cuentas)
 
 ```typescript
 function recommendMultiAccountTransfers(
