@@ -56,6 +56,10 @@ export default function AdministracionScreen() {
   const [memberCount, setMemberCount] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  // Equipo clave (Admin / Contador) — misma fuente para toda la plataforma
+  interface KeyMember { user_id: string; role: string; full_name: string | null }
+  const [keyMembers, setKeyMembers] = useState<KeyMember[]>([]);
+
   // Campos editables
   const [fName,            setFName]            = useState('');
   const [fRfc,             setFRfc]             = useState('');
@@ -148,6 +152,18 @@ export default function AdministracionScreen() {
         .eq('company_id', selectedId)
         .eq('status', 'active');
       setMemberCount(count ?? 0);
+
+      const { data: keyData } = await supabase
+        .from('company_members')
+        .select('user_id, role, profiles:user_id(full_name)')
+        .eq('company_id', selectedId)
+        .eq('status', 'active')
+        .in('role', ['owner', 'admin', 'accountant', 'contador_general']);
+      setKeyMembers((keyData ?? []).map((m: any) => ({
+        user_id:   m.user_id,
+        role:      m.role,
+        full_name: m.profiles?.full_name ?? null,
+      })));
     } finally {
       setLoading(false);
     }
@@ -305,6 +321,31 @@ export default function AdministracionScreen() {
           )}
         </View>
       </View>
+
+      {/* ── Equipo Clave: Admin / Contador (misma fuente en toda la plataforma) ── */}
+      <SectionHeader title="Admin y Contador" />
+      <Text style={styles.sectionHint}>
+        Responsables formales de esta empresa. Se administran en Equipo (GastoCheck) y aparecen aquí igual en todos los módulos.
+      </Text>
+      {keyMembers.length === 0 && (
+        <Text style={styles.emptyHint}>Sin Admin o Contador asignado aún.</Text>
+      )}
+      {keyMembers.map((m) => (
+        <View key={m.user_id} style={styles.bankRow}>
+          <View style={[styles.bankIcon, { backgroundColor: m.role === 'admin' || m.role === 'owner' ? '#EEF2FF' : '#ECFDF5' }]}>
+            <Text style={{ fontSize: 16 }}>{m.role === 'admin' || m.role === 'owner' ? '👑' : '📊'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bankName}>{m.full_name ?? '(sin nombre)'}</Text>
+            <Text style={styles.bankSub}>
+              {m.role === 'owner' ? 'Propietario' : m.role === 'admin' ? 'Admin' : m.role === 'contador_general' ? 'Contador General' : 'Contador'}
+            </Text>
+          </View>
+        </View>
+      ))}
+      <TouchableOpacity style={styles.addBankBtn} onPress={() => router.push('/gastocheck' as any)}>
+        <Text style={styles.addBankBtnText}>Gestionar equipo en GastoCheck →</Text>
+      </TouchableOpacity>
 
       {/* ── Datos Fiscales ── */}
       <SectionHeader title="Datos Fiscales" />

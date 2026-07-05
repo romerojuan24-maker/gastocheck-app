@@ -9,8 +9,8 @@ import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
 
-const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant'];
-const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'collector'];
+const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
+const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 export default function CheckSuiteHome() {
   const router     = useRouter();
@@ -54,7 +54,7 @@ export default function CheckSuiteHome() {
   const isCollector = userRole === 'collector';
   const showGasto   = !isCollector;
   const showCobra   = userRole ? COBRA_ROLES.includes(userRole) : false;
-  const showMore    = userRole ? ['owner', 'admin'].includes(userRole) : false;
+  const showMore    = userRole ? MANAGER_ROLES.includes(userRole) : false;
 
   return (
     <ScrollView
