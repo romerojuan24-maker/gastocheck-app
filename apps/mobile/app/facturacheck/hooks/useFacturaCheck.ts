@@ -416,3 +416,91 @@ export function useGenerateAccountingVoucher() {
 
   return { generate, generateBulk, hasVoucher, generating, error }
 }
+
+// ============================================================================
+// useMatchCfdiToBankTransaction — FacturaCheck ↔ BancoCheck
+// Busca transacciones bancarias candidatas para un CFDI emitido vigente
+// sin vincular (por monto + proximidad de fecha), y permite confirmar el
+// vínculo. Actualiza cfdi_documents.related_bank_txn_id (columna real,
+// ya existente) y clasifica la transacción como 'collection'/'explained'.
+// ============================================================================
+
+export interface BankTxnCandidate {
+  id: string
+  description: string
+  amount: number
+  transaction_date: string
+  confidence: number
+}
+
+export function useMatchCfdiToBankTransaction(companyId: string) {
+  const [searching, setSearching] = useState(false)
+  const [linking, setLinking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const findCandidates = useCallback(async (cfdi: CfdiDocument): Promise<BankTxnCandidate[]> => {
+    if (!companyId || !cfdi.total) return []
+    setSearching(true)
+    setError(null)
+    try {
+      const { data } = await supabase
+        .from('bank_transactions')
+        .select('id, description, amount, transaction_date')
+        .eq('company_id', companyId)
+        .eq('status', 'new')
+        .gt('amount', 0)
+        .gte('amount', cfdi.total * 0.98)
+        .lte('amount', cfdi.total * 1.02)
+        .order('transaction_date', { ascending: false })
+        .limit(10)
+
+      const emisionDate = cfdi.fecha_emision ? new Date(cfdi.fecha_emision).getTime() : Date.now()
+
+      const candidates: BankTxnCandidate[] = (data ?? []).map((t: any) => {
+        const amountDiff = Math.abs(t.amount - (cfdi.total ?? 0))
+        const amountScore = 1 - Math.min(amountDiff / (cfdi.total || 1), 1)
+
+        const dayDiff = Math.abs(new Date(t.transaction_date).getTime() - emisionDate) / (1000 * 60 * 60 * 24)
+        const dateScore = dayDiff <= 3 ? 1 : Math.max(0, 1 - dayDiff / 30)
+
+        return {
+          id: t.id,
+          description: t.description,
+          amount: t.amount,
+          transaction_date: t.transaction_date,
+          confidence: amountScore * 0.7 + dateScore * 0.3,
+        }
+      }).sort((a, b) => b.confidence - a.confidence)
+
+      return candidates
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al buscar transacciones')
+      return []
+    } finally {
+      setSearching(false)
+    }
+  }, [companyId])
+
+  const confirmMatch = useCallback(async (cfdiId: string, bankTxnId: string): Promise<{ success: boolean; error?: string }> => {
+    setLinking(true)
+    setError(null)
+    try {
+      const [cfdiUpdate, txnUpdate] = await Promise.all([
+        supabase.from('cfdi_documents').update({ related_bank_txn_id: bankTxnId }).eq('id', cfdiId),
+        supabase.from('bank_transactions').update({ status: 'explained', category: 'collection' }).eq('id', bankTxnId),
+      ])
+
+      if (cfdiUpdate.error) throw cfdiUpdate.error
+      if (txnUpdate.error) throw txnUpdate.error
+      return { success: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al vincular'
+      setError(msg)
+      return { success: false, error: msg }
+    } finally {
+      setLinking(false)
+    }
+  }, [])
+
+  return { findCandidates, confirmMatch, searching, linking, error }
+}

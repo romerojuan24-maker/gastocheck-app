@@ -61,7 +61,7 @@ export default function FacturaCheckHome() {
   const [viewMode,    setViewMode]    = useState<PanelViewMode>('admin')
   const [cfdiTab,     setCfdiTab]     = useState<CfdiTab>('received')
 
-  const { documents } = useFacturaDocuments(companyId || '')
+  const { documents, refetch: refetchDocuments } = useFacturaDocuments(companyId || '')
 
   useEffect(() => { navigation.setOptions({ headerShown: false }) }, [navigation])
 
@@ -305,7 +305,14 @@ export default function FacturaCheckHome() {
         ) : (
           <>
             {activeTab === 0 && <CfdisTab />}
-            {activeTab === 1 && <DistributionTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 1 && (
+              <DistributionTab
+                documents={documents}
+                companyId={companyId || ''}
+                color={FACTURA_COLOR}
+                onLinked={refetchDocuments}
+              />
+            )}
             {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
             {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
             {activeTab === 4 && <ProfileTab />}
