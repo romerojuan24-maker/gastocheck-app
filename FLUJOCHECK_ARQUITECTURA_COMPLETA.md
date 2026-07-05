@@ -871,7 +871,138 @@ SECCIÓN 6: PROYECCIÓN DE COBROS (Color AI: Verde/Amarillo/Rojo)
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
-SECCIÓN 7: CAPTURA DOCUMENTO CRÉDITO (OCR Premisas)
+SECCIÓN 7: OPTIMIZACIÓN FINANCIERA (Excedentes → Decisión Inteligente)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  💰 ANÁLISIS INTELIGENTE DE EXCEDENTES — ¿Pagar crédito o invertir?         │
+│                                                                              │
+│  SITUACIÓN ACTUAL:                                                           │
+│  ├─ Saldo: $500,000                                                         │
+│  ├─ Proyección sostenible 3 meses: +$80,000 excedente ✅                   │
+│  ├─ Buffer operacional necesario: $50,000 (30 días gastos)                 │
+│  └─ Disponible para decisión: $80,000 (después mantener buffer)            │
+│                                                                              │
+│  DEUDA VIGENTE:                                                              │
+│  ├─ BBVA Crédito: $180,000 @ 18% anual                                     │
+│  │  └─ Interés mensual: $2,700                                             │
+│  └─ Proveedor ABC: $95,000 @ 0% (vence en 60 días)                         │
+│     TOTAL DEUDA: $275,000                                                  │
+│                                                                              │
+│  OPCIONES INVERSIÓN DISPONIBLES:                                            │
+│  ├─ Plazo fijo 30 días: 12% anual (bajo riesgo)                            │
+│  ├─ Fondo mutuo: 15% anual (riesgo medio)                                  │
+│  └─ Acciones: 20% anual (riesgo alto)                                      │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                          ANÁLISIS COMPARATIVO                                │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                                                                              │
+│  OPCIÓN A: PAGAR CRÉDITO (Conservative)                                    │
+│  ├─ Acción: $80K → Pago anticipado BBVA                                   │
+│  ├─ DEUDA DESPUÉS:                                                          │
+│  │  ├─ BBVA: $180K → $100K (-$80K)                                        │
+│  │  └─ Total: $275K → $195K (-26.4%)                                      │
+│  │                                                                          │
+│  ├─ BENEFICIOS:                                                             │
+│  │  ├─ Interés ahorrado: $14,400/año (18% × $80K)                         │
+│  │  ├─ Score crediticio: +8 puntos (720→728)                              │
+│  │  ├─ Deuda/Equity: 3.2 → 2.4 (MEJORA FUERTE)                            │
+│  │  ├─ Acceso futuro crédito: +$200K capacidad                            │
+│  │  └─ Monthly interest: $2,700 → $1,800 (-$900/mes)                      │
+│  │                                                                          │
+│  └─ RENTABILIDAD: 18% anual (ahorro de intereses)                          │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                                                                              │
+│  OPCIÓN B: INVERTIR (Aggressive)                                           │
+│  ├─ Acción: $80K → Acciones (20% anual)                                   │
+│  ├─ DEUDA DESPUÉS:                                                          │
+│  │  ├─ BBVA: $180K (sin cambios)                                          │
+│  │  └─ Total: $275K (sin cambios)                                         │
+│  │                                                                          │
+│  ├─ BENEFICIOS:                                                             │
+│  │  ├─ Retorno inversión: $16,000/año (20% × $80K)                        │
+│  │  ├─ Patrimonio crece: +20% anual                                        │
+│  │  └─ Oportunidad de negocios: Efectivo disponible                       │
+│  │                                                                          │
+│  ├─ RIESGOS:                                                                │
+│  │  ├─ Deuda/Equity: SIN CAMBIOS (3.2 - sigue alto)                       │
+│  │  ├─ Score crediticio: SIN CAMBIOS                                       │
+│  │  ├─ Interés mensual: SIN CAMBIOS ($2,700 continúo)                    │
+│  │  ├─ Volatilidad: Acciones pueden bajar 20-30%                          │
+│  │  └─ Si inversión falla: Sigues con $275K deuda                         │
+│  │                                                                          │
+│  └─ RENTABILIDAD: 20% anual (pero con riesgo)                             │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                                                                              │
+│  🟢 OPCIÓN C: SPLIT (RECOMENDADA) ← ÓPTIMA                                 │
+│  ├─ Acción: $40K → Pago BBVA + $40K → Invertir                            │
+│  ├─ DEUDA DESPUÉS:                                                          │
+│  │  ├─ BBVA: $180K → $140K (-$40K)                                        │
+│  │  └─ Total: $275K → $235K (-14.5%)                                      │
+│  │                                                                          │
+│  ├─ BENEFICIOS HÍBRIDOS:                                                    │
+│  │  ├─ Interés ahorrado: $7,200/año (pago de $40K)                        │
+│  │  ├─ Retorno inversión: $4,800/año (40K @ 12% plazo fijo)               │
+│  │  ├─ BENEFICIO TOTAL: $12,000/año (15% rentabilidad global)             │
+│  │  │                                                                       │
+│  │  ├─ INDICADORES MEJORADOS:                                              │
+│  │  │  ├─ Score crediticio: +8 puntos (mejora acceso futuro)              │
+│  │  │  ├─ Deuda/Equity: 3.2 → 2.7 (mejor que sin pagar)                  │
+│  │  │  ├─ Interest Coverage: 2.1 → 2.8 (operaciones más seguras)          │
+│  │  │  ├─ Monthly interest: $2,700 → $2,100 (-$600/mes)                   │
+│  │  │  └─ Acceso futuro crédito: +$150K (vs +$200K solo pagando)         │
+│  │  │                                                                       │
+│  │  └─ ESTABILIDAD OPERATIVA:                                              │
+│  │     ├─ Saldo después decisión: $420,000 (aún sólido)                   │
+│  │     ├─ Buffer: $50,000 ✅ INTACTO (operaciones seguras)                │
+│  │     ├─ Inversión: $40,000 (recuperable en 30 días si emergencia)       │
+│  │     └─ RIESGO: BAJO ✅                                                 │
+│  │                                                                          │
+│  └─ RENTABILIDAD: 15% anual + Seguridad + Mejora indicadores              │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                          COMPARATIVA FINAL (3 Opciones)                     │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                                                                              │
+│  MÉTRICA              │  OPCIÓN A    │  OPCIÓN B    │  🟢 OPCIÓN C (SPLIT)  │
+│  ─────────────────────┼──────────────┼──────────────┼──────────────────────  │
+│  Rentabilidad Anual   │    18%       │    20%       │      15%* (pero segura)
+│  Deuda Reducida       │   26.4%      │     0%       │      14.5% (balanceado)
+│  Score Crediticio     │    +8pts     │     0        │       +8pts (mejorado)  
+│  Deuda/Equity         │   2.4 ✅     │   3.2 ⚠️    │       2.7 ✅ (óptimo)  
+│  Interest Coverage    │   3.1 ✅     │   2.1 ⚠️    │       2.8 ✅ (robusto) 
+│  Cash Operativo       │  $420K ✅    │  $500K ✅   │      $420K ✅ (seguro) 
+│  Futuro Acceso Créd.  │   +$200K     │   +$0       │      +$150K (excelente)
+│  Riesgo               │    Bajo      │   Medio-Alto│      Muy Bajo ✅       
+│  Complejidad          │   Simple     │   Simple    │      Moderada          
+│                                                                              │
+│  * 15% es combinación: 18% pago + 12% inversión = rentabilidad + seguridad  │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                                                                              │
+│  🎯 RECOMENDACIÓN FINAL:                                                    │
+│  ├─ OPCIÓN C (SPLIT) es ÓPTIMA porque:                                     │
+│  │  ├─ ✅ Rentabilidad SANA (15% real)                                      │
+│  │  ├─ ✅ Reduce deuda (mejora indicadores)                                │
+│  │  ├─ ✅ Genera retorno (15% base × $40K inversión)                      │
+│  │  ├─ ✅ Mantiene estabilidad operativa ($50K buffer intacto)            │
+│  │  ├─ ✅ Mejora acceso crédito futuro (score + ratios)                   │
+│  │  ├─ ✅ Bajo riesgo (mitad en seguro plazo fijo)                        │
+│  │  └─ ✅ Balance perfecto entre rentabilidad y prudencia                 │
+│  │                                                                          │
+│  └─ IMPACTO A LARGO PLAZO:                                                 │
+│     ├─ Año 1: Deuda -14.5%, Rentabilidad +15% = Equilibrio perfecto       │
+│     ├─ Año 2: Patrón se repite → Deuda sigue bajando                      │
+│     └─ Año 3: Empresa más sana, deuda menor, acceso ilimitado crédito     │
+│                                                                              │
+│  [✅ Ejecutar SPLIT ($40K pago + $40K inversión)]                          │
+│  [🔍 Ver Detalles Completos] [Personalizar Montos]                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 8: CAPTURA DOCUMENTO CRÉDITO (OCR Premisas)
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  📄 CARGAR DOCUMENTO DE CRÉDITO                                              │
@@ -1027,7 +1158,7 @@ SECCIÓN 9: ANÁLISIS PAGO VENCIDO (Impacto + Conciencia Plena)
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
-SECCIÓN 10: CONTROLES ADICIONALES
+SECCIÓN 11: CONTROLES ADICIONALES
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
@@ -1035,6 +1166,7 @@ SECCIÓN 10: CONTROLES ADICIONALES
 │ [Captura Documentos Crédito] [OCR Premisas] [Simulación Pagos]             │
 │ [Proyección Anual 12 Meses] [Análisis Vencidos] [Alertas Tendencia]        │
 │ [Multi-Cuenta Transfers] [Cobros por Cliente (Color AI)] [Credit Health]   │
+│ [🆕 Optimización Excedentes] [PAY vs INVEST Análisis] [Indicadores Económicos]
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1490,7 +1622,116 @@ function generateAnnualRecommendation(trend: string, months: MonthProjection[]):
 }
 ```
 
-### 5. MULTI-ACCOUNT TRANSFER RECOMMENDATION (Movimientos entre cuentas)
+### 5. ANÁLISIS OPTIMIZACIÓN FINANCIERA (Excedentes → Decisión Créditos)
+
+```typescript
+function analyzeExcessCashAllocationStrategy(
+  company: Company,
+  projectedExcess: number,        // Excedente proyectado (semana/mes/trimestre)
+  credits: Credit[],
+  operationalMinimumCash: number, // Buffer mínimo para operar
+  alternativeInvestmentRates: InvestmentOption[] // Opciones inversión disponibles
+): ExcessAllocationRecommendation {
+  
+  // 1. VALIDAR que excedente es "sano" (proyectado consistente, no one-off)
+  const isSustainableExcess = validateExcessSustainability(projectedExcess, company)
+  
+  if (!isSustainableExcess) {
+    return {
+      recommendation: 'CONSERVAR',
+      reason: 'Excedente NO es sostenible. Mantén en caja de seguridad.',
+      action: 'Espera 2-3 meses confirmación de tendencia'
+    }
+  }
+  
+  // 2. CALCULAR DISPONIBILIDAD REAL (sin afectar operatividad)
+  const currentCash = getCurrentCashBalance(company)
+  const safetyBufferNeeded = calculateOperationalBuffer(company, 30) // 30 días mínimos
+  const availableForPayment = Math.max(0, currentCash + projectedExcess - safetyBufferNeeded)
+  
+  if (availableForPayment <= 0) {
+    return {
+      recommendation: 'NO HAY DISPONIBLE',
+      reason: 'Necesitas mantener buffer operacional. No hay excedente real.',
+      action: 'Prioriza: Nómina → Servicios → Impuestos → Créditos'
+    }
+  }
+  
+  // 3. ANÁLISIS COMPARATIVO: Tasa crédito vs opciones inversión
+  const creditAnalysis: CreditPaymentAnalysis[] = credits.map(credit => ({
+    creditId: credit.id,
+    currentRate: credit.interestRate,
+    payoffBenefit: calculatePayoffBenefit(credit, availableForPayment),
+    creditScoreImprovement: estimateCreditScoreImprovement(credit),
+    debtReductionImpact: availableForPayment / credit.remainingBalance
+  }))
+  
+  const investmentAnalysis = alternativeInvestmentRates.map(inv => ({
+    name: inv.name,
+    expectedReturn: inv.annualReturn,
+    riskLevel: inv.riskLevel,
+    liquidity: inv.liquidityDays
+  }))
+  
+  // 4. DECISIÓN ESTRATÉGICA
+  let strategy: 'PAY_CREDITS' | 'INVEST' | 'SPLIT' = 'PAY_CREDITS'
+  
+  const highestInvestmentReturn = Math.max(...investmentAnalysis.map(i => i.expectedReturn))
+  const lowestCreditRate = Math.min(...creditAnalysis.map(c => c.currentRate))
+  
+  if (lowestCreditRate > highestInvestmentReturn) {
+    strategy = 'PAY_CREDITS'
+  } else if (highestInvestmentReturn > lowestCreditRate * 1.5 && availableForPayment > safetyBufferNeeded * 2) {
+    strategy = 'INVEST'
+  } else {
+    strategy = 'SPLIT'
+  }
+  
+  // 5. SI RECOMENDACIÓN ES "PAY_CREDITS" → Priorizar créditos
+  let creditPaymentPriority: CreditPaymentStrategy[] = []
+  
+  if (strategy === 'PAY_CREDITS' || strategy === 'SPLIT') {
+    creditPaymentPriority = creditAnalysis
+      .sort((a, b) => b.currentRate - a.currentRate)
+      .map((analysis, index) => ({
+        priority: index + 1,
+        creditId: analysis.creditId,
+        interestSavedAnnually: analysis.payoffBenefit,
+        creditScoreGain: analysis.creditScoreImprovement
+      }))
+  }
+  
+  // 6. INDICADORES ECONÓMICOS
+  const currentIndicators = calculateEconomicIndicators(company, credits)
+  const projectedIndicators = simulatePaymentImpactOnIndicators(company, credits, creditPaymentPriority)
+  
+  return {
+    strategy,
+    availableFunds: availableForPayment,
+    creditPaymentPriority,
+    currentIndicators: {
+      debtToEquity: currentIndicators.debtToEquity,
+      interestCoverage: currentIndicators.interestCoverage,
+      creditScore: currentIndicators.creditScore,
+      monthlyInterestExpense: currentIndicators.monthlyInterestExpense
+    },
+    projectedIndicators: {
+      debtToEquity: projectedIndicators.debtToEquity,
+      interestCoverage: projectedIndicators.interestCoverage,
+      creditScore: projectedIndicators.creditScore,
+      monthlyInterestExpense: projectedIndicators.monthlyInterestExpense
+    },
+    improvementMetrics: {
+      debtReductionPercentage: ((currentIndicators.totalDebt - projectedIndicators.totalDebt) / 
+                                currentIndicators.totalDebt) * 100,
+      annualInterestSavings: currentIndicators.annualInterestExpense - projectedIndicators.annualInterestExpense,
+      creditScoreGain: projectedIndicators.creditScore - currentIndicators.creditScore
+    }
+  }
+}
+```
+
+### 6. MULTI-ACCOUNT TRANSFER RECOMMENDATION (Movimientos entre cuentas)
 
 ```typescript
 function recommendMultiAccountTransfers(
