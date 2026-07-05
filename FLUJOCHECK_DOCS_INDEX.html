@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlujoCheck Documentation Index</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      color: white;
+      margin-bottom: 50px;
+    }
+
+    h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .tagline {
+      font-size: 18px;
+      opacity: 0.95;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+      margin-bottom: 50px;
+    }
+
+    .doc-card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .doc-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+
+    .doc-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    }
+
+    .doc-icon {
+      font-size: 40px;
+      margin-bottom: 15px;
+    }
+
+    .doc-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 10px;
+    }
+
+    .doc-description {
+      font-size: 14px;
+      color: #718096;
+      line-height: 1.6;
+      flex: 1;
+      margin-bottom: 15px;
+    }
+
+    .doc-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #a0aec0;
+      padding-top: 15px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .doc-lines {
+      font-weight: 600;
+      color: #667eea;
+    }
+
+    .doc-time {
+      background: #f0f4ff;
+      padding: 4px 12px;
+      border-radius: 12px;
+      color: #5a67d8;
+      font-weight: 500;
+    }
+
+    .quick-guide {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .quick-guide h2 {
+      color: #2d3748;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .step {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .step-number {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .step-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .step-duration {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .algorithms-section {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .algorithms-section h2 {
+      color: #2d3748;
+      margin-bottom: 25px;
+      font-size: 28px;
+    }
+
+    .algorithms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .algorithm {
+      background: #f7fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .algorithm:hover {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+
+    .algorithm-name {
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 5px;
+    }
+
+    .algorithm-desc {
+      font-size: 12px;
+      color: #718096;
+    }
+
+    footer {
+      text-align: center;
+      color: white;
+      opacity: 0.9;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid rgba(255,255,255,0.2);
+    }
+
+    footer p {
+      margin-bottom: 5px;
+    }
+
+    .footer-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-top: 10px;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 FlujoCheck</h1>
+      <p class="tagline">Guía Completa de Implementación</p>
+      <div class="status">✅ Listo para Daniel — 15 días de codificación</div>
+    </header>
+
+    <div class="quick-guide">
+      <h2>🚀 Cómo Empezar</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-title">README_FIRST</div>
+          <div class="step-duration">5 minutos</div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-title">QUICK_START</div>
+          <div class="step-duration">30 minutos</div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-title">IMPLEMENTATION_GUIDE</div>
+          <div class="step-duration">2 horas</div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-title">Código + Tests</div>
+          <div class="step-duration">15 días</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="docs-grid">
+      <div class="doc-card">
+        <div class="doc-icon">📄</div>
+        <div class="doc-title">README_FIRST</div>
+        <div class="doc-description">
+          Punto de entrada. ¿Qué es FlujoCheck? Decisión tree. Empieza aquí (5 min).
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">425 líneas</span>
+          <span class="doc-time">5 min lectura</span>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">⚡</div>
+        <div class="doc-title">QUICK_START</div>
+        <div class="doc-description">
+          Resumen ejecutivo: hitos día-a-día, conceptos clave, structure tree, checklist.
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">550 líneas</span>
+          <span class="doc-time">30 min lectura</span>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">📘</div>
+        <div class="doc-title">IMPLEMENTATION_GUIDE</div>
+        <div class="doc-description">
+          LA BIBLIA. Estructura, componentes, schema SQL, 6 endpoints API, algoritmos, tipos TS, tests.
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">1800+ líneas</span>
+          <span class="doc-time">2 horas lectura</span>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">🧮</div>
+        <div class="doc-title">ALGORITHMS_CHEATSHEET</div>
+        <div class="doc-description">
+          11 algoritmos en detalle. Pseudocódigo + ejemplos numéricos. Tener abierto mientras codificas.
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">600 líneas</span>
+          <span class="doc-time">1 hora referencia</span>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">🏗️</div>
+        <div class="doc-title">ARCHITECTURE_DIAGRAM</div>
+        <div class="doc-description">
+          Data flows, component hierarchy, schema visualizado, RLS, timing estimates, deployment.
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">700 líneas</span>
+          <span class="doc-time">1 hora lectura</span>
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">🎨</div>
+        <div class="doc-title">DESIGN_SYSTEM</div>
+        <div class="doc-description">
+          Patrón CHECK SUITE. TopBar + BottomTabBar (REUTILIZAR de GastoCheck).
+        </div>
+        <div class="doc-meta">
+          <span class="doc-lines">440 líneas</span>
+          <span class="doc-time">30 min lectura</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="algorithms-section">
+      <h2>🧮 Algoritmos Clave (Copiar pseudocódigo de CHEATSHEET)</h2>
+      <div class="algorithms-grid">
+        <div class="algorithm">
+          <div class="algorithm-name">1. Payment Capacity</div>
+          <div class="algorithm-desc">¿Cuánto puedo pagar?</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">2. Fixed Amortization</div>
+          <div class="algorithm-desc">Cuota igual 60 meses</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">3. Graduated Amortization</div>
+          <div class="algorithm-desc">Cuota sube 5% anual</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">4. Balloon Amortization</div>
+          <div class="algorithm-desc">Pago final grande</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">5. Interest-Only</div>
+          <div class="algorithm-desc">Solo interés, principal al final</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">6. Annual Projection</div>
+          <div class="algorithm-desc">12 meses + health score</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">7. Health Score</div>
+          <div class="algorithm-desc">0-100 (red/yellow/green)</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">8. Payment Confidence</div>
+          <div class="algorithm-desc">AI/ML: ¿cobro?</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">9. Excess Funds</div>
+          <div class="algorithm-desc">¿Pagar vs invertir?</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">10. Account Transfers</div>
+          <div class="algorithm-desc">Mover entre cuentas</div>
+        </div>
+        <div class="algorithm">
+          <div class="algorithm-name">11. RLS Policies</div>
+          <div class="algorithm-desc">Seguridad multi-org</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p><strong>Status</strong>: 100% listo para implementación</p>
+      <p><strong>Lenguaje</strong>: React Native + TypeScript + Supabase</p>
+      <p><strong>Timeline</strong>: 15 días (Fases 1-3)</p>
+      <div class="footer-badge">Generado 2026-07-05</div>
+    </footer>
+  </div>
+</body>
+</html>
