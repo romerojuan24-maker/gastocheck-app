@@ -401,7 +401,7 @@ export function generateDashboardRecommendations(dashboard: UnifiedDashboard): s
 
   // Cobracheck analysis
   const cobraModule = dashboard.modules.find((m) => m.module === 'cobracheck')
-  const overdueCobros = cobraModule?.key_metrics['vencidos'] || 0
+  const overdueCobros = Number(cobraModule?.key_metrics['vencidos']) || 0
   if (overdueCobros > 5) {
     recommendations.push(
       `⚠️ ACCIÓN REQUERIDA: ${overdueCobros} cobros vencidos afectan tu flujo. Prioriza seguimiento.`
@@ -419,7 +419,7 @@ export function generateDashboardRecommendations(dashboard: UnifiedDashboard): s
 
   // Gastocheck analysis
   const gastoModule = dashboard.modules.find((m) => m.module === 'gastocheck')
-  const pendingPolizas = gastoModule?.key_metrics['pendientes'] || 0
+  const pendingPolizas = Number(gastoModule?.key_metrics['pendientes']) || 0
   if (pendingPolizas > 3) {
     recommendations.push(
       `📋 ${pendingPolizas} pólizas en GastoCheck esperan aprobación. Acelera el flujo de validación.`
@@ -428,7 +428,7 @@ export function generateDashboardRecommendations(dashboard: UnifiedDashboard): s
 
   // Facturacheck analysis
   const factuModule = dashboard.modules.find((m) => m.module === 'facturacheck')
-  const pendingCfdis = factuModule?.key_metrics['pendientes'] || 0
+  const pendingCfdis = Number(factuModule?.key_metrics['pendientes']) || 0
   if (pendingCfdis > 5) {
     recommendations.push(
       `📄 ${pendingCfdis} facturas sin timbrar en FacturaCheck. Verifica con el PAC.`

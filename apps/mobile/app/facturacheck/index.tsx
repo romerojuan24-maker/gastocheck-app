@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useFacturaDocuments } from './hooks'
 
 // Componentes
-import { DocumentList } from './components'
+import { DocumentList, DistributionTab, ReportsTab, SettingsTab } from './components'
 
 // Tipos
 import type { CfdiDocument } from './types'
@@ -170,16 +170,6 @@ export default function FacturaCheckHome() {
     )
   }
 
-  function ComingSoon({ title }: { title: string }) {
-    return (
-      <View style={s.comingSoon}>
-        <Text style={s.comingSoonIcon}>🚧</Text>
-        <Text style={s.comingSoonTitle}>{title}</Text>
-        <Text style={s.comingSoonSub}>Próximamente</Text>
-      </View>
-    )
-  }
-
   function CfdisTab() {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -261,9 +251,9 @@ export default function FacturaCheckHome() {
 
       <View style={{ flex: 1 }}>
         {activeTab === 0 && <CfdisTab />}
-        {activeTab === 1 && <ComingSoon title="Distribución" />}
-        {activeTab === 2 && <ComingSoon title="Reportes" />}
-        {activeTab === 3 && <ComingSoon title="Configuración" />}
+        {activeTab === 1 && <DistributionTab documents={documents} color={FACTURA_COLOR} />}
+        {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
+        {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
         {activeTab === 4 && <ProfileTab />}
       </View>
 
@@ -304,11 +294,6 @@ const s = StyleSheet.create({
   tabLabel:      { fontSize: 10, fontWeight: '600', textAlign: 'center' },
   badge:         { position: 'absolute', top: -4, right: -8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: BRAND.red, justifyContent: 'center', alignItems: 'center' },
   badgeText:     { fontSize: 9, fontWeight: '700', color: '#fff' },
-
-  comingSoon:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  comingSoonIcon:  { fontSize: 48 },
-  comingSoonTitle: { fontSize: 20, fontWeight: '700', color: BRAND.navy },
-  comingSoonSub:   { fontSize: 14, color: '#90A4AE' },
 
   profileCard:  { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
   avatar:       { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
