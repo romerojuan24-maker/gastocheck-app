@@ -11,7 +11,30 @@ import type {
   CfdiCredit,
   CfdiDistribution,
   CreditTransactionType,
+  AuditAction,
 } from '../types'
+
+// ============================================================================
+// logCfdiAudit — escribe en audit_log_facturacheck (tabla real, compliance)
+// ============================================================================
+
+async function logCfdiAudit(params: {
+  company_id: string
+  cfdi_id: string
+  action: AuditAction
+  after_state?: Record<string, any>
+  notes?: string
+}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('audit_log_facturacheck').insert({
+    company_id: params.company_id,
+    cfdi_id: params.cfdi_id,
+    action: params.action,
+    action_by_user_id: user?.id ?? null,
+    after_state: params.after_state ?? null,
+    notes: params.notes ?? null,
+  })
+}
 
 // ============================================================================
 // useCFDIGeneration
@@ -392,6 +415,15 @@ export function useGenerateAccountingVoucher() {
       })
 
       if (insertError) throw insertError
+
+      await logCfdiAudit({
+        company_id: cfdi.company_id,
+        cfdi_id: cfdi.id,
+        action: 'validated',
+        after_state: { voucher_number: voucherNumber, total: cfdi.total },
+        notes: 'Póliza contable generada desde FacturaCheck',
+      })
+
       return { success: true }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al generar póliza'
@@ -492,6 +524,15 @@ export function useMatchCfdiToBankTransaction(companyId: string) {
 
       if (cfdiUpdate.error) throw cfdiUpdate.error
       if (txnUpdate.error) throw txnUpdate.error
+
+      await logCfdiAudit({
+        company_id: companyId,
+        cfdi_id: cfdiId,
+        action: 'validated',
+        after_state: { related_bank_txn_id: bankTxnId },
+        notes: 'Pago bancario vinculado desde FacturaCheck',
+      })
+
       return { success: true }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al vincular'
@@ -500,7 +541,7 @@ export function useMatchCfdiToBankTransaction(companyId: string) {
     } finally {
       setLinking(false)
     }
-  }, [])
+  }, [companyId])
 
   return { findCandidates, confirmMatch, searching, linking, error }
 }
