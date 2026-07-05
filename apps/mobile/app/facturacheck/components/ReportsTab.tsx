@@ -9,15 +9,13 @@ interface Props {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  draft: 'Borrador',
-  pending: 'Pendiente',
-  timbrado: 'Timbrada',
-  valid: 'Vigente',
-  cancelled: 'Cancelada',
+  vigente: 'Vigente',
   cancelado: 'Cancelada',
-  error: 'Error',
-  not_found: 'No encontrada',
+  not_found: 'No encontrada en SAT',
   duplicate: 'Duplicada',
+  unmatched: 'Sin relacionar',
+  matched: 'Relacionada',
+  pending_complement: 'Falta complemento',
 }
 
 export function ReportsTab({ documents, color }: Props) {

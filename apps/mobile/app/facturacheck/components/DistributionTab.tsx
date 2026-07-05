@@ -15,7 +15,7 @@ export function DistributionTab({ documents, color }: Props) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
 
-  const distributable = documents.filter(d => d.status === 'timbrado' || d.status === 'valid')
+  const distributable = documents.filter(d => d.status === 'vigente')
 
   const openModal = (doc: CfdiDocument) => {
     setTarget(doc)
@@ -70,9 +70,9 @@ export function DistributionTab({ documents, color }: Props) {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardFolio} numberOfLines={1}>{item.folio || item.uuid_cfdi}</Text>
-              <Text style={styles.cardReceptor}>{item.receptor_name || item.rfc_receptor}</Text>
-              <Text style={styles.cardAmount}>{formatCurrency(item.total)}</Text>
+              <Text style={styles.cardFolio} numberOfLines={1}>{item.uuid_cfdi}</Text>
+              <Text style={styles.cardReceptor}>{item.razon_social_receptor || item.rfc_receptor}</Text>
+              <Text style={styles.cardAmount}>{formatCurrency(item.total ?? 0)}</Text>
             </View>
             <TouchableOpacity
               style={[styles.sendButton, { backgroundColor: color }]}
@@ -89,7 +89,7 @@ export function DistributionTab({ documents, color }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Distribuir factura</Text>
-            <Text style={styles.modalSub}>{target?.folio || target?.uuid_cfdi}</Text>
+            <Text style={styles.modalSub}>{target?.uuid_cfdi}</Text>
 
             <Text style={styles.inputLabel}>Correo electrónico</Text>
             <TextInput

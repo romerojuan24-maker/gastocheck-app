@@ -1,31 +1,82 @@
-// ── CFDI Documents (Expanded) ────────────────────────────────────────────
+// ── CFDI Documents — esquema REAL de producción ──────────────────────────
+// (ver packages/shared/src/facturacheck.ts, ya vive en @gastocheck/shared)
+
+export type CfdiStatus =
+  | 'vigente'
+  | 'cancelado'
+  | 'not_found'
+  | 'duplicate'
+  | 'unmatched'
+  | 'matched'
+  | 'pending_complement'
+
+export type CfdiDirection = 'received' | 'issued'
+export type CfdiType = 'I' | 'E' | 'P' | 'T'  // Ingreso | Egreso | Pago | Traslado
 
 export interface CfdiDocument {
   id: string
   company_id: string
-  folio?: string
-  serie?: string
+  direction: CfdiDirection
   uuid_cfdi: string
   rfc_emisor: string
+  razon_social_emisor: string | null
   rfc_receptor: string
-  receptor_name?: string
-  direction: 'received' | 'issued'
-  total: number
-  subtotal?: number
-  tax_amount?: number
-  fecha_emision: string
-  due_date?: string
-  timbro_date?: string
-  status: 'draft' | 'pending' | 'timbrado' | 'cancelled' | 'error' | 'valid' | 'cancelado' | 'not_found' | 'duplicate'
-  xml_url?: string
-  pdf_url?: string
-  pac_folio?: string
-  cobracheck_link_id?: string
-  gastocheck_link_id?: string
-  xml_content: string | null
-  notes?: string
+  razon_social_receptor: string | null
+  fecha_emision: string | null
+  subtotal: number | null
+  iva: number | null
+  ieps: number | null
+  retenciones: number | null
+  total: number | null
+  metodo_pago: string | null
+  forma_pago: string | null
+  uso_cfdi: string | null
+  tipo_comprobante: CfdiType | null
+  status: CfdiStatus
+  xml_storage_path: string | null
+  pdf_storage_path: string | null
+  related_receipt_id: string | null
+  related_cobra_invoice_id: string | null
+  related_bank_txn_id: string | null
+  sat_validated_at: string | null
   created_at: string
-  updated_at?: string
+  updated_at: string
+}
+
+// ── CFDI Issue Requests — generación de nuevas facturas (draft→timbrado) ──
+
+export interface CfdiIssueLineItem {
+  description: string
+  quantity: number
+  unit: string
+  unit_price: number
+  subtotal: number
+  iva_rate: number
+  clave_prod_serv?: string
+  clave_unidad?: string
+}
+
+export interface CfdiIssueRequest {
+  id: string
+  company_id: string
+  cfdi_type: 'ingreso' | 'egreso' | 'pago' | 'traslado'
+  receptor_rfc: string
+  receptor_razon_social: string | null
+  receptor_uso_cfdi: string
+  receptor_codigo_postal: string | null
+  receptor_regimen: string | null
+  items: CfdiIssueLineItem[]
+  subtotal: number | null
+  iva: number | null
+  total: number | null
+  status: 'draft' | 'pending' | 'timbrado' | 'cancelled' | 'error'
+  uuid_cfdi: string | null
+  provider: string
+  error_message: string | null
+  requested_by: string | null
+  timbrado_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 // ── CFDI Credits (Prepayment system) ──────────────────────────────────────

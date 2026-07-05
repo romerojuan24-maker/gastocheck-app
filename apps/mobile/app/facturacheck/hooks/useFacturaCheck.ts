@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type {
   CfdiDocument,
+  CfdiIssueRequest,
   CfdiCredit,
   CfdiDistribution,
   CreditTransactionType,
@@ -22,37 +23,50 @@ export function useCFDIGeneration() {
   const generateCFDI = useCallback(
     async (params: {
       receptor_rfc: string
-      receptor_name: string
+      receptor_razon_social: string
+      receptor_uso_cfdi: string
       subtotal: number
-      tax_amount?: number
+      iva?: number
       items: Array<{ description: string; quantity: number; unit_price: number }>
-    }): Promise<CfdiDocument | null> => {
+    }): Promise<CfdiIssueRequest | null> => {
       setGenerating(true)
       setError(null)
 
       try {
-        // TODO: Call backend API /api/factura/generate-cfdi
-        const total = params.subtotal + (params.tax_amount || 0)
-        const cfdi: CfdiDocument = {
+        // TODO: Insert en cfdi_issue_requests + llamar backend API /api/factura/generate-cfdi
+        const total = params.subtotal + (params.iva || 0)
+        const request: CfdiIssueRequest = {
           id: crypto.randomUUID(),
           company_id: '',
-          folio: `FAC-${Date.now()}`,
-          uuid_cfdi: crypto.randomUUID(),
-          rfc_emisor: 'ABC000000XYZ',
-          rfc_receptor: params.receptor_rfc,
-          receptor_name: params.receptor_name,
-          direction: 'issued',
-          total,
+          cfdi_type: 'ingreso',
+          receptor_rfc: params.receptor_rfc,
+          receptor_razon_social: params.receptor_razon_social,
+          receptor_uso_cfdi: params.receptor_uso_cfdi,
+          receptor_codigo_postal: null,
+          receptor_regimen: null,
+          items: params.items.map(i => ({
+            description: i.description,
+            quantity: i.quantity,
+            unit: 'PZA',
+            unit_price: i.unit_price,
+            subtotal: i.quantity * i.unit_price,
+            iva_rate: 0.16,
+          })),
           subtotal: params.subtotal,
-          tax_amount: params.tax_amount || 0,
-          fecha_emision: new Date().toISOString(),
-          status: 'pending',
-          xml_content: null,
+          iva: params.iva ?? null,
+          total,
+          status: 'draft',
+          uuid_cfdi: null,
+          provider: 'facturama',
+          error_message: null,
+          requested_by: null,
+          timbrado_at: null,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
 
-        console.log('[STUB] Generated CFDI:', cfdi.folio)
-        return cfdi
+        console.log('[STUB] Generated CFDI issue request:', request.id)
+        return request
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'CFDI generation failed'
         setError(msg)
@@ -187,19 +201,31 @@ export function useCFDIList(companyId: string) {
           {
             id: 'CFDI001',
             company_id: companyId,
-            folio: 'FAC-20260705001',
+            direction: 'issued',
             uuid_cfdi: crypto.randomUUID(),
             rfc_emisor: 'ABC000000XYZ',
+            razon_social_emisor: 'Mi Empresa SA de CV',
             rfc_receptor: 'XYZ123456ABC',
-            receptor_name: 'Cliente Ejemplo',
-            direction: 'issued',
-            total: 1500.0,
-            subtotal: 1290.32,
-            tax_amount: 206.45,
+            razon_social_receptor: 'Cliente Ejemplo',
             fecha_emision: new Date().toISOString(),
-            status: 'timbrado',
-            xml_content: null,
+            subtotal: 1290.32,
+            iva: 206.45,
+            ieps: null,
+            retenciones: null,
+            total: 1500.0,
+            metodo_pago: 'PUE',
+            forma_pago: '03',
+            uso_cfdi: 'G03',
+            tipo_comprobante: 'I',
+            status: 'vigente',
+            xml_storage_path: null,
+            pdf_storage_path: null,
+            related_receipt_id: null,
+            related_cobra_invoice_id: null,
+            related_bank_txn_id: null,
+            sat_validated_at: null,
             created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
         ]
 
