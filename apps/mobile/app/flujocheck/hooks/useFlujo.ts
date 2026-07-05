@@ -50,7 +50,7 @@ export function useFlujoItems(companyId: string) {
           .limit(100),
         supabase
           .from('cobra_invoices')
-          .select('id, folio, amount, due_date, status, created_at, updated_at')
+          .select('id, folio, amount, due_date, status, days_overdue, created_at, updated_at')
           .eq('company_id', companyId)
           .in('status', ['pending', 'overdue'])
           .order('due_date', { ascending: true })
@@ -66,23 +66,30 @@ export function useFlujoItems(companyId: string) {
 
       const manualItems = (manual.data ?? []) as CashFlowItem[]
 
-      const cobroItems: CashFlowItem[] = (cobros.data ?? []).map((c: any) => ({
-        id: `cobra_${c.id}`,
-        company_id: companyId,
-        description: c.folio ? `Cobro ${c.folio}` : 'Cobro pendiente',
-        amount: c.amount ?? 0,
-        direction: 'in',
-        item_type: 'income',
-        expected_date: c.due_date,
-        status: c.status === 'overdue' ? 'overdue' : 'pending',
-        source: 'cobracheck',
-        source_id: c.id,
-        is_scenario: false,
-        scenario_id: null,
-        notes: null,
-        created_at: c.created_at,
-        updated_at: c.updated_at,
-      }))
+      const cobroItems: CashFlowItem[] = (cobros.data ?? []).map((c: any) => {
+        const daysOverdue = c.days_overdue ?? 0
+        const confidence = daysOverdue === 0 ? 'Alta confianza de cobro'
+          : daysOverdue <= 15 ? `Confianza media (${daysOverdue}d de atraso)`
+          : `Confianza baja (${daysOverdue}d de atraso)`
+
+        return {
+          id: `cobra_${c.id}`,
+          company_id: companyId,
+          description: c.folio ? `Cobro ${c.folio}` : 'Cobro pendiente',
+          amount: c.amount ?? 0,
+          direction: 'in',
+          item_type: 'income',
+          expected_date: c.due_date,
+          status: c.status === 'overdue' ? 'overdue' : 'pending',
+          source: 'cobracheck',
+          source_id: c.id,
+          is_scenario: false,
+          scenario_id: null,
+          notes: confidence,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }
+      })
 
       const reembolsoItems: CashFlowItem[] = (reembolsos.data ?? []).map((r: any) => ({
         id: `reembolso_${r.id}`,

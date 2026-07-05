@@ -58,6 +58,9 @@ export function CashFlowList({ items, onEdit, onDelete }: Props) {
                 <Text style={styles.source}>{SOURCE_LABEL[item.source]}</Text>
               )}
             </View>
+            {item.notes && (
+              <Text style={styles.confidenceNote} numberOfLines={1}>{item.notes}</Text>
+            )}
           </View>
 
           <View style={styles.action}>
@@ -135,6 +138,12 @@ const styles = StyleSheet.create({
   source: {
     color: '#94a3b8',
     fontSize: 10,
+  },
+  confidenceNote: {
+    color: '#64748b',
+    fontSize: 10,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   action: {
     alignItems: 'flex-end',
