@@ -40,15 +40,71 @@ export function useFlujoItems(companyId: string) {
     if (!companyId) return
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from('cash_flow_items')
-        .select('*')
-        .eq('company_id', companyId)
-        .eq('is_scenario', false)
-        .order('expected_date', { ascending: true })
-        .limit(100)
+      const [manual, cobros, reembolsos] = await Promise.all([
+        supabase
+          .from('cash_flow_items')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('is_scenario', false)
+          .order('expected_date', { ascending: true })
+          .limit(100),
+        supabase
+          .from('cobra_invoices')
+          .select('id, folio, amount, due_date, status, created_at, updated_at')
+          .eq('company_id', companyId)
+          .in('status', ['pending', 'overdue'])
+          .order('due_date', { ascending: true })
+          .limit(100),
+        supabase
+          .from('reembolsos')
+          .select('id, name, total, status, created_at, updated_at')
+          .eq('company_id', companyId)
+          .in('status', ['pending', 'pending_auth'])
+          .order('created_at', { ascending: true })
+          .limit(100),
+      ])
 
-      const its = (data ?? []) as CashFlowItem[]
+      const manualItems = (manual.data ?? []) as CashFlowItem[]
+
+      const cobroItems: CashFlowItem[] = (cobros.data ?? []).map((c: any) => ({
+        id: `cobra_${c.id}`,
+        company_id: companyId,
+        description: c.folio ? `Cobro ${c.folio}` : 'Cobro pendiente',
+        amount: c.amount ?? 0,
+        direction: 'in',
+        item_type: 'income',
+        expected_date: c.due_date,
+        status: c.status === 'overdue' ? 'overdue' : 'pending',
+        source: 'cobracheck',
+        source_id: c.id,
+        is_scenario: false,
+        scenario_id: null,
+        notes: null,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+      }))
+
+      const reembolsoItems: CashFlowItem[] = (reembolsos.data ?? []).map((r: any) => ({
+        id: `reembolso_${r.id}`,
+        company_id: companyId,
+        description: r.name ? `Reembolso: ${r.name}` : 'Reembolso pendiente',
+        amount: r.total ?? 0,
+        direction: 'out',
+        item_type: 'expense',
+        expected_date: (r.created_at ?? '').split('T')[0],
+        status: 'pending',
+        source: 'gastocheck',
+        source_id: r.id,
+        is_scenario: false,
+        scenario_id: null,
+        notes: null,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      }))
+
+      const its = [...manualItems, ...cobroItems, ...reembolsoItems].sort(
+        (a, b) => (a.expected_date || '').localeCompare(b.expected_date || '')
+      )
       setItems(its)
 
       const { balance, risk: r } = projectCashFlow(currentBalance, its, 7)
