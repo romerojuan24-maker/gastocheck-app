@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       accessToken = authHeader.replace('Bearer ', '')
     } else {
       // Intentar via cookie (supabase-auth-token)
-      const cookieStore = cookies()
+      const cookieStore = await cookies()
       const tokenCookie = cookieStore.get('sb-omhycwfjxynkfwywzwvz-auth-token')
       if (tokenCookie?.value) {
         try {

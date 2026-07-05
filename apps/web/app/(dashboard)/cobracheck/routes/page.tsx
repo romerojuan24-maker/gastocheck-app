@@ -23,7 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Calendar } from 'lucide-react';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -61,6 +60,10 @@ interface DailyReport {
   notes?: string;
   createdAt: string;
 }
+
+type CobraMovementRow = CobraMovement & {
+  client?: { name: string };
+};
 
 interface RealtimeStats {
   totalCollected: number;
@@ -220,7 +223,7 @@ function RouteGenerator({
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="pl-10"
               />
-              <Calendar className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+              <svg className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
           </div>
 
@@ -329,7 +332,7 @@ interface MovementsTableProps {
 }
 
 function MovementsTable({ companyId, collectors }: MovementsTableProps) {
-  const [movements, setMovements] = useState<CobraMovement[]>([]);
+  const [movements, setMovements] = useState<CobraMovementRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Filtros
@@ -363,7 +366,7 @@ function MovementsTable({ companyId, collectors }: MovementsTableProps) {
 
       const { data } = await query.order('created_at', { ascending: false }).limit(100);
 
-      setMovements((data as any[]) ?? []);
+      setMovements((data as CobraMovementRow[]) ?? []);
     } finally {
       setLoading(false);
     }
