@@ -36,6 +36,22 @@ export function ClientDetail({
     )
   }
 
+  // Recordatorio de pago por WhatsApp — usa el esquema nativo whatsapp://
+  // (sin API/credenciales, el cobrador revisa y envía el mensaje él mismo).
+  const handleRemindWhatsApp = () => {
+    if (!client.phone) {
+      Alert.alert('Sin teléfono', 'Este cliente no tiene teléfono registrado')
+      return
+    }
+    const digits = client.phone.replace(/\D/g, '')
+    const withCountryCode = digits.length === 10 ? `52${digits}` : digits
+    const message = `Hola ${client.name}, te recordamos que tienes ${client.invoices_count} recibo(s) pendiente(s) por ${formatCurrency(client.total_amount)}. ¿Podemos pasar a cobrar hoy?`
+    const url = `whatsapp://send?phone=${withCountryCode}&text=${encodeURIComponent(message)}`
+    Linking.openURL(url).catch(() =>
+      Alert.alert('WhatsApp no disponible', 'No se pudo abrir WhatsApp en este dispositivo')
+    )
+  }
+
   return (
     <Modal
       visible={visible}
@@ -86,6 +102,11 @@ export function ClientDetail({
               <Text style={styles.detailText}>
                 {client.invoices_count} recibo(s) · {formatCurrency(client.total_amount)}
               </Text>
+              {client.phone && client.invoices_count > 0 && (
+                <TouchableOpacity style={styles.reminderButton} onPress={handleRemindWhatsApp}>
+                  <Text style={styles.reminderButtonText}>💬 Enviar recordatorio de pago</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {client.distance && (
@@ -190,6 +211,21 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#36BF6A',
     textDecorationLine: 'underline',
+  },
+  reminderButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#25D36622',
+    borderWidth: 1,
+    borderColor: '#25D366',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  reminderButtonText: {
+    color: '#25D366',
+    fontSize: 13,
+    fontWeight: '700',
   },
   detailActions: {
     flexDirection: 'row',

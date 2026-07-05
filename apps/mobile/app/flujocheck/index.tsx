@@ -328,9 +328,11 @@ export default function FlujoCheckHome() {
             {activeTab === 1 && <FlujoTab />}
             {activeTab === 2 && (
               <ProjectionTab
+                companyId={companyId || ''}
                 currentBalance={currentBalance}
                 monthlyIncomeAvg={income}
                 monthlyExpenseAvg={expense}
+                baselineItems={items}
                 color={FLUJO_COLOR}
               />
             )}
@@ -345,9 +347,11 @@ export default function FlujoCheckHome() {
             {activeTab === 1 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
             {activeTab === 2 && (
               <ProjectionTab
+                companyId={companyId || ''}
                 currentBalance={currentBalance}
                 monthlyIncomeAvg={income}
                 monthlyExpenseAvg={expense}
+                baselineItems={items}
                 color={FLUJO_COLOR}
               />
             )}

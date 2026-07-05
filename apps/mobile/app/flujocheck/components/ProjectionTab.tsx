@@ -2,11 +2,15 @@ import React, { useEffect } from 'react'
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native'
 import { formatCurrency } from '@gastocheck/shared'
 import { useAnnualProjection } from '../hooks'
+import { ScenariosSection } from './ScenariosSection'
+import type { CashFlowItem } from '../types'
 
 interface Props {
+  companyId: string
   currentBalance: number
   monthlyIncomeAvg: number
   monthlyExpenseAvg: number
+  baselineItems: CashFlowItem[]
   color: string
 }
 
@@ -24,7 +28,7 @@ const HEALTH_LABEL: Record<string, string> = {
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-export function ProjectionTab({ currentBalance, monthlyIncomeAvg, monthlyExpenseAvg, color }: Props) {
+export function ProjectionTab({ companyId, currentBalance, monthlyIncomeAvg, monthlyExpenseAvg, baselineItems, color }: Props) {
   const { projections, calculating, calculate } = useAnnualProjection()
 
   useEffect(() => {
@@ -33,21 +37,31 @@ export function ProjectionTab({ currentBalance, monthlyIncomeAvg, monthlyExpense
     }
   }, [currentBalance, monthlyIncomeAvg, monthlyExpenseAvg])
 
-  if (calculating || projections.length === 0) {
+  if (calculating) {
     return (
       <View style={styles.center}>
-        {calculating ? (
-          <ActivityIndicator size="large" color={color} />
-        ) : (
-          <>
-            <Text style={styles.emptyIcon}>📈</Text>
-            <Text style={styles.emptyTitle}>Sin datos suficientes</Text>
-            <Text style={styles.emptySub}>
-              Registra movimientos para ver la proyección de 12 meses.
-            </Text>
-          </>
-        )}
+        <ActivityIndicator size="large" color={color} />
       </View>
+    )
+  }
+
+  if (projections.length === 0) {
+    return (
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <View style={styles.centerInline}>
+          <Text style={styles.emptyIcon}>📈</Text>
+          <Text style={styles.emptyTitle}>Sin datos suficientes</Text>
+          <Text style={styles.emptySub}>
+            Registra movimientos para ver la proyección de 12 meses.
+          </Text>
+        </View>
+        <ScenariosSection
+          companyId={companyId}
+          currentBalance={currentBalance}
+          baselineItems={baselineItems}
+          color={color}
+        />
+      </ScrollView>
     )
   }
 
@@ -105,12 +119,20 @@ export function ProjectionTab({ currentBalance, monthlyIncomeAvg, monthlyExpense
           </View>
         )
       })}
+
+      <ScenariosSection
+        companyId={companyId}
+        currentBalance={currentBalance}
+        baselineItems={baselineItems}
+        color={color}
+      />
     </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 8 },
+  centerInline: { justifyContent: 'center', alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptyIcon: { fontSize: 40, marginBottom: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#f1f5f9' },
   emptySub: { fontSize: 13, color: '#94a3b8', textAlign: 'center' },
