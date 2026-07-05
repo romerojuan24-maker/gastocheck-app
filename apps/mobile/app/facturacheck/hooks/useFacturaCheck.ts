@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
+import { supabase } from '../../../lib/supabase'
 import type {
   CfdiDocument,
   CfdiIssueRequest,
@@ -279,4 +280,44 @@ export function useCFDICancel() {
   }, [])
 
   return { cancel, cancelling, error }
+}
+
+// ============================================================================
+// usePacProviderConfig — estado real del PAC (tabla cfdi_provider_configs)
+// ============================================================================
+
+export interface PacProviderStatus {
+  id: string
+  provider: string
+  rfc: string
+  razon_social: string | null
+  mode: 'sandbox' | 'production'
+  is_active: boolean
+}
+
+export function usePacProviderConfig(companyId: string) {
+  const [config, setConfig] = useState<PacProviderStatus | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const refetch = useCallback(async () => {
+    if (!companyId) return
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('cfdi_provider_configs')
+        .select('id, provider, rfc, razon_social, mode, is_active')
+        .eq('company_id', companyId)
+        .maybeSingle()
+
+      setConfig((data as PacProviderStatus) ?? null)
+    } finally {
+      setLoading(false)
+    }
+  }, [companyId])
+
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
+  return { config, loading, refetch }
 }

@@ -5,4 +5,5 @@ export {
   useCFDICredit,
   useCFDIList,
   useCFDICancel,
+  usePacProviderConfig,
 } from './useFacturaCheck'
