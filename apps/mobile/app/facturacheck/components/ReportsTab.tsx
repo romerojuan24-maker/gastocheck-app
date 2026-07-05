@@ -1,6 +1,7 @@
 import React from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { formatCurrency } from '@gastocheck/shared'
+import { useGenerateAccountingVoucher } from '../hooks'
 import type { CfdiDocument } from '../types'
 
 interface Props {
@@ -19,9 +20,23 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export function ReportsTab({ documents, color }: Props) {
+  const { generateBulk, generating } = useGenerateAccountingVoucher()
+
   const totalAmount = documents.reduce((s, d) => s + (d.total || 0), 0)
   const issuedAmount = documents.filter(d => d.direction === 'issued').reduce((s, d) => s + (d.total || 0), 0)
   const receivedAmount = documents.filter(d => d.direction === 'received').reduce((s, d) => s + (d.total || 0), 0)
+  const vigentesIssued = documents.filter(d => d.direction === 'issued' && d.status === 'vigente').length
+
+  const handleGenerateVouchers = async () => {
+    const { created, skipped } = await generateBulk(documents)
+    if (created === 0 && skipped === 0) {
+      Alert.alert('Sin facturas', 'No hay CFDIs emitidos vigentes para generar póliza')
+    } else if (created === 0) {
+      Alert.alert('Ya generadas', `Las ${skipped} facturas vigentes ya tienen póliza contable`)
+    } else {
+      Alert.alert('Pólizas generadas', `${created} póliza(s) contable(s) creada(s)${skipped > 0 ? `, ${skipped} ya existían` : ''}`)
+    }
+  }
 
   const byStatus = documents.reduce<Record<string, { count: number; amount: number }>>((acc, d) => {
     const key = d.status
@@ -48,6 +63,19 @@ export function ReportsTab({ documents, color }: Props) {
         <Text style={[styles.summaryValue, { color }]}>{formatCurrency(totalAmount)}</Text>
         <Text style={styles.summarySub}>{documents.length} documentos</Text>
       </View>
+
+      {vigentesIssued > 0 && (
+        <TouchableOpacity
+          style={[styles.voucherButton, { borderColor: color }]}
+          onPress={handleGenerateVouchers}
+          disabled={generating}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.voucherButtonText, { color }]}>
+            {generating ? 'Generando...' : `📒 Generar pólizas contables (${vigentesIssued} vigentes)`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.row}>
         <View style={styles.halfCard}>
@@ -87,6 +115,11 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 0.5, marginBottom: 6 },
   summaryValue: { fontSize: 26, fontWeight: '800' },
   summarySub: { fontSize: 12, color: '#94A3B8', marginTop: 4 },
+
+  voucherButton: {
+    borderWidth: 1.5, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 12,
+  },
+  voucherButtonText: { fontSize: 13, fontWeight: '700' },
 
   row: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   halfCard: {

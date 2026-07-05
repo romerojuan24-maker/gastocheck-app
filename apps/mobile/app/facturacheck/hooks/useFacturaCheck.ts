@@ -321,3 +321,98 @@ export function usePacProviderConfig(companyId: string) {
 
   return { config, loading, refetch }
 }
+
+// ============================================================================
+// useGenerateAccountingVoucher — FacturaCheck ↔ GastoCheck
+// Genera una póliza contable real (accounting_vouchers) cuando un CFDI
+// emitido está vigente. Evita duplicados verificando source_ids antes de insertar.
+// ============================================================================
+
+export function useGenerateAccountingVoucher() {
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const hasVoucher = useCallback(async (cfdiId: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('accounting_vouchers')
+      .select('id')
+      .contains('source_ids', [cfdiId])
+      .limit(1)
+    return (data?.length ?? 0) > 0
+  }, [])
+
+  const generate = useCallback(async (cfdi: CfdiDocument): Promise<{ success: boolean; error?: string }> => {
+    if (cfdi.direction !== 'issued' || cfdi.status !== 'vigente') {
+      return { success: false, error: 'Solo se puede generar póliza de CFDIs emitidos y vigentes' }
+    }
+    if (!cfdi.total || !cfdi.subtotal) {
+      return { success: false, error: 'El CFDI no tiene montos completos' }
+    }
+
+    setGenerating(true)
+    setError(null)
+    try {
+      const already = await hasVoucher(cfdi.id)
+      if (already) {
+        return { success: false, error: 'Ya existe una póliza para este CFDI' }
+      }
+
+      const iva = cfdi.iva ?? 0
+      const voucherNumber = `FACT-${cfdi.uuid_cfdi.slice(0, 8).toUpperCase()}`
+
+      const entries = [
+        {
+          account_code: '4000',
+          description: `Ingresos por servicios — ${cfdi.razon_social_receptor || cfdi.rfc_receptor}`,
+          debit: 0,
+          credit: cfdi.subtotal,
+        },
+        ...(iva > 0
+          ? [{ account_code: '2108', description: 'IVA trasladado', debit: 0, credit: iva }]
+          : []),
+        {
+          account_code: '1200',
+          description: 'Cuentas por cobrar / Bancos',
+          debit: cfdi.total,
+          credit: 0,
+        },
+      ]
+
+      const { error: insertError } = await supabase.from('accounting_vouchers').insert({
+        company_id: cfdi.company_id,
+        voucher_number: voucherNumber,
+        voucher_type: 'INCOME',
+        source_module: 'facturacheck',
+        source_ids: [cfdi.id],
+        total_debit: cfdi.total,
+        total_credit: cfdi.total,
+        currency: 'MXN',
+        entries,
+        status: 'draft',
+      })
+
+      if (insertError) throw insertError
+      return { success: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al generar póliza'
+      setError(msg)
+      return { success: false, error: msg }
+    } finally {
+      setGenerating(false)
+    }
+  }, [hasVoucher])
+
+  const generateBulk = useCallback(async (cfdis: CfdiDocument[]): Promise<{ created: number; skipped: number }> => {
+    const candidates = cfdis.filter(d => d.direction === 'issued' && d.status === 'vigente')
+    let created = 0
+    let skipped = 0
+    for (const cfdi of candidates) {
+      const result = await generate(cfdi)
+      if (result.success) created++
+      else skipped++
+    }
+    return { created, skipped }
+  }, [generate])
+
+  return { generate, generateBulk, hasVoucher, generating, error }
+}
