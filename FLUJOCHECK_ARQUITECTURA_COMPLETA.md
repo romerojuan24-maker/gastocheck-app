@@ -280,6 +280,127 @@ CREATE TABLE cash_flow_transactions (
 );
 ```
 
+### 8. TABLA: `bank_accounts_multi` (Multi-cuenta management)
+
+```sql
+CREATE TABLE bank_accounts_multi (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id),
+  
+  -- Identificación
+  account_name TEXT NOT NULL,              -- "Operativa", "Reserva", "Nómina", "Inversión"
+  account_type TEXT,                       -- 'operational', 'reserve', 'payroll', 'investment'
+  bank_name TEXT NOT NULL,
+  account_number TEXT,
+  
+  -- Saldo
+  current_balance DECIMAL(15,2),
+  last_sync TIMESTAMP,
+  
+  -- Designaciones
+  purposes TEXT[],                         -- Array: ['payroll', 'operations', 'emergency']
+  minimum_balance_threshold DECIMAL(15,2), -- No tocar por debajo de X
+  
+  -- Prioridad transferencia
+  priority_for_transfers INT,              -- 1 = primera opción, 3 = última
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_company_account ON bank_accounts_multi(company_id, account_type);
+```
+
+### 9. TABLA: `multi_account_recommendations` (Transferencias recomendadas)
+
+```sql
+CREATE TABLE multi_account_recommendations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  period_id UUID NOT NULL REFERENCES cash_flow_periods(id),
+  
+  -- Movimiento
+  from_account_id UUID NOT NULL REFERENCES bank_accounts_multi(id),
+  to_account_id UUID NOT NULL REFERENCES bank_accounts_multi(id),
+  
+  -- Monto
+  recommended_amount DECIMAL(15,2),
+  reason TEXT,  -- "Cubrir déficit", "Preparar nómina", "Mantener buffer"
+  
+  -- Prioridad
+  priority INT,  -- 1 = hacer ahora, 2 = próximas 24h, 3 = dentro de 48h
+  urgency TEXT,  -- 'critical', 'high', 'medium', 'low'
+  
+  -- Impacto
+  impact_on_from_balance DECIMAL(15,2),  -- Nuevo saldo cuenta origen
+  impact_on_to_balance DECIMAL(15,2),    -- Nuevo saldo cuenta destino
+  
+  -- Status
+  is_executed BOOLEAN DEFAULT false,
+  executed_at TIMESTAMP,
+  execution_status TEXT,  -- 'pending', 'in_transit', 'completed', 'failed'
+  
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_period_priority ON multi_account_recommendations(period_id, priority);
+```
+
+### 10. TABLA: `payment_collection_confidence` (IA Cobros por Cliente - Color Score)
+
+```sql
+CREATE TABLE payment_collection_confidence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id),
+  customer_id UUID,                        -- Cliente CobraCheck
+  
+  -- Identificación
+  customer_name TEXT NOT NULL,
+  receivable_id UUID,                      -- Link a receivables tabla
+  
+  -- Monto esperado
+  expected_amount DECIMAL(15,2),
+  expected_date DATE,
+  
+  -- Histórico
+  total_payments_history INT DEFAULT 0,    -- Total pagos que ha hecho
+  on_time_payments INT DEFAULT 0,          -- Pagos puntuales
+  late_payments INT DEFAULT 0,             -- Pagos retrasados
+  very_late_payments INT DEFAULT 0,        -- Pagos > 7 días retrasados
+  missed_payments INT DEFAULT 0,           -- Pagos nunca llegaron
+  
+  -- Estadísticas
+  punctuality_rate DECIMAL(5,2),           -- % pagos a tiempo (0-100)
+  average_days_late DECIMAL(5,1),          -- Promedio días de retraso
+  max_days_late INT,                       -- Máximo retraso registrado
+  
+  -- IA CONFIDENCE SCORE (0-100)
+  confidence_score INT,                    -- 0-100
+  confidence_color TEXT,                   -- 'green', 'yellow', 'red'
+  confidence_reason TEXT,                  -- Por qué esa confianza
+  
+  -- Análisis tendencia
+  trend TEXT,                              -- 'improving', 'stable', 'worsening'
+  trend_change_last_90_days DECIMAL(5,1),  -- % cambio últimos 90 días
+  
+  -- Alertas
+  is_at_risk BOOLEAN DEFAULT false,        -- IA detecta potencial problema
+  risk_level TEXT,                         -- 'low', 'medium', 'high', 'critical'
+  recommended_action TEXT,                 -- "Confiar", "Llamar para confirmar", "NO confiar"
+  
+  -- Recomendación
+  should_prepay_or_reduce BOOLEAN DEFAULT false,
+  
+  last_calculated TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_customer_confidence ON payment_collection_confidence(company_id, confidence_score DESC);
+CREATE INDEX idx_risk_level ON payment_collection_confidence(company_id, risk_level);
+```
+
 ---
 
 ## 🎨 UI: DASHBOARD SEMANAL DE FLUJO
@@ -308,57 +429,87 @@ SECCIÓN 1: RESUMEN SEMANAL
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-SECCIÓN 2: CUENTAS POR PAGAR (4 COLUMNAS)
+SECCIÓN 2: CUENTAS POR PAGAR (3 COLUMNAS — SALDO ANTES/DESPUÉS EN COLUMNA 1)
 
-┌─────────────────────┬──────────────────┬──────────────────┬─────────────────┐
-│  ADEUDOS TOTALES    │  PAGOS A HACER   │  PAGOS           │  SALDO DESPUÉS  │
-│  ESTA SEMANA        │  ESTA SEMANA     │  SELECCIONADOS   │  DE PAGO        │
-├─────────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│                     │                  │                  │                 │
-│ Proveedor ABC       │ Min: $50,000     │                  │ Antes: $200K    │
-│ Total adeudado      │ Sugerido: $75K   │  ✓ $75,000       │ Después: $125K  │
-│ $200,000            │                  │                  │                 │
-│ Vence: 2026-07-21   │                  │  STATUS: PAGABLE │ Vida crédito: ↑ │
-│ [VER DETALLE]       │                  │                  │ (2 meses menos) │
-│                     │                  │                  │                 │
-├─────────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│                     │                  │                  │                 │
-│ BBVA - Crédito      │ Min: $12,000     │  ✓ $15,000       │ Antes: $180K    │
-│ Total adeudado      │ Sugerido: $12K   │                  │ Después: $165K  │
-│ $180,000            │ (Interés: $450)  │  STATUS: OK      │                 │
-│ Vence: 2026-07-30   │                  │                  │ Interés anual:  │
-│ Interés: 18% anual  │ Extra: $3,000    │ ⚠️  Pagaste $3K  │ (ahorra $200)   │
-│ [VER PROYECCIÓN]    │ para ahorrar      │ extra            │                 │
-│                     │ interés          │                  │ Payoff: 2026-11 │
-│                     │                  │                  │ (2 meses antes) │
-│                     │                  │                  │                 │
-├─────────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│                     │                  │                  │                 │
-│ Impuestos (SAT)     │ Min: $30,000     │  ✗ NO            │ Antes: $95K     │
-│ Total adeudado      │ Sugerido: $30K   │                  │ Después: $95K   │
-│ $95,000             │ CRÍTICO: Vence   │ RAZÓN: Déficit   │ (sin cambios)   │
-│ Vence: 2026-07-15   │ en 3 días        │ de $40K          │                 │
-│ VENCIDA!!! 🔴       │ PRIORITARIO      │                  │ ACCIÓN: Buscar  │
-│ [PAGAR AHORA!]      │                  │ ACCIÓN: Financiar│ línea crédito   │
-│                     │                  │ esta cuenta      │ antes jul 15    │
-│                     │                  │                  │                 │
-├─────────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│                     │                  │                  │                 │
-│ Servicios           │ Min: $18,000     │  ✓ $18,000       │ Antes: $72K     │
-│ Total adeudado      │ Sugerido: $18K   │                  │ Después: $54K   │
-│ $72,000             │                  │  STATUS: OK      │                 │
-│ Vence: 2026-07-25   │                  │                  │                 │
-│                     │                  │                  │                 │
-├─────────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│                     │                  │                  │                 │
-│ 📊 TOTALES          │ 📊 TOTALES       │ 📊 TOTALES       │ 📊 TOTALES      │
-│ $547,000            │ $110,000         │ $108,000         │ $622K → $574K   │
-│ (12 cuentas más)    │ (Recomendado)    │ (Tu plan)        │ (-$48K = plan)  │
-│                     │                  │                  │                 │
-│ Vencidas: $95K 🔴   │ Críticas: $30K   │ Diferencia: $2K  │ Sobra/Falta:    │
-│ Próximas 7d: $200K  │ Próximas 7d: $50K│ (bajo plan)     │ -$40K = DÉFICIT │
-│                     │                  │                  │                 │
-└─────────────────────┴──────────────────┴──────────────────┴─────────────────┘
+┌──────────────────────────────────────────┬──────────────────┬──────────────────┐
+│  ADEUDOS TOTALES + SALDO                 │  PAGOS A HACER   │  PAGOS           │
+│  (ANTES Y DESPUÉS DEL PAGO)              │  ESTA SEMANA     │  SELECCIONADOS   │
+├──────────────────────────────────────────┼──────────────────┼──────────────────┤
+│                                          │                  │                  │
+│ Proveedor ABC                            │ Min: $50,000     │                  │
+│ Total adeudado $200,000                  │ Sugerido: $75K   │  ✓ $75,000       │
+│ Vence: 2026-07-21                        │                  │                  │
+│ [VER DETALLE]                            │                  │  STATUS: PAGABLE │
+│                                          │                  │                  │
+│ ┌─ SALDO ANTES PAGO ──────────────────┐ │                  │                  │
+│ │ $200,000 MXN                        │ │                  │                  │
+│ └─────────────────────────────────────┘ │                  │  Vida crédito: ↑ │
+│ ┌─ SALDO DESPUÉS PAGO ────────────────┐ │                  │  (2 meses menos) │
+│ │ $125,000 MXN (-$75K)                │ │                  │                  │
+│ └─────────────────────────────────────┘ │                  │                  │
+│                                          │                  │                  │
+├──────────────────────────────────────────┼──────────────────┼──────────────────┤
+│                                          │                  │                  │
+│ BBVA - Crédito                           │ Min: $12,000     │  ✓ $15,000       │
+│ Total adeudado $180,000                  │ Sugerido: $12K   │                  │
+│ Vence: 2026-07-30                        │ (Interés: $450)  │  STATUS: OK      │
+│ Interés: 18% anual                       │                  │                  │
+│ [VER PROYECCIÓN]                         │ Extra: $3,000    │ ⚠️  Pagaste $3K  │
+│                                          │ para ahorrar      │ extra            │
+│ ┌─ SALDO ANTES PAGO ──────────────────┐ │ interés          │                  │
+│ │ $180,000 MXN                        │ │                  │ Interés anual:   │
+│ └─────────────────────────────────────┘ │                  │ (ahorra $200)    │
+│ ┌─ SALDO DESPUÉS PAGO ────────────────┐ │                  │                  │
+│ │ $165,000 MXN (-$15K)                │ │                  │ Payoff: 2026-11  │
+│ └─────────────────────────────────────┘ │                  │ (2 meses antes)  │
+│                                          │                  │                  │
+├──────────────────────────────────────────┼──────────────────┼──────────────────┤
+│                                          │                  │                  │
+│ Impuestos (SAT)                          │ Min: $30,000     │  ✗ NO            │
+│ Total adeudado $95,000                   │ Sugerido: $30K   │                  │
+│ Vence: 2026-07-15 VENCIDA!!! 🔴         │ CRÍTICO: Vence   │ RAZÓN: Déficit   │
+│ [PAGAR AHORA!]                           │ en 3 días        │ de $40K          │
+│                                          │ PRIORITARIO      │                  │
+│ ┌─ SALDO ANTES PAGO ──────────────────┐ │                  │ ACCIÓN: Buscar   │
+│ │ $95,000 MXN                         │ │                  │ línea crédito    │
+│ └─────────────────────────────────────┘ │                  │ antes jul 15     │
+│ ┌─ SALDO DESPUÉS PAGO ────────────────┐ │                  │                  │
+│ │ $95,000 MXN (sin cambios)           │ │                  │                  │
+│ └─────────────────────────────────────┘ │                  │                  │
+│                                          │                  │                  │
+├──────────────────────────────────────────┼──────────────────┼──────────────────┤
+│                                          │                  │                  │
+│ Servicios                                │ Min: $18,000     │  ✓ $18,000       │
+│ Total adeudado $72,000                   │ Sugerido: $18K   │                  │
+│ Vence: 2026-07-25                        │                  │  STATUS: OK      │
+│                                          │                  │                  │
+│ ┌─ SALDO ANTES PAGO ──────────────────┐ │                  │                  │
+│ │ $72,000 MXN                         │ │                  │                  │
+│ └─────────────────────────────────────┘ │                  │                  │
+│ ┌─ SALDO DESPUÉS PAGO ────────────────┐ │                  │                  │
+│ │ $54,000 MXN (-$18K)                 │ │                  │                  │
+│ └─────────────────────────────────────┘ │                  │                  │
+│                                          │                  │                  │
+├──────────────────────────────────────────┼──────────────────┼──────────────────┤
+│                                          │                  │                  │
+│ 📊 TOTALES                               │ 📊 TOTALES       │ 📊 TOTALES       │
+│ (12 cuentas más)                         │                  │                  │
+│                                          │                  │                  │
+│ ┌─ SALDO TOTAL ANTES PAGO ────────────┐ │ $110,000         │ $108,000         │
+│ │ $622,000 MXN                        │ │ (Recomendado)    │ (Tu plan)        │
+│ └─────────────────────────────────────┘ │                  │                  │
+│ ┌─ SALDO TOTAL DESPUÉS PAGO ─────────┐ │ Vencidas: $95K   │ Diferencia: $2K  │
+│ │ $574,000 MXN                        │ │ 🔴               │ (bajo plan) ✅   │
+│ │                                     │ │                  │                  │
+│ │ Diferencia: -$48K (tu plan) ✅      │ │ Críticas: $30K   │ RESULTADO:       │
+│ │ Sobra/Falta: -$40K = DÉFICIT ⚠️    │ │ (prioritarias)   │ Déficit $40K     │
+│ │                                     │ │                  │                  │
+│ │ 🎯 Ver soluciones abajo (Multi-    │ │ Próximas 7d:     │ NECESITAS:       │
+│ │    Cuenta Transfer + AI Cobros)    │ │ $50K prioritarias │ -Financiar $40K  │
+│ │                                     │ │                  │ -Acelerar cobros │
+│ └─────────────────────────────────────┘ │                  │ -Diferir algunos │
+│                                          │                  │                  │
+└──────────────────────────────────────────┴──────────────────┴──────────────────┘
 
 SECCIÓN 3: ACCIONES RECOMENDADAS
 
@@ -407,12 +558,153 @@ Crédito: BBVA $180,000 @ 18% anual (Plan actual: $12K/mes)
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
 
-SECCIÓN 5: CONTROLES ADICIONALES
+SECCIÓN 5: MULTI-CUENTA MANAGEMENT (Movimientos entre cuentas)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  💰 RECOMENDACIONES DE MOVIMIENTOS ENTRE CUENTAS                             │
+│                                                                              │
+│  Si tienes múltiples cuentas (BancoCheck vinculado):                        │
+│                                                                              │
+│  SITUACIÓN ACTUAL:                                                           │
+│  ├─ Cuenta Operativa (BBVA):     $450,000 MXN                              │
+│  ├─ Cuenta Reserva (Santander):  $120,000 MXN                              │
+│  ├─ Cuenta Nómina (Banorte):      $85,000 MXN                              │
+│  └─ Cuenta Inversión (CAJA):      $200,000 MXN                              │
+│     TOTAL DISPONIBLE: $855,000 MXN                                          │
+│                                                                              │
+│  ANÁLISIS:                                                                   │
+│  ├─ Pagos esta semana necesarios: $108,000 MXN (tu plan)                   │
+│  ├─ Déficit proyectado: -$40,000 MXN                                       │
+│  ├─ Dinero disponible sin riesgos: $620,000 MXN                            │
+│  └─ Buffer de seguridad recomendado: 15% = $93,000 MXN                    │
+│                                                                              │
+│  🎯 MOVIMIENTOS RECOMENDADOS:                                                │
+│                                                                              │
+│  1️⃣  Transfiere $40,000 de Cuenta Inversión → Cuenta Operativa            │
+│     RAZÓN: Cubrir déficit, mantener liquidez operativa                      │
+│     RESULTADO: Operativa = $490K ✅                                         │
+│                 Inversión = $160K (aún conserva 80% original)              │
+│                                                                              │
+│  2️⃣  MANTENER: Cuenta Reserva ($120K) → Buffer emergencias                │
+│     RAZÓN: No tocarla (emergencias, oportunidades)                          │
+│                                                                              │
+│  3️⃣  VERIFICAR: Cuenta Nómina ($85K) vs próxima nómina semana             │
+│     SI: Nómina próxima semana = $120K                                      │
+│     ENTONCES: Transfiere $35K de Reserva → Nómina (antes de depositar)    │
+│     RESULTADO: Lista para nómina sin apretar operativa                      │
+│                                                                              │
+│  ⚠️  DESPUÉS DE MOVIMIENTOS (Estado Proyectado):                             │
+│  ├─ Cuenta Operativa:    $490,000 (suficiente para pagos)                  │
+│  ├─ Cuenta Reserva:       $85,000 (buffer emergencias)                     │
+│  ├─ Cuenta Nómina:       $120,000 (cubierto nómina)                        │
+│  └─ Cuenta Inversión:    $160,000 (conservado plazo)                       │
+│     TOTAL: $855,000 (sin cambios, solo redistribuido) ✅                   │
+│                                                                              │
+│  💡 BENEFICIOS:                                                              │
+│  ✅ Resuelves déficit sin buscar financiamiento                             │
+│  ✅ Mantienes buffer emergencias ($85K)                                     │
+│  ✅ Cubres nómina sin presión                                               │
+│  ✅ Inversión sigue creciendo ($160K)                                       │
+│                                                                              │
+│  ⚡ TIMING: Ejecuta hoy si movimientos son entre bancos mismo grupo         │
+│     Si son bancos diferentes: Autoriza transferencia (normalmente 24-48h)  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 6: PROYECCIÓN DE COBROS (Color AI: Verde/Amarillo/Rojo)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📊 COBROS PROYECTADOS ESTA SEMANA (IA detecta probabilidad por cliente)    │
+│                                                                              │
+│  Saldo: Hoy $410K + Cobros = Saldo final (proyectado)                      │
+│                                                                              │
+│  CLIENTE A — Empresa XYZ          MONTO: $80,000                            │
+│  Status: 🟢 VERDE (Pagado)                                                  │
+│  ├─ Recibido: ✅ $80,000 (Confirmado 2026-07-04 10:30am)                  │
+│  ├─ Historial: Siempre a tiempo (24 últimos pagos = 100% puntual)         │
+│  └─ Confiabilidad IA: 100% (cliente de primer tier)                        │
+│                                                                              │
+│  CLIENTE B — Empresa ABC          MONTO: $120,000                          │
+│  Status: 🟡 AMARILLO (Esperado)                                             │
+│  ├─ Esperado: ⏳ $120,000 (Vence hoy 2026-07-05)                           │
+│  ├─ Historial: Generalmente a tiempo (19/24 pagos puntual, 5 retrasados)   │
+│  ├─ Promedio demora: +2-3 días                                              │
+│  └─ Confiabilidad IA: 79% (Cliente normal)                                 │
+│     RECOMENDACIÓN: Confiar en el cobro, pero plan B si no llega hoy       │
+│                                                                              │
+│  CLIENTE C — Comercio DEF         MONTO: $60,000                           │
+│  Status: 🔴 ROJO (Riesgoso)                                                 │
+│  ├─ Esperado: ⏳ $60,000 (Vence hoy 2026-07-05)                            │
+│  ├─ Historial: MUY INCONSISTENTE (12/24 pagos puntual, 12 > 7 días)        │
+│  ├─ Demoras promedio: +12-18 días (a veces llega, a veces no)             │
+│  ├─ Última vez: Atrasado 25 días (apenas cobró 2026-06-29)                │
+│  └─ Confiabilidad IA: 35% (Cliente de riesgo)                              │
+│     ⚠️  ADVERTENCIA: NO confíes en este cobro para pagos críticos          │
+│     ACCIÓN: Llamar hoy, confirmar, si no → Plan B de pagos                │
+│                                                                              │
+│  CLIENTE D — Distribuidor GHI    MONTO: $40,000                            │
+│  Status: 🟢 VERDE (Ya cobrado)                                              │
+│  ├─ Recibido: ✅ $40,000 (Confirmado 2026-07-03 2:15pm)                   │
+│  ├─ Historial: 100% puntual (24/24 pagos dentro de 48h)                   │
+│  └─ Confiabilidad IA: 100%                                                  │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐
+│  │ 📊 RESUMEN COBROS ESTA SEMANA:                                          │
+│  │                                                                         │
+│  │ 🟢 VERDE (Confirmados/Seguros):    $120,000  (27%)                    │
+│  │    └─ Cliente A ($80K) + Cliente D ($40K)                             │
+│  │    ✅ Contar con este dinero para pagos críticos                      │
+│  │                                                                         │
+│  │ 🟡 AMARILLO (Esperados/Probables): $120,000  (27%)                    │
+│  │    └─ Cliente B ($120K)                                               │
+│  │    ⏳ Confiar, pero tener plan B si se atrasa                         │
+│  │                                                                         │
+│  │ 🔴 ROJO (Riesgosos/Inconstantes):  $60,000   (14%)                    │
+│  │    └─ Cliente C ($60K)                                                │
+│  │    ⚠️  NO confíes, busca plan B o confirma hoy                        │
+│  │                                                                         │
+│  │ ⏸️  PENDIENTE ACCIÓN:               $160,000  (32%)                    │
+│  │    └─ Clientes E-H (aún sin acción o entrada manual)                  │
+│  │                                                                         │
+│  │ ╔════════════════════════════════════════════════════════════════╗     │
+│  │ ║ PROYECCIÓN FLUJO SEMANAL (CON COBROS):                         ║     │
+│  │ ║                                                                ║     │
+│  │ ║ Saldo Lunes:              $410,000                           ║     │
+│  │ ║ + Cobros VERDE (seguros): +$120,000                          ║     │
+│  │ ║ + Cobros AMARILLO (prob): +$120,000  (si llegan)            ║     │
+│  │ ║ - Pagos tu plan:          -$108,000                          ║     │
+│  │ ║ ═════════════════════════════════════════════════════════════ ║     │
+│  │ ║ ESCENARIO A (Solo VERDE):            $422,000 ✅ Safe       ║     │
+│  │ ║ ESCENARIO B (VERDE + AMARILLO):      $542,000 ✅ Muy safe   ║     │
+│  │ ║ ESCENARIO C (Si AMARILLO falla):     $302,000 ⚠️  Tight     ║     │
+│  │ ║ ESCENARIO D (Si ROJO llega bonus):   $362,000 ✅ OK         ║     │
+│  │ ╚════════════════════════════════════════════════════════════════╝     │
+│  │                                                                         │
+│  │ 🎯 ACCIÓN RECOMENDADA:                                                 │
+│  │ ├─ Confiar en VERDE ($120K) + AMARILLO ($120K) = $240K cobros        │
+│  │ ├─ Ejecutar pagos plan ($108K) → Saldo $302K MÍNIMO ✅               │
+│  │ ├─ LLAMAR a Cliente C (ROJO) → Confirmar si envía $60K hoy           │
+│  │ │  Si NO → Diferir algún pago no crítico                             │
+│  │ │  Si SÍ → Excelente, saldo final $362K                              │
+│  │ └─ NO esperar cobros PENDIENTE (plan conservador)                     │
+│  │                                                                         │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+│  📈 IA INSIGHTS (Histórico + Patrones):                                     │
+│  ├─ Cliente C problema: "Últimos 6 meses = pagos 0/6 a tiempo"            │
+│  ├─ Tendencia: Empeorando (demora promedio 8→18 días)                     │
+│  ├─ Riesgo: Potencial insolvencia en 3 meses                              │
+│  └─ RECOMENDACIÓN LONG-TERM: Reducir exposición o cobrar adelantado       │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SECCIÓN 7: CONTROLES ADICIONALES
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
 │ [Histórico de Flujos] [Proyecciones Futuras] [Escenarios] [Reportes]       │
 │ [Integración Bancos] [Sync CobraCheck] [Sync GastoCheck] [Settings]         │
+│ [Multi-Cuenta Transfers] [Cobros por Cliente (Color AI)] [Credit Health]   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -420,6 +712,184 @@ SECCIÓN 5: CONTROLES ADICIONALES
 ---
 
 ## 🧮 LÓGICA: Cálculos Clave
+
+### 0. IA CONFIDENCE SCORE (Cobros - Color: Verde/Amarillo/Rojo)
+
+```typescript
+function calculatePaymentConfidenceScore(
+  customer: Customer,
+  paymentHistory: PaymentRecord[]
+): ConfidenceScore {
+  
+  // 1. CALCULAR ESTADÍSTICAS HISTÓRICAS
+  const stats = {
+    totalPayments: paymentHistory.length,
+    onTimePayments: paymentHistory.filter(p => p.daysLate <= 0).length,
+    latePayments: paymentHistory.filter(p => p.daysLate > 0).length,
+    veryLatePayments: paymentHistory.filter(p => p.daysLate > 7).length,
+    missedPayments: paymentHistory.filter(p => !p.received).length,
+    
+    punctualityRate: (onTime / totalPayments) * 100,
+    averageDaysLate: calculateAverage(latePayments.map(p => p.daysLate)),
+    maxDaysLate: Math.max(...paymentHistory.map(p => p.daysLate))
+  }
+  
+  // 2. CALCULAR COMPONENTES SCORE (0-100)
+  
+  // A. PUNTUALIDAD (40 puntos)
+  let punctualityScore = 0
+  if (stats.punctualityRate >= 95) punctualityScore = 40
+  else if (stats.punctualityRate >= 85) punctualityScore = 35
+  else if (stats.punctualityRate >= 70) punctualityScore = 25
+  else if (stats.punctualityRate >= 50) punctualityScore = 15
+  else punctualityScore = 0
+  
+  // B. RETRASOS PROMEDIO (30 puntos)
+  let lateDelay Score = 0
+  if (stats.averageDaysLate <= 1) lateDelayScore = 30
+  else if (stats.averageDaysLate <= 3) lateDelayScore = 25
+  else if (stats.averageDaysLate <= 7) lateDelayScore = 15
+  else if (stats.averageDaysLate <= 15) lateDelayScore = 5
+  else lateDelayScore = 0
+  
+  // C. MÁXIMO RETRASO (20 puntos) - penalidad por sorpresas
+  let maxDelayScore = 0
+  if (stats.maxDaysLate <= 2) maxDelayScore = 20
+  else if (stats.maxDaysLate <= 7) maxDelayScore = 15
+  else if (stats.maxDaysLate <= 30) maxDelayScore = 8
+  else if (stats.maxDaysLate <= 60) maxDelayScore = 2
+  else maxDelayScore = 0
+  
+  // D. PAGOS COMPLETADOS (10 puntos)
+  let completionScore = 0
+  if (stats.missedPayments === 0) completionScore = 10
+  else if (stats.missedPayments === 1) completionScore = 5
+  else completionScore = 0
+  
+  // 3. TENDENCIA (Últimos 90 días vs anteriores)
+  const last90DaysPayments = paymentHistory.filter(p => 
+    daysDifference(p.date, new Date()) <= 90
+  )
+  const previousPunctualityRate = (
+    last90DaysPayments.filter(p => p.daysLate <= 0).length / 
+    Math.max(1, last90DaysPayments.length)
+  ) * 100
+  const previousRate = (stats.onTimePayments - last90DaysPayments.length) / 
+    Math.max(1, stats.totalPayments - last90DaysPayments.length) * 100
+  
+  const trend = previousPunctualityRate >= previousRate ? 'improving' : 'worsening'
+  const trendChange = previousPunctualityRate - previousRate
+  
+  // 4. AJUSTAR POR TENDENCIA
+  let trendAdjustment = 0
+  if (trend === 'improving' && trendChange > 10) trendAdjustment = +5
+  else if (trend === 'worsening' && trendChange < -10) trendAdjustment = -10
+  
+  // 5. TOTAL SCORE
+  const totalScore = Math.max(0, Math.min(100, 
+    punctualityScore + lateDelayScore + maxDelayScore + completionScore + trendAdjustment
+  ))
+  
+  // 6. ASIGNAR COLOR Y CONFIANZA
+  let color: 'green' | 'yellow' | 'red'
+  let recommendation: string
+  
+  if (totalScore >= 80) {
+    color = 'green'
+    recommendation = 'Confiar — Cliente confiable, historial limpio'
+  } else if (totalScore >= 50) {
+    color = 'yellow'
+    recommendation = 'Confiar con cautela — Retrasos ocasionales, probable pago'
+  } else {
+    color = 'red'
+    recommendation = 'NO confiar — LLAMAR para confirmar, alto riesgo'
+  }
+  
+  // 7. DETECTAR RIESGO INMINENTE
+  let isAtRisk = false
+  let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low'
+  let shouldPrepay = false
+  
+  if (stats.missedPayments > 2) {
+    isAtRisk = true
+    riskLevel = 'critical'
+    shouldPrepay = true
+    recommendation += ' — REDUCE EXPOSICIÓN, cobro adelantado'
+  } else if (trend === 'worsening' && trendChange < -15) {
+    isAtRisk = true
+    riskLevel = 'high'
+    shouldPrepay = true
+    recommendation += ' — Tendencia negativa, considera cobro adelantado'
+  } else if (stats.veryLatePayments > 2) {
+    isAtRisk = true
+    riskLevel = 'high'
+  } else if (stats.averageDaysLate > 7) {
+    riskLevel = 'medium'
+  }
+  
+  return {
+    score: totalScore,
+    color,
+    punctuality: stats.punctualityRate,
+    averageDaysLate: stats.averageDaysLate,
+    maxDaysLate: stats.maxDaysLate,
+    trend,
+    trendChange,
+    isAtRisk,
+    riskLevel,
+    shouldPrepayOrReduce: shouldPrepay,
+    recommendation
+  }
+}
+```
+
+### 1. MULTI-ACCOUNT TRANSFER RECOMMENDATION (Movimientos entre cuentas)
+
+```typescript
+function recommendMultiAccountTransfers(
+  accounts: BankAccountMulti[],
+  paymentsPlan: Payment[],
+  deficit: number
+): TransferRecommendation[] {
+  
+  const recommendations: TransferRecommendation[] = []
+  
+  // Ordenar cuentas por prioridad de transferencia
+  const sortedAccounts = accounts.sort((a, b) => 
+    a.priority_for_transfers - b.priority_for_transfers
+  )
+  
+  let remainingDeficit = deficit
+  
+  for (const account of sortedAccounts) {
+    if (remainingDeficit <= 0) break
+    
+    // Verificar si cuenta tiene dinero disponible (respetando mínimo)
+    const availableBalance = Math.max(0, 
+      account.current_balance - (account.minimum_balance_threshold || 0)
+    )
+    
+    if (availableBalance > 0) {
+      const transferAmount = Math.min(availableBalance, remainingDeficit)
+      
+      recommendations.push({
+        fromAccount: account.id,
+        toAccount: findOperationalAccount(accounts).id,
+        amount: transferAmount,
+        reason: remainingDeficit > 0 
+          ? "Cubrir déficit de flujo"
+          : "Optimizar distribución de fondos",
+        priority: remainingDeficit > transferAmount ? 1 : 2,
+        urgency: remainingDeficit > 50000 ? 'critical' : 'high'
+      })
+      
+      remainingDeficit -= transferAmount
+    }
+  }
+  
+  return recommendations
+}
+```
 
 ### 1. CAPACIDAD DE PAGO (¿Puedo pagar?)
 
