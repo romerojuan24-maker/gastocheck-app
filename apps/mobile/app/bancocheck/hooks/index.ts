@@ -1,1 +1,1 @@
-export { useBancoAccounts, useBancoTransactions, useBancoClassify } from './useBanco'
+export { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs } from './useBanco'
