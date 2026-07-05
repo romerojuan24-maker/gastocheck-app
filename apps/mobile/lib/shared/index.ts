@@ -10,6 +10,7 @@ export * from './batches';
 export * from './export';
 export * from './fleet-alerts';
 export * from './billing';
+export * from './ocr';
 
 // Tokens de marca — CHECK SUITE (paraguas) + módulos
 export const BRAND = {
@@ -33,4 +34,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 136 · v1.1.36';
+export const APP_VERSION = 'OTA 138 · v1.1.38';

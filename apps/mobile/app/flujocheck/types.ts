@@ -15,9 +15,12 @@ export interface CashFlowItem {
   expected_date: string
   status: 'pending' | 'paid' | 'collected' | 'at_risk' | 'overdue' | 'cancelled'
   source: 'manual' | 'cobracheck' | 'gastocheck' | 'bancocheck' | 'inventariocheck'
-  notes: string | null
+  source_id: string | null
   is_scenario: boolean
+  scenario_id: string | null
+  notes: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface RiskStatus {

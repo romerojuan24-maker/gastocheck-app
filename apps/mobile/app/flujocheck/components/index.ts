@@ -1,3 +1,6 @@
 export { CashFlowList } from './CashFlowList'
 export { EditModal } from './EditModal'
 export { KpiCards } from './KpiCards'
+export { CreditsTab } from './CreditsTab'
+export { ProjectionTab } from './ProjectionTab'
+export { SettingsTab } from './SettingsTab'

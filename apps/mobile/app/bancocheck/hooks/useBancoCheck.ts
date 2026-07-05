@@ -5,7 +5,6 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import type {
-  BankAccountManual,
   BankAccountAutomated,
   BankTransaction,
   OCRExtractionResult,
@@ -27,18 +26,15 @@ export function useOCRExtraction() {
     try {
       // TODO: Call backend API /api/banco/ocr-extract with fileBase64
       const result: OCRExtractionResult = {
-        success: true,
         confidence: 0.92,
         transactions: [
           {
-            date: '2026-07-01',
+            transaction_date: '2026-07-01',
             description: 'COMPRA TIENDA EL SOL',
             amount: -250.5,
-            type: 'debit',
-            reference: 'REF001',
+            transaction_type: 'debit',
           },
         ],
-        extracted_at: new Date().toISOString(),
       }
 
       console.log('[STUB] OCR Extraction completed')
@@ -76,17 +72,16 @@ export function useBankAccountSync() {
         const account: BankAccountAutomated = {
           id: crypto.randomUUID(),
           company_id: '',
-          oauth_provider: provider,
-          account_number: '****1234',
+          bank_name: provider.toUpperCase(),
           account_name: `${provider.toUpperCase()} Checking`,
-          account_holder: 'Mock User',
-          balance: 50000.0,
+          oauth_provider: provider,
+          oauth_token_encrypted: 'mock_token',
+          oauth_refresh_token: 'mock_refresh',
+          account_number: '****1234',
           currency: 'MXN',
-          sync_status: 'connected',
           last_sync: new Date().toISOString(),
-          access_token_encrypted: 'mock_token',
-          refresh_token_encrypted: 'mock_refresh',
-          token_expires_at: new Date(Date.now() + 86400000).toISOString(),
+          sync_status: 'connected',
+          is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
@@ -116,14 +111,14 @@ export function useTransactionMatching() {
   const [error, setError] = useState<string | null>(null)
 
   const matchTransactions = useCallback(
-    async (bankTxn: BankTransaction, internalTxn: any): Promise<MatchingResult> => {
+    async (bankTxn: BankTransaction, internalTxn: { id: string; amount: number; date: string; description: string }): Promise<MatchingResult> => {
       setMatching(true)
       setError(null)
 
       try {
         // Score similarity based on amount, date, description
         const amountDiff = Math.abs(bankTxn.amount - internalTxn.amount)
-        const amountSimilarity = 1 - Math.min(amountDiff / Math.abs(bankTxn.amount), 1)
+        const amountSimilarity = 1 - Math.min(amountDiff / Math.abs(bankTxn.amount || 1), 1)
 
         const dateDiff =
           Math.abs(
@@ -146,11 +141,13 @@ export function useTransactionMatching() {
         const is_match = confidence_score > 0.75
 
         const result: MatchingResult = {
-          bank_transaction_id: bankTxn.id,
-          internal_transaction_id: internalTxn.id,
+          transaction_a_id: bankTxn.id,
+          transaction_b_id: internalTxn.id,
           is_match,
           confidence_score,
-          matched_at: is_match ? new Date().toISOString() : null,
+          reason: is_match
+            ? 'Coincidencia por monto, fecha y descripción'
+            : 'Similitud insuficiente para emparejar automáticamente',
         }
 
         console.log('[STUB] Matching score:', confidence_score)
@@ -159,11 +156,11 @@ export function useTransactionMatching() {
         const msg = err instanceof Error ? err.message : 'Matching failed'
         setError(msg)
         return {
-          bank_transaction_id: bankTxn.id,
-          internal_transaction_id: internalTxn.id,
+          transaction_a_id: bankTxn.id,
+          transaction_b_id: internalTxn.id,
           is_match: false,
           confidence_score: 0,
-          matched_at: null,
+          reason: 'Error al calcular coincidencia',
         }
       } finally {
         setMatching(false)
@@ -182,7 +179,15 @@ export function useTransactionMatching() {
 export function useReconciliationStatus(companyId: string) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<any>(null)
+  const [status, setStatus] = useState<{
+    total_bank_transactions: number
+    total_internal_transactions: number
+    matched_count: number
+    unmatched_bank: number
+    unmatched_internal: number
+    matching_percentage: number
+    last_reconciliation: string
+  } | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -235,15 +240,24 @@ export function useBankTransactions(accountId: string | null) {
       const mockTransactions: BankTransaction[] = [
         {
           id: 'BT001',
-          account_id: accountId,
-          transaction_date: new Date(Date.now() - 86400000).toISOString(),
+          company_id: '',
+          bank_account_id: accountId,
           description: 'TRANSFERENCIA ENVIADA EMPRESA ABC',
           amount: -5000.0,
-          transaction_type: 'transfer',
-          source: 'bank_statement',
-          matching_status: 'matched',
-          matched_internal_id: 'INT001',
+          currency: 'MXN',
+          transaction_date: new Date(Date.now() - 86400000).toISOString(),
+          source_module: null,
+          source_id: null,
+          payment_method: null,
+          bank_reference_number: null,
+          commission: 0,
+          tax_on_commission: 0,
+          category: null,
+          status: 'reconciled',
+          ocr_data: null,
+          receipt_image_url: null,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ]
 

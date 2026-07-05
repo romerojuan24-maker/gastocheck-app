@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useFlujoBalance, useFlujoItems, useFlujoMutations } from './hooks'
 
 // Componentes
-import { CashFlowList, EditModal, KpiCards } from './components'
+import { CashFlowList, EditModal, KpiCards, CreditsTab, ProjectionTab, SettingsTab } from './components'
 
 // Tipos
 import type { CashFlowItem } from './types'
@@ -205,16 +205,6 @@ export default function FlujoCheckHome() {
     )
   }
 
-  function ComingSoon({ title }: { title: string }) {
-    return (
-      <View style={s.comingSoon}>
-        <Text style={s.comingSoonIcon}>🚧</Text>
-        <Text style={s.comingSoonTitle}>{title}</Text>
-        <Text style={s.comingSoonSub}>Próximamente</Text>
-      </View>
-    )
-  }
-
   function FlujoTab() {
     return (
       <View style={{ flex: 1 }}>
@@ -272,9 +262,18 @@ export default function FlujoCheckHome() {
 
       <View style={{ flex: 1 }}>
         {activeTab === 0 && <FlujoTab />}
-        {activeTab === 1 && <ComingSoon title="Créditos" />}
-        {activeTab === 2 && <ComingSoon title="Proyección" />}
-        {activeTab === 3 && <ComingSoon title="Ajustes" />}
+        {activeTab === 1 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
+        {activeTab === 2 && (
+          <ProjectionTab
+            currentBalance={currentBalance}
+            monthlyIncomeAvg={income}
+            monthlyExpenseAvg={expense}
+            color={FLUJO_COLOR}
+          />
+        )}
+        {activeTab === 3 && (
+          <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
+        )}
         {activeTab === 4 && <ProfileTab />}
       </View>
 
@@ -315,11 +314,6 @@ const s = StyleSheet.create({
   tabItemActive: { borderRadius: 12, marginHorizontal: 4 },
   tabIcon:       { fontSize: 22, marginBottom: 2 },
   tabLabel:      { fontSize: 11, fontWeight: '600' },
-
-  comingSoon:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  comingSoonIcon:  { fontSize: 48 },
-  comingSoonTitle: { fontSize: 20, fontWeight: '700', color: BRAND.navy },
-  comingSoonSub:   { fontSize: 14, color: '#90A4AE' },
 
   profileCard:  { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
   avatar:       { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },

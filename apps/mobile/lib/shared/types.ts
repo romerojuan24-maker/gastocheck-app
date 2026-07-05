@@ -250,41 +250,6 @@ export interface Receipt {
   updated_at: string;
 }
 
-// ── OCR ──────────────────────────────────────────────────────────────────────
-
-export interface OcrLineItem {
-  name: string;
-  quantity?: number | null;
-  unit?: string | null;
-  unitPrice?: number | null;
-  totalPrice?: number | null;
-  confidence?: number;
-}
-
-export interface OcrResult {
-  providerName?: string | null;
-  providerRfc?: string | null;
-  receiptDate?: string | null;
-  receiptTime?: string | null;
-  subtotal?: number | null;
-  tax?: number | null;
-  discount?: number | null;
-  ieps?: number | null;
-  ish?: number | null;
-  retencionIva?: number | null;
-  retencionIsr?: number | null;
-  total?: number | null;
-  currency?: string;
-  fiscalUuid?: string | null;
-  internalFolio?: string | null;
-  paymentMethod?: string | null;
-  fullText: string;
-  lineItems?: OcrLineItem[];
-  confidence: 'high' | 'medium' | 'low';
-  warnings: string[];
-  documentBox?: { x0: number; y0: number; x1: number; y1: number } | null;
-}
-
 // ── Proveedores ───────────────────────────────────────────────────────────────
 
 export interface Supplier {
