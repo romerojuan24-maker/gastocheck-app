@@ -202,14 +202,14 @@ export function useBancoKPIs(transactions: BankTransaction[], accounts: BankAcco
   const stats = {
     totalBalance: accounts.reduce((sum, a) => sum + (a.current_balance || 0), 0),
     todayIncome: transactions
-      .filter(t => t.transaction_date === today && t.amount > 0 && t.status === 'reconciled')
+      .filter(t => t.transaction_date === today && t.amount > 0 && t.status === 'explained')
       .reduce((sum, t) => sum + t.amount, 0),
     todayExpense: transactions
-      .filter(t => t.transaction_date === today && t.amount < 0 && t.status === 'reconciled')
+      .filter(t => t.transaction_date === today && t.amount < 0 && t.status === 'explained')
       .reduce((sum, t) => sum + Math.abs(t.amount), 0),
     pendingReconcile: transactions.filter(t => t.status === 'new' || t.status === 'pending_document').length,
-    fromGastoCheck: transactions.filter(t => t.source_module === 'gastocheck').length,
-    fromCobraCheck: transactions.filter(t => t.source_module === 'cobracheck').length,
+    fromGastoCheck: transactions.filter(t => t.imported_from === 'gastocheck').length,
+    fromCobraCheck: transactions.filter(t => t.imported_from === 'cobracheck').length,
   }
 
   return stats

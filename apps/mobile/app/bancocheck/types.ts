@@ -1,38 +1,59 @@
+// BankAccount y BankTransaction: esquema REAL de producción (ver
+// packages/shared/src/bancocheck.ts, ya vive en @gastocheck/shared).
+// Redefinidos aquí localmente para no depender del import — deben
+// mantenerse sincronizados con el paquete compartido.
+
 export interface BankAccount {
   id: string
   company_id: string
   name: string
-  account_type: 'bank_account' | 'cash_register' | 'savings' | 'investment' | 'credit_card' | 'debit_card' | 'bank_loan' | 'private_loan'
   bank_name: string | null
-  account_number: string | null
-  rfc: string | null
+  last4: string | null
   currency: string
   current_balance: number
-  balance_last_reconcile: number | null
-  last_reconcile_date: string | null
   is_active: boolean
+  notes: string | null
   created_at: string
   updated_at: string
 }
+
+export type BankTransactionStatus =
+  | 'new'
+  | 'matched'
+  | 'explained'
+  | 'personal'
+  | 'ignored'
+  | 'pending_document'
+  | 'pending_invoice'
+  | 'unidentified'
+
+export type BankTransactionCategory =
+  | 'expense'
+  | 'collection'
+  | 'advance'
+  | 'supplier'
+  | 'client'
+  | 'personal'
+  | 'transfer'
+  | 'ignore'
 
 export interface BankTransaction {
   id: string
   company_id: string
   bank_account_id: string
-  description: string
-  amount: number
-  currency: string
   transaction_date: string
-  source_module: 'gastocheck' | 'cobracheck' | 'manual' | 'ocr' | null
-  source_id: string | null
-  payment_method: string | null
-  bank_reference_number: string | null
-  commission: number
-  tax_on_commission: number
-  category: string | null
-  status: 'new' | 'explained' | 'personal' | 'ignored' | 'matched' | 'pending_document' | 'pending_invoice' | 'reconciled'
-  ocr_data: any | null
-  receipt_image_url: string | null
+  description: string
+  reference: string | null
+  amount: number
+  balance_after: number | null
+  status: BankTransactionStatus
+  category: BankTransactionCategory | null
+  notes: string | null
+  related_receipt_id: string | null
+  related_invoice_id: string | null
+  related_advance_id: string | null
+  imported_from: string
+  import_batch_id: string | null
   created_at: string
   updated_at: string
 }

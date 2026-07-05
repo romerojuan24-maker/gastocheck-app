@@ -139,9 +139,9 @@ export default function BancoCheckHome() {
   const filtered = transactions.filter(t => {
     if (filterTab === 'all') return true
     if (filterTab === 'pending') return ['new', 'pending_document', 'pending_invoice'].includes(t.status)
-    if (filterTab === 'reconciled') return t.status === 'reconciled'
-    if (filterTab === 'gastocheck') return t.source_module === 'gastocheck'
-    if (filterTab === 'cobracheck') return t.source_module === 'cobracheck'
+    if (filterTab === 'reconciled') return t.status === 'explained'
+    if (filterTab === 'gastocheck') return t.imported_from === 'gastocheck'
+    if (filterTab === 'cobracheck') return t.imported_from === 'cobracheck'
     return true
   })
 
