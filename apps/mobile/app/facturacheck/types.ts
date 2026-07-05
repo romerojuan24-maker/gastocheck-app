@@ -112,25 +112,10 @@ export interface CfdiCreditTransaction {
   created_at: string
 }
 
-// ── PAC Configuration ────────────────────────────────────────────────────
-
-export type PACProvider = 'facturama' | 'solucion_facil' | 'sw' | 'finkok'
-
-export interface PacConfiguration {
-  id: string
-  company_id: string
-  pac_provider: PACProvider
-  api_key_encrypted: string
-  api_user?: string
-  api_password_encrypted?: string
-  webhook_secret_encrypted?: string
-  is_active: boolean
-  test_mode: boolean
-  last_validated?: string
-  validation_error?: string
-  created_at: string
-  updated_at: string
-}
+// PAC Configuration: usar cfdi_provider_configs (tabla real) vía
+// usePacProviderConfig — ver hooks/useFacturaCheck.ts. La tabla
+// pac_configuration (creada en OTA 138) quedó sin uso, se retiró el
+// tipo de aquí para no confundir; la tabla vacía se deja en la BD.
 
 // ── CFDI Distributions ───────────────────────────────────────────────────
 
