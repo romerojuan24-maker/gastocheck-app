@@ -59,11 +59,22 @@ export default function FlujoCheckHome() {
   const [viewMode,    setViewMode]    = useState<PanelViewMode>('admin')
   const [editing,     setEditing]     = useState<Partial<CashFlowItem> | null>(null)
 
-  const { balance: currentBalance, refetch: refetchBalance } = useFlujoBalance(companyId || '')
+  const { balance: currentBalance, loading: balanceLoading, refetch: refetchBalance } = useFlujoBalance(companyId || '')
   const { items, risk, projected, refetch: refetchItems } = useFlujoItems(companyId || '')
   const { save, remove, saving } = useFlujoMutations(companyId || '')
 
   useEffect(() => { navigation.setOptions({ headerShown: false }) }, [navigation])
+
+  // useFlujoItems no se auto-dispara (necesita currentBalance de
+  // useFlujoBalance para proyectar). Se reacciona a cambios reales de
+  // saldo (carga inicial y cada vez que refetchBalance actualiza el
+  // estado) en vez de encadenar promesas con un valor potencialmente
+  // obsoleto por closure.
+  useEffect(() => {
+    if (companyId && !balanceLoading) {
+      refetchItems(currentBalance)
+    }
+  }, [companyId, balanceLoading, currentBalance])
 
   const loadUser = useCallback(async () => {
     setLoading(true)
@@ -109,6 +120,12 @@ export default function FlujoCheckHome() {
     AsyncStorage.getItem('flujocheck_viewMode').then((saved) => {
       if (saved === 'admin' || saved === 'contador') setViewMode(saved)
     })
+    // Refresca ítems con el saldo conocido (captura nuevos cobros/
+    // reembolsos aunque el saldo no cambie) y el saldo real (puede
+    // haber cambiado en BancoCheck; si cambia, el efecto que observa
+    // currentBalance vuelve a disparar refetchItems con el valor fresco).
+    if (companyId) refetchItems(currentBalance)
+    refetchBalance()
   }, [loadUser]))
 
   if (loading) {
