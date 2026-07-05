@@ -137,6 +137,32 @@ Como CobraCheck está pausado, ninguno de estos bloquea a GastoCheck — quedan 
 
 ---
 
+---
+
+## 2026-07-05 — Sesión OTA 137 — Design System Completo (Juan)
+
+### ✅ Completado hoy
+- **OTA 137 desplegada**: Design system CHECK SUITE aplicado a los 4 módulos "Más Herramientas":
+  - **FlujoCheck** `apps/mobile/app/flujocheck/index.tsx`: TopBar "‹ CHECK SUITE" + BRAND.blue + 5 tabs (Flujo/Créditos/Proyección/Ajustes/Perfil); Tab 0 mantiene KpiCards + CashFlowList + FAB; tabs 1-3 = Próximamente; tab 4 = ProfileTab con sign-out.
+  - **BancoCheck** `apps/mobile/app/bancocheck/index.tsx`: TopBar "#FF6B35" + 5 tabs (Cuentas/Transacciones/Reconciliación/Importar/Perfil); Tab 0 = AccountSelector + KPIs; Tab 1 = TransactionList + filter chips horizontales; badge en Transacciones con `pendingReconcile`; tabs 2-3 = Próximamente.
+  - **FacturaCheck** `apps/mobile/app/facturacheck/index.tsx`: TopBar BRAND.purple + 5 tabs (CFDIs/Distribución/Reportes/Configuración/Perfil); Tab 0 mantiene KPIs + sub-tabs (Recibidas/Emitidas/Problemas) + DocumentList; badge en CFDIs con count de problemas.
+  - **InventarioCheck** `apps/mobile/app/inventariocheck/index.tsx`: TopBar BRAND.orange + 5 tabs (Inventario/Alertas/Movimientos/Ajustes/Perfil); Tab 0 = KPIs + SearchInput + ProductList + FAB; Tab 1 = AlertsList; badge en Alertas con count.
+- Todos los 4 screens: patrón idéntico a CobraCheck (useFocusEffect, loadUser, ProfileTab, ComingSoon, BottomTabBar, safe area insets, auth signout).
+- APP_VERSION bumped → `OTA 137 · v1.1.37`
+
+### 📌 Pendientes activos
+- [PENDIENTE JUAN] Aplicar migraciones pendientes: `20260630_viaticos_trip_columns.sql` + `20260630_fix_reembolsos_receipts_columns.sql` en Supabase SQL Editor.
+- [PENDIENTE] Decidir esquema `daily_routes` — 3 diseños incompatibles. CobraCheck Mi Ruta no funciona hasta resolver.
+- [PENDIENTE DANIEL] Confirmar en dispositivo: captura de comprobantes + eliminar reembolso ya funcionan.
+- [DECIDIDO] CobraCheck pausado — no tocar daily_routes, movement_attempts, etc.
+
+### 🎯 Próximos pasos
+1. Aplicar migraciones SQL pendientes (Juan)
+2. Testing mobile: todos los módulos en dispositivo real (Daniel)
+3. FlujoCheck Créditos + Proyección — implementar content real en tabs vacíos
+
+---
+
 ## HISTORIAL DE COMMITS (hoy)
 ```
 b35e54e feat(permisos): matriz centralizada de roles en GastoCheck
