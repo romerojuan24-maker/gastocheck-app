@@ -14,6 +14,12 @@ import { supabase } from './supabase';
 const MAX_LINES = 3000;
 const buffer: string[] = [];
 let installed = false;
+let currentScreen = 'unknown';
+
+/** Actualiza la pantalla activa — se llama desde _layout.tsx en cada cambio de ruta. */
+export function setCurrentScreen(pathname: string) {
+  currentScreen = pathname || 'unknown';
+}
 
 function ts(): string {
   return new Date().toISOString();
@@ -41,14 +47,29 @@ async function logRemote(tag: string, level: string, message: string, metadata?:
       tag,
       message,
       level,
-      ...(metadata ? { metadata } : {}),
+      metadata: { screen: currentScreen, platform: Platform.OS, ...(metadata ?? {}) },
     });
   } catch {
     // El logger nunca debe crashear la app
   }
 }
 
-/** Monkeypatch console para duplicar la salida al buffer. Idempotente. */
+function argsToMessage(args: unknown[]): string {
+  return args
+    .map((a) => {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return `${a.name}: ${a.message}`;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    })
+    .join(' ');
+}
+
+/**
+ * Monkeypatch console para duplicar la salida al buffer local Y, para
+ * warn/error, enviar automáticamente a Supabase (diagnostic_logs) sin
+ * necesitar que cada catch{} llame logError()/logWarn() manualmente.
+ * Idempotente.
+ */
 export function initLogger() {
   if (installed) return;
   installed = true;
@@ -60,8 +81,46 @@ export function initLogger() {
   };
 
   console.log = (...args: unknown[]) => { push('LOG', args); orig.log(...args); };
-  console.warn = (...args: unknown[]) => { push('WARN', args); orig.warn(...args); };
-  console.error = (...args: unknown[]) => { push('ERROR', args); orig.error(...args); };
+  console.warn = (...args: unknown[]) => {
+    push('WARN', args);
+    orig.warn(...args);
+    logRemote('console', 'warn', argsToMessage(args));
+  };
+  console.error = (...args: unknown[]) => {
+    push('ERROR', args);
+    orig.error(...args);
+    logRemote('console', 'error', argsToMessage(args));
+  };
+
+  // Errores fuera del árbol de React (timers, listeners, promesas sin
+  // .catch, event handlers) — el ErrorBoundary de React NO los captura.
+  const g: any = global as any;
+  if (g.ErrorUtils?.setGlobalHandler) {
+    const prevHandler = g.ErrorUtils.getGlobalHandler?.();
+    g.ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+      push('ERROR', [`[GLOBAL${isFatal ? ' FATAL' : ''}] ${error.name}: ${error.message}`]);
+      logRemote('global_error', 'error', `${error.name}: ${error.message}`, {
+        fatal: !!isFatal,
+        stack: error.stack?.slice(0, 2000),
+      });
+      prevHandler?.(error, isFatal);
+    });
+  }
+
+  const globalAny: any = global as any;
+  if (globalAny.HermesInternal || typeof globalAny.Promise !== 'undefined') {
+    const onUnhandledRejection = (event: any) => {
+      const reason = event?.reason ?? event;
+      const message = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
+      push('ERROR', [`[UNHANDLED PROMISE] ${message}`]);
+      logRemote('unhandled_rejection', 'error', message);
+    };
+    // React Native no dispara 'unhandledrejection' del DOM, pero algunos
+    // polyfills (promise/setimmediate) sí exponen este listener global.
+    if (typeof globalAny.addEventListener === 'function') {
+      globalAny.addEventListener('unhandledrejection', onUnhandledRejection);
+    }
+  }
 
   buffer.push(`${ts()} [INIT] logger iniciado · ${APP_VERSION} · ${Platform.OS}`);
 }

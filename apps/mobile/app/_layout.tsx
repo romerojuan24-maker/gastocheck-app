@@ -1,20 +1,25 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, AppState, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
-import { initLogger } from '../lib/logger';
+import { initLogger, setCurrentScreen } from '../lib/logger';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
-// Captura console.* al buffer local; logError/logWarn también escriben a Supabase diagnostic_logs
+// Captura console.* al buffer local; console.warn/error también se envían
+// automáticamente a Supabase diagnostic_logs con la pantalla activa
 initLogger();
 
 export default function Layout() {
   const router   = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [updating, setUpdating] = useState(false);
+
+  useEffect(() => { setCurrentScreen(pathname); }, [pathname]);
 
   // ── Auto-update: chequear al arrancar y recargar si hay OTA nueva ──
   const { isUpdatePending } = Updates.useUpdates();
@@ -112,6 +117,7 @@ export default function Layout() {
   if (session === undefined) return null;
 
   return (
+    <ErrorBoundary>
     <Stack
       screenOptions={{
         headerStyle:     { backgroundColor: '#0D1B2A' },
@@ -167,5 +173,6 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
       <Stack.Screen name="cobracheck/page"           options={{ title: 'CobraCheck' }} />
     </Stack>
+    </ErrorBoundary>
   );
 }
