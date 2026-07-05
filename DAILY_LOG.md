@@ -108,6 +108,35 @@ Como CobraCheck está pausado, ninguno de estos bloquea a GastoCheck — quedan 
 
 ---
 
+---
+
+## 2026-07-05 — Sesión OTA 136 + TypeCheck Limpio (Juan)
+
+### ✅ Completado hoy
+- **OTA 136 desplegada**: CobraCheck home por roles (Admin/Contador/Cobrador) con BottomBar + patrón CHECK SUITE completo; `index.tsx` muestra "Más Herramientas" (BancoCheck/FacturaCheck/FlujoCheck/Inventario) solo a owner/admin.
+- **TypeCheck 100% limpio** — resueltos todos los errores (4 conocidos + otros pre-existentes descubiertos):
+  - `packages/shared/src/types/index.ts`: paths corregidos `./bancocheck` → `../bancocheck` etc.
+  - `cobracheck/routes/page.tsx`: eliminado import `lucide-react` (no instalado), reemplazado `<Calendar>` con SVG inline; añadido tipo local `CobraMovementRow` con propiedad `client`.
+  - `apps/web/app/api/checkia/detectar.ts`: añadido `await` a `cookies()` (Next.js 15).
+  - `tsconfig.json`: excluido `.next` del typecheck (conflicto @types/react versión en `.next/types/validator.ts`).
+  - `packages/shared/src/types.ts`: removido `OcrLineItem` / `OcrResult` duplicados (definición canónica en `ocr.ts`).
+  - `packages/shared/src/receipts.ts`: actualizado import de `OcrResult` a `./ocr`.
+  - `apps/web/app/api/cobra/{clients,invoices,routes}/route.ts`: stubeados a 501 (CobraCheck pausado, usaban `@supabase/ssr` no instalado).
+- **Prompt de sesión CHECK SUITE**: creado como Artifact en Claude para onboarding rápido de chats nuevos.
+
+### 📌 Pendientes activos
+- [PENDIENTE JUAN] Aplicar migraciones pendientes: `20260630_viaticos_trip_columns.sql` + `20260630_fix_reembolsos_receipts_columns.sql` en Supabase SQL Editor.
+- [PENDIENTE] Decidir esquema `daily_routes` — 3 diseños incompatibles. CobraCheck Mi Ruta no funciona hasta resolver.
+- [PENDIENTE DANIEL] Confirmar en dispositivo: captura de comprobantes + eliminar reembolso ya funcionan.
+- [DECIDIDO] CobraCheck pausado — no tocar daily_routes, movement_attempts, etc.
+
+### 🎯 Próximos pasos
+1. Aplicar migraciones SQL pendientes (Juan)
+2. Testing mobile: comprobantes + reembolsos en dispositivo real (Daniel)
+3. Próximo módulo: decisión de qué construir (FlujoCheck web, CobraCheck retomar, GastoCheck extensiones)
+
+---
+
 ## HISTORIAL DE COMMITS (hoy)
 ```
 b35e54e feat(permisos): matriz centralizada de roles en GastoCheck

@@ -1,5 +1,6 @@
 // GastoCheck — Lógica de comprobantes (receipts)
-import type { Receipt, OcrResult, DuplicateStatus, ReceiptStatus, RiskScore, RiskFactor, RiskLevel } from './types';
+import type { Receipt, DuplicateStatus, ReceiptStatus, RiskScore, RiskFactor, RiskLevel } from './types';
+import type { OcrResult } from './ocr';
 
 // ── Metadatos de estado ──────────────────────────────────────────────────────
 
