@@ -196,6 +196,8 @@ export default function GastoCheckHome() {
       setPendingTotal((pendingR ?? []).reduce((s, r) => s + ((r as any).total_amount ?? 0), 0));
 
       checkMonthEndReminder().catch(() => null);
+    } catch (err) {
+      console.error('gastocheck.loadData failed:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }

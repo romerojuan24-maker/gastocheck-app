@@ -185,6 +185,7 @@ export function useBancoReconciliation(companyId: string) {
       if (error) throw error
       return { success: true, error: null }
     } catch (err: any) {
+      console.error('useBancoReconciliation.reconcile failed:', err.message);
       return { success: false, error: err.message }
     }
   }

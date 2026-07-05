@@ -7,6 +7,7 @@ import type { CfdiDocument } from '../types'
 interface Props {
   documents: CfdiDocument[]
   color: string
+  onVouchersGenerated?: () => void
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -19,7 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
   pending_complement: 'Falta complemento',
 }
 
-export function ReportsTab({ documents, color }: Props) {
+export function ReportsTab({ documents, color, onVouchersGenerated }: Props) {
   const { generateBulk, generating } = useGenerateAccountingVoucher()
 
   const totalAmount = documents.reduce((s, d) => s + (d.total || 0), 0)
@@ -35,6 +36,9 @@ export function ReportsTab({ documents, color }: Props) {
       Alert.alert('Ya generadas', `Las ${skipped} facturas vigentes ya tienen póliza contable`)
     } else {
       Alert.alert('Pólizas generadas', `${created} póliza(s) contable(s) creada(s)${skipped > 0 ? `, ${skipped} ya existían` : ''}`)
+      // Refresca documentos por si el padre quiere reflejar el cambio
+      // (ej. re-consultar accounting_vouchers para futuras vistas)
+      onVouchersGenerated?.()
     }
   }
 

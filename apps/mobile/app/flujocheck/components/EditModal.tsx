@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ScrollView, Alert } from 'react-native'
 import type { CashFlowItem } from '../types'
 
@@ -20,6 +20,15 @@ const STATUS_OPTIONS = [
 
 export function EditModal({ item, onClose, onSave, saving }: Props) {
   const [editing, setEditing] = useState(item)
+
+  // BUG CRÍTICO CORREGIDO: este componente se monta una sola vez desde el
+  // padre (sin key), así que useState(item) solo captura el valor inicial
+  // (null) y nunca se actualizaba — el modal jamás se abría. Se sincroniza
+  // el estado interno cada vez que cambia la prop item.
+  useEffect(() => {
+    setEditing(item)
+  }, [item])
+
   const isNew = !editing?.id
 
   if (!editing) return null

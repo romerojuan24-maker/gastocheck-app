@@ -37,9 +37,14 @@ export function CreditsTab({ companyId, color }: Props) {
         .eq('company_id', companyId)
         .order('created_at', { ascending: false })
 
-      if (!error && data) setCredits(data as Credit[])
-    } catch {
-      // Tabla aún no migrada — se muestra estado vacío sin romper la app
+      if (error) {
+        console.error('CreditsTab.load failed:', error.message);
+        setCredits([])
+      } else {
+        setCredits((data ?? []) as Credit[])
+      }
+    } catch (err) {
+      console.error('CreditsTab.load threw:', err instanceof Error ? err.message : err);
       setCredits([])
     } finally {
       setLoading(false)

@@ -3,7 +3,7 @@
  * Bank statement OCR, OAuth sync, transaction matching
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import type {
   BankAccountAutomated,
   BankTransaction,
@@ -172,105 +172,6 @@ export function useTransactionMatching() {
   return { matchTransactions, matching, error }
 }
 
-// ============================================================================
-// useReconciliationStatus
-// ============================================================================
-
-export function useReconciliationStatus(companyId: string) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<{
-    total_bank_transactions: number
-    total_internal_transactions: number
-    matched_count: number
-    unmatched_bank: number
-    unmatched_internal: number
-    matching_percentage: number
-    last_reconciliation: string
-  } | null>(null)
-
-  const refetch = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // TODO: Query /api/banco/reconciliation-status
-      const mockStatus = {
-        total_bank_transactions: 150,
-        total_internal_transactions: 145,
-        matched_count: 138,
-        unmatched_bank: 12,
-        unmatched_internal: 7,
-        matching_percentage: (138 / 150) * 100,
-        last_reconciliation: new Date(Date.now() - 86400000).toISOString(),
-      }
-
-      setStatus(mockStatus)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch status')
-    } finally {
-      setLoading(false)
-    }
-  }, [companyId])
-
-  useEffect(() => {
-    refetch()
-  }, [refetch])
-
-  return { status, loading, error, refetch }
-}
-
-// ============================================================================
-// useBankTransactions
-// ============================================================================
-
-export function useBankTransactions(accountId: string | null) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [transactions, setTransactions] = useState<BankTransaction[]>([])
-
-  const refetch = useCallback(async () => {
-    if (!accountId) return
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      // TODO: Query /api/banco/transactions
-      const mockTransactions: BankTransaction[] = [
-        {
-          id: 'BT001',
-          company_id: '',
-          bank_account_id: accountId,
-          transaction_date: new Date(Date.now() - 86400000).toISOString(),
-          description: 'TRANSFERENCIA ENVIADA EMPRESA ABC',
-          reference: null,
-          amount: -5000.0,
-          balance_after: null,
-          status: 'explained',
-          category: 'transfer',
-          notes: null,
-          related_receipt_id: null,
-          related_invoice_id: null,
-          related_advance_id: null,
-          imported_from: 'manual',
-          import_batch_id: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ]
-
-      setTransactions(mockTransactions)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch transactions')
-    } finally {
-      setLoading(false)
-    }
-  }, [accountId])
-
-  useEffect(() => {
-    refetch()
-  }, [refetch])
-
-  return { transactions, loading, error, refetch }
-}
+// useReconciliationStatus y useBankTransactions (mock, nunca conectados a
+// datos reales) se removieron — useBancoReconciliation y useBancoTransactions
+// en useBanco.ts ya cubren esta función con datos reales de Supabase.

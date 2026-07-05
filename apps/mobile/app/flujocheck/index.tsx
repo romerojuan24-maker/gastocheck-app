@@ -274,6 +274,7 @@ export default function FlujoCheckHome() {
               items={items}
               onEdit={setEditing}
               onDelete={handleDelete}
+              saving={saving}
             />
           </View>
           <View style={{ height: 100 }} />

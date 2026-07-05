@@ -18,6 +18,10 @@ import type {
 // logCfdiAudit — escribe en audit_log_facturacheck (tabla real, compliance)
 // ============================================================================
 
+// Nunca debe lanzar — una falla de auditoría no debe tumbar la acción
+// principal (generar póliza / vincular pago) que ya tuvo éxito. Sí se
+// reporta vía console.error, que ahora se envía automáticamente a
+// diagnostic_logs (ver lib/logger.ts).
 async function logCfdiAudit(params: {
   company_id: string
   cfdi_id: string
@@ -25,15 +29,22 @@ async function logCfdiAudit(params: {
   after_state?: Record<string, any>
   notes?: string
 }) {
-  const { data: { user } } = await supabase.auth.getUser()
-  await supabase.from('audit_log_facturacheck').insert({
-    company_id: params.company_id,
-    cfdi_id: params.cfdi_id,
-    action: params.action,
-    action_by_user_id: user?.id ?? null,
-    after_state: params.after_state ?? null,
-    notes: params.notes ?? null,
-  })
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('audit_log_facturacheck').insert({
+      company_id: params.company_id,
+      cfdi_id: params.cfdi_id,
+      action: params.action,
+      action_by_user_id: user?.id ?? null,
+      after_state: params.after_state ?? null,
+      notes: params.notes ?? null,
+    })
+    if (error) {
+      console.error('logCfdiAudit insert failed:', error.message, params)
+    }
+  } catch (err) {
+    console.error('logCfdiAudit threw:', err instanceof Error ? err.message : err, params)
+  }
 }
 
 // ============================================================================

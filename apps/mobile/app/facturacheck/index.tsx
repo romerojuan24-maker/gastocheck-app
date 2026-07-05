@@ -298,7 +298,7 @@ export default function FacturaCheckHome() {
               />
             )}
             {activeTab === 1 && <CfdisTab />}
-            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} onVouchersGenerated={refetchDocuments} />}
             {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
             {activeTab === 4 && <ProfileTab />}
           </>
@@ -313,7 +313,7 @@ export default function FacturaCheckHome() {
                 onLinked={refetchDocuments}
               />
             )}
-            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} />}
+            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} onVouchersGenerated={refetchDocuments} />}
             {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
             {activeTab === 4 && <ProfileTab />}
           </>

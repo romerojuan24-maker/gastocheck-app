@@ -1,7 +1,17 @@
 import React from 'react'
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
 import { formatCurrency } from '@gastocheck/shared'
 import { useCFDICredit, usePacProviderConfig } from '../hooks'
+
+// Requieren decisión de diseño (encriptación de CSD, editor de plantillas)
+// antes de construir la pantalla real — ver plan pendiente. Se deja
+// retroalimentación honesta en vez de un botón que no hace nada.
+function comingSoon(feature: string) {
+  Alert.alert(
+    'Próximamente',
+    `${feature} estará disponible en una actualización futura.`
+  )
+}
 
 interface Props {
   companyId: string
@@ -85,7 +95,10 @@ export function SettingsTab({ companyId, color }: Props) {
             <Text style={styles.pacStatus}>⚪ No configurado</Text>
           )}
         </View>
-        <TouchableOpacity style={[styles.configButton, { backgroundColor: color }]}>
+        <TouchableOpacity
+          style={[styles.configButton, { backgroundColor: color }]}
+          onPress={() => comingSoon('La configuración de PAC')}
+        >
           <Text style={styles.configButtonText}>{pacConfig ? 'Actualizar PAC' : 'Configurar PAC'}</Text>
         </TouchableOpacity>
       </View>
@@ -95,11 +108,11 @@ export function SettingsTab({ companyId, color }: Props) {
         <Text style={styles.sectionSub}>
           Personaliza los mensajes de correo y WhatsApp usados al distribuir facturas.
         </Text>
-        <TouchableOpacity style={[styles.linkRow]}>
+        <TouchableOpacity style={[styles.linkRow]} onPress={() => comingSoon('La plantilla de correo')}>
           <Text style={styles.linkText}>📧 Plantilla de correo</Text>
           <Text style={styles.linkArrow}>›</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.linkRow]}>
+        <TouchableOpacity style={[styles.linkRow]} onPress={() => comingSoon('La plantilla de WhatsApp')}>
           <Text style={styles.linkText}>💬 Plantilla de WhatsApp</Text>
           <Text style={styles.linkArrow}>›</Text>
         </TouchableOpacity>

@@ -24,9 +24,10 @@ interface Props {
   items: CashFlowItem[]
   onEdit: (item: CashFlowItem) => void
   onDelete: (item: CashFlowItem) => void
+  saving?: boolean
 }
 
-export function CashFlowList({ items, onEdit, onDelete }: Props) {
+export function CashFlowList({ items, onEdit, onDelete, saving }: Props) {
   if (items.length === 0) {
     return (
       <View style={styles.empty}>
@@ -72,11 +73,11 @@ export function CashFlowList({ items, onEdit, onDelete }: Props) {
             </Text>
             {item.source === 'manual' && (
               <View style={styles.buttons}>
-                <TouchableOpacity onPress={() => onEdit(item)}>
-                  <Text style={styles.buttonEdit}>Editar</Text>
+                <TouchableOpacity onPress={() => onEdit(item)} disabled={saving}>
+                  <Text style={[styles.buttonEdit, saving && styles.buttonDisabled]}>Editar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(item)}>
-                  <Text style={styles.buttonDelete}>Borrar</Text>
+                <TouchableOpacity onPress={() => onDelete(item)} disabled={saving}>
+                  <Text style={[styles.buttonDelete, saving && styles.buttonDisabled]}>Borrar</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -172,5 +173,8 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 11,
     fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.4,
   },
 })

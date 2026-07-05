@@ -93,6 +93,8 @@ export default function CobraCheckHome() {
           })));
         }
       }
+    } catch (err) {
+      console.error('cobracheck.loadData failed:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }
