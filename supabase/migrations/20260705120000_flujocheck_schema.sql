@@ -10,7 +10,7 @@
 
 CREATE TABLE IF NOT EXISTS cash_flow_periods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   period_start DATE NOT NULL,        -- Lunes de la semana
   period_end DATE NOT NULL,          -- Domingo de la semana
@@ -38,7 +38,7 @@ CREATE INDEX idx_cash_flow_periods_company_date
 
 CREATE TABLE IF NOT EXISTS payables (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   period_id UUID NOT NULL REFERENCES cash_flow_periods(id) ON DELETE CASCADE,
 
   description TEXT NOT NULL,
@@ -61,7 +61,7 @@ CREATE INDEX idx_payables_due_date ON payables(company_id, due_date);
 
 CREATE TABLE IF NOT EXISTS receivables (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   period_id UUID NOT NULL REFERENCES cash_flow_periods(id) ON DELETE CASCADE,
 
   description TEXT NOT NULL,
@@ -84,7 +84,7 @@ CREATE INDEX idx_receivables_expected_date ON receivables(company_id, expected_d
 
 CREATE TABLE IF NOT EXISTS credits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   name TEXT NOT NULL,                 -- "Crédito Azteca", "BBVA Línea A", etc.
   principal DECIMAL(15,2) NOT NULL,   -- Monto original
@@ -162,7 +162,7 @@ CREATE INDEX idx_payment_schedule_credit ON payment_schedule(credit_id, due_date
 
 CREATE TABLE IF NOT EXISTS weekly_payment_plan (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   period_id UUID NOT NULL REFERENCES cash_flow_periods(id) ON DELETE CASCADE,
 
   day_of_week INT CHECK (day_of_week >= 0 AND day_of_week <= 6),  -- 0=Mon, 6=Sun
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS weekly_payment_plan (
 
 CREATE TABLE IF NOT EXISTS bank_accounts_multi (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   name TEXT NOT NULL,                 -- "Cuenta Operativa", "Fondo Reserva", etc.
   bank_name TEXT,                     -- BBVA, Santander, etc.
@@ -206,7 +206,7 @@ CREATE INDEX idx_bank_accounts_multi_company ON bank_accounts_multi(company_id);
 
 CREATE TABLE IF NOT EXISTS multi_account_recommendations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   period_id UUID NOT NULL REFERENCES cash_flow_periods(id) ON DELETE CASCADE,
 
   from_account_id UUID NOT NULL REFERENCES bank_accounts_multi(id),
@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS multi_account_recommendations (
 
 CREATE TABLE IF NOT EXISTS recurring_payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   name TEXT NOT NULL,                 -- "ISR mensual", "Servicio telefonía", etc.
   amount DECIMAL(15,2) NOT NULL,
@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS payment_collection_confidence (
 
 CREATE TABLE IF NOT EXISTS cash_flow_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   period_id UUID NOT NULL REFERENCES cash_flow_periods(id),
 
   transaction_date DATE NOT NULL,
@@ -291,7 +291,7 @@ CREATE INDEX idx_cash_flow_transactions_period ON cash_flow_transactions(company
 
 CREATE TABLE IF NOT EXISTS annual_projection (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   projection_month INT CHECK (projection_month >= 1 AND projection_month <= 12),  -- 1-12
   projection_year INT,

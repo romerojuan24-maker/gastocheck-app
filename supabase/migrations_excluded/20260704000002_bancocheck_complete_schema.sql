@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS public.bank_accounts (
   CONSTRAINT check_balance CHECK (current_balance >= -999999999)
 );
 
-CREATE INDEX idx_bank_accounts_company ON public.bank_accounts(company_id);
-CREATE INDEX idx_bank_accounts_active ON public.bank_accounts(is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_company ON public.bank_accounts(company_id);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_active ON public.bank_accounts(is_active) WHERE is_active = true;
 
 -- ============================================================================
 -- 2. BANK TRANSACTIONS (Movimientos con integraciones)
@@ -82,11 +82,11 @@ CREATE TABLE IF NOT EXISTS public.bank_transactions (
   CONSTRAINT check_amount CHECK (amount != 0)
 );
 
-CREATE INDEX idx_transactions_company ON public.bank_transactions(company_id);
-CREATE INDEX idx_transactions_account ON public.bank_transactions(bank_account_id);
-CREATE INDEX idx_transactions_source ON public.bank_transactions(source_module, source_id);
-CREATE INDEX idx_transactions_status ON public.bank_transactions(status);
-CREATE INDEX idx_transactions_date ON public.bank_transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS idx_transactions_company ON public.bank_transactions(company_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_account ON public.bank_transactions(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_source ON public.bank_transactions(source_module, source_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_status ON public.bank_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.bank_transactions(transaction_date);
 
 -- ============================================================================
 -- 3. BANK IMPORT LOGS (Trazabilidad de importaciones)
@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS public.bank_import_logs (
   CONSTRAINT check_counts CHECK (success_count + error_count = total_records OR total_records IS NULL)
 );
 
-CREATE INDEX idx_import_logs_company ON public.bank_import_logs(company_id);
-CREATE INDEX idx_import_logs_account ON public.bank_import_logs(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_import_logs_company ON public.bank_import_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_import_logs_account ON public.bank_import_logs(bank_account_id);
 
 -- ============================================================================
 -- 4. BANK RECONCILIATIONS (Reconciliación mensual)
@@ -146,8 +146,8 @@ CREATE TABLE IF NOT EXISTS public.bank_reconciliations (
   UNIQUE(company_id, bank_account_id, period_month, period_year)
 );
 
-CREATE INDEX idx_reconciliations_company ON public.bank_reconciliations(company_id);
-CREATE INDEX idx_reconciliations_status ON public.bank_reconciliations(status);
+CREATE INDEX IF NOT EXISTS idx_reconciliations_company ON public.bank_reconciliations(company_id);
+CREATE INDEX IF NOT EXISTS idx_reconciliations_status ON public.bank_reconciliations(status);
 
 -- ============================================================================
 -- 5. ACCOUNTING VOUCHERS (Pólizas para contador)
@@ -185,27 +185,31 @@ CREATE TABLE IF NOT EXISTS public.accounting_vouchers (
   CONSTRAINT check_balance CHECK (total_debit = total_credit)
 );
 
-CREATE INDEX idx_vouchers_company ON public.accounting_vouchers(company_id);
-CREATE INDEX idx_vouchers_status ON public.accounting_vouchers(status);
+CREATE INDEX IF NOT EXISTS idx_vouchers_company ON public.accounting_vouchers(company_id);
+CREATE INDEX IF NOT EXISTS idx_vouchers_status ON public.accounting_vouchers(status);
 
 -- ============================================================================
 -- 6. RLS POLICIES
 -- ============================================================================
 
 -- bank_accounts: Ver solo de la propia empresa
+DROP POLICY IF EXISTS "bank_accounts_own_company" ON public.bank_accounts;
 CREATE POLICY "bank_accounts_own_company" ON public.bank_accounts
   USING (company_id = auth_company_id())
   WITH CHECK (company_id = auth_company_id());
 
 -- bank_transactions: Ver solo de la propia empresa
+DROP POLICY IF EXISTS "bank_transactions_own_company" ON public.bank_transactions;
 CREATE POLICY "bank_transactions_own_company" ON public.bank_transactions
   USING (company_id = auth_company_id())
   WITH CHECK (company_id = auth_company_id());
 
 -- bank_reconciliations: Solo contador/admin pueden reconciliar
+DROP POLICY IF EXISTS "reconciliation_read" ON public.bank_reconciliations;
 CREATE POLICY "reconciliation_read" ON public.bank_reconciliations
   USING (company_id = auth_company_id());
 
+DROP POLICY IF EXISTS "reconciliation_write" ON public.bank_reconciliations;
 CREATE POLICY "reconciliation_write" ON public.bank_reconciliations
   WITH CHECK (
     company_id = auth_company_id() AND
@@ -213,9 +217,11 @@ CREATE POLICY "reconciliation_write" ON public.bank_reconciliations
   );
 
 -- accounting_vouchers: Solo contador/admin pueden exportar
+DROP POLICY IF EXISTS "vouchers_own_company" ON public.accounting_vouchers;
 CREATE POLICY "vouchers_own_company" ON public.accounting_vouchers
   USING (company_id = auth_company_id());
 
+DROP POLICY IF EXISTS "vouchers_export" ON public.accounting_vouchers;
 CREATE POLICY "vouchers_export" ON public.accounting_vouchers
   FOR INSERT
   WITH CHECK (
@@ -265,6 +271,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_update_bank_balance ON public.bank_transactions;
 CREATE TRIGGER trigger_update_bank_balance
   AFTER INSERT ON public.bank_transactions
   FOR EACH ROW

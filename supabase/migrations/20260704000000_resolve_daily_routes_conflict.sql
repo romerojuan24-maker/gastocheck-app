@@ -52,12 +52,13 @@ CREATE TABLE IF NOT EXISTS cobra_routes (
   CONSTRAINT valid_clients_array CHECK (array_length(clients_assigned, 1) IS NULL OR array_length(clients_assigned, 1) >= 0)
 );
 
-CREATE INDEX idx_cobra_routes_company_date    ON cobra_routes(company_id, assigned_date DESC);
-CREATE INDEX idx_cobra_routes_actor_date      ON cobra_routes(actor_id, assigned_date DESC);
-CREATE INDEX idx_cobra_routes_status          ON cobra_routes(company_id, status);
-CREATE INDEX idx_cobra_routes_priority        ON cobra_routes(company_id, route_priority);
+CREATE INDEX IF NOT EXISTS idx_cobra_routes_company_date    ON cobra_routes(company_id, assigned_date DESC);
+CREATE INDEX IF NOT EXISTS idx_cobra_routes_actor_date      ON cobra_routes(actor_id, assigned_date DESC);
+CREATE INDEX IF NOT EXISTS idx_cobra_routes_status          ON cobra_routes(company_id, status);
+CREATE INDEX IF NOT EXISTS idx_cobra_routes_priority        ON cobra_routes(company_id, route_priority);
 
 -- Trigger para updated_at
+DROP TRIGGER IF EXISTS trg_cobra_routes_touch ON cobra_routes;
 CREATE TRIGGER trg_cobra_routes_touch
   BEFORE UPDATE ON cobra_routes
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -69,6 +70,7 @@ CREATE TRIGGER trg_cobra_routes_touch
 ALTER TABLE cobra_routes ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: El cobrador ve su propia ruta, supervisores ven todas
+DROP POLICY IF EXISTS "cobra_routes_select" ON cobra_routes;
 CREATE POLICY "cobra_routes_select" ON cobra_routes FOR SELECT
   USING (
     actor_id = auth.uid()
@@ -76,6 +78,7 @@ CREATE POLICY "cobra_routes_select" ON cobra_routes FOR SELECT
   );
 
 -- INSERT: Solo supervisores/admin pueden crear rutas (no el cobrador)
+DROP POLICY IF EXISTS "cobra_routes_insert" ON cobra_routes;
 CREATE POLICY "cobra_routes_insert" ON cobra_routes FOR INSERT
   WITH CHECK (
     auth_role(company_id) IN ('owner', 'admin', 'supervisor', 'superadmin')
@@ -83,6 +86,7 @@ CREATE POLICY "cobra_routes_insert" ON cobra_routes FOR INSERT
 
 -- UPDATE: El cobrador puede actualizar su propia ruta (status, estadísticas),
 --         supervisores/admin pueden actualizar cualquiera
+DROP POLICY IF EXISTS "cobra_routes_update" ON cobra_routes;
 CREATE POLICY "cobra_routes_update" ON cobra_routes FOR UPDATE
   USING (
     actor_id = auth.uid()
@@ -94,6 +98,7 @@ CREATE POLICY "cobra_routes_update" ON cobra_routes FOR UPDATE
   );
 
 -- DELETE: Solo admin/owner pueden borrar
+DROP POLICY IF EXISTS "cobra_routes_delete" ON cobra_routes;
 CREATE POLICY "cobra_routes_delete" ON cobra_routes FOR DELETE
   USING (
     auth_role(company_id) IN ('owner', 'admin', 'superadmin')
@@ -105,9 +110,9 @@ CREATE POLICY "cobra_routes_delete" ON cobra_routes FOR DELETE
 
 -- Agregar columna route_id a cobra_movements para vincular a cobra_routes
 ALTER TABLE cobra_movements
-  ADD COLUMN route_id uuid REFERENCES cobra_routes(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS route_id uuid REFERENCES cobra_routes(id) ON DELETE SET NULL;
 
-CREATE INDEX idx_cobra_movements_route ON cobra_movements(route_id);
+CREATE INDEX IF NOT EXISTS idx_cobra_movements_route ON cobra_movements(route_id);
 
 -- ============================================================================
 -- PARTE 5: Vista agregada para Dashboard de Cobranza
@@ -141,8 +146,8 @@ SELECT
 FROM cobra_routes cr
 WHERE array_length(cr.clients_assigned, 1) > 0;
 
--- RLS para vista
-ALTER VIEW cobra_routes_summary OWNER TO authenticated;
+-- Acceso a la vista
+GRANT SELECT ON cobra_routes_summary TO authenticated;
 
 -- ============================================================================
 -- PARTE 6: Comentarios de Resolución
@@ -193,24 +198,5 @@ $$;
 -- ============================================================================
 -- RESUMEN DE CAMBIOS
 -- ============================================================================
-
-/*
-ANTES (Conflicto):
-  - daily_routes usada por GPS tracking, cobranza y viáticos simultáneamente
-  - Tipos TypeScript no coincidían con SQL
-  - Imposible implementar lógica de cobranza sin romper GPS tracking
-
-DESPUÉS (Resuelto):
-  ✓ daily_routes: SOLO GPS tracking (user_id, points[], route_date)
-  ✓ cobra_routes: SOLO cobranza (actor_id, clients_assigned[], status)
-  ✓ Ambas tablas con RLS y indexación específica
-  ✓ Separación clara de dominios
-  ✓ Vista agregada cobra_routes_summary para dashboard
-
-PRÓXIMOS PASOS:
-  1. Actualizar tipos TypeScript en packages/shared/src/types/
-  2. Crear API endpoints /api/cobra/routes/*
-  3. Actualizar componentes para usar cobra_routes
-  4. Ejecutar migración en Supabase production
-  5. Tests de integración
-*/
+-- ANTES: daily_routes usada por GPS tracking, cobranza y viáticos simultáneamente
+-- DESPUÉS: daily_routes = solo GPS tracking; cobra_routes = solo cobranza

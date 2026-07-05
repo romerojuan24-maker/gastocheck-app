@@ -10,7 +10,7 @@
 
 CREATE TABLE IF NOT EXISTS cfdi_credits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   credit_plan TEXT CHECK (credit_plan IN ('fixed', 'payperuse', 'hybrid')) DEFAULT 'fixed',
   total_balance DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -52,53 +52,11 @@ CREATE INDEX idx_cfdi_credit_transactions_credit ON cfdi_credit_transactions(cre
 
 
 -- ──────────────────────────────────────────────────────────────────────────
--- 3. CFDI_DOCUMENTS — CFDIs (facturas)
+-- 3. CFDI_DOCUMENTS — YA EXISTE en producción con esquema SAT maduro
+-- (rfc_emisor, razon_social_emisor, iva, ieps, retenciones, uso_cfdi,
+--  sat_validated_at, related_bank_txn_id, etc.) — NO recrear aquí.
+-- Las tablas de abajo solo referencian cfdi_documents(id) como FK.
 -- ──────────────────────────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS cfdi_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
-
-  folio TEXT UNIQUE,                    -- Número de folio SAT
-  serie TEXT,                           -- Serie de emisión
-
-  status TEXT CHECK (status IN ('draft', 'pending', 'timbrado', 'cancelled', 'error')) DEFAULT 'draft',
-
-  -- Dates
-  issue_date TIMESTAMPTZ,
-  due_date DATE,
-  timbro_date TIMESTAMPTZ,              -- Cuando se timbró
-
-  -- Receptor
-  receptor_rfc TEXT NOT NULL,
-  receptor_name TEXT,
-
-  -- Amounts
-  subtotal DECIMAL(15,2) NOT NULL,
-  tax_amount DECIMAL(15,2) DEFAULT 0,
-  total DECIMAL(15,2) NOT NULL,
-
-  -- Documents
-  xml_url TEXT,                          -- Almacenado en bucket
-  pdf_url TEXT,                          -- PDF generado
-
-  -- PAC info
-  pac_folio TEXT,
-  pac_certificate TEXT,
-
-  -- Links
-  cobracheck_link_id UUID,              -- Referencia a cobro si existe
-  gastocheck_link_id UUID,              -- Referencia a póliza si existe
-
-  notes TEXT,
-
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX idx_cfdi_documents_company ON cfdi_documents(company_id);
-CREATE INDEX idx_cfdi_documents_status ON cfdi_documents(status);
-CREATE INDEX idx_cfdi_documents_issue_date ON cfdi_documents(issue_date);
 
 
 -- ──────────────────────────────────────────────────────────────────────────
@@ -136,7 +94,7 @@ CREATE INDEX idx_cfdi_distributions_status ON cfdi_distributions(status);
 
 CREATE TABLE IF NOT EXISTS pac_configuration (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   pac_provider TEXT CHECK (pac_provider IN ('facturama', 'solucion_facil', 'sw', 'finkok')),
 
@@ -165,7 +123,7 @@ CREATE INDEX idx_pac_configuration_company ON pac_configuration(company_id);
 
 CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   template_name TEXT NOT NULL,
   subject TEXT NOT NULL,
@@ -189,7 +147,7 @@ CREATE INDEX idx_email_templates_company ON email_templates(company_id);
 
 CREATE TABLE IF NOT EXISTS whatsapp_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   template_name TEXT NOT NULL,
   message_text TEXT NOT NULL,
@@ -215,7 +173,7 @@ CREATE INDEX idx_whatsapp_templates_company ON whatsapp_templates(company_id);
 
 CREATE TABLE IF NOT EXISTS audit_log_facturacheck (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES company(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
   cfdi_id UUID REFERENCES cfdi_documents(id) ON DELETE SET NULL,
 
@@ -255,11 +213,7 @@ CREATE POLICY "cfdi_credit_transactions_access"
     credit_id IN (SELECT id FROM cfdi_credits WHERE company_id IN (SELECT company_id FROM company_members WHERE user_id = auth.uid() AND status = 'active'))
   );
 
-ALTER TABLE cfdi_documents ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "cfdi_documents_access"
-  ON cfdi_documents FOR ALL USING (
-    company_id IN (SELECT company_id FROM company_members WHERE user_id = auth.uid() AND status = 'active')
-  );
+-- cfdi_documents ya existe con su propia RLS en producción — no tocar aquí.
 
 ALTER TABLE cfdi_distributions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "cfdi_distributions_access"
