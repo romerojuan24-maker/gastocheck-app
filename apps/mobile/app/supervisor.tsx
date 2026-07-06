@@ -1,9 +1,10 @@
 // Panel Contador — reembolsos, gastos de equipo, solicitudes de anticipo, empleados
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -193,7 +194,7 @@ export default function SupervisorScreen() {
     }
   }, [expFilter]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   // ── Acciones sobre gastos ──────────────────────────────────────────────────
 
