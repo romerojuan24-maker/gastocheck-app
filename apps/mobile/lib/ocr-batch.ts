@@ -37,7 +37,8 @@ async function callOcrExtract(base64: string): Promise<{
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    return { data: null, error: err.error || err.detail || `Error ${res.status}`, croppedImageBase64: null };
+    const detail = err.detail || err.error || err.message || `Error ${res.status}`;
+    return { data: null, error: `[${res.status}] ${detail}`, croppedImageBase64: null };
   }
   const body = await res.json();
   return { data: body.data as OcrResult, error: null, croppedImageBase64: body.croppedImageBase64 ?? null };
@@ -163,7 +164,12 @@ export async function runOcrBatch(
     onProgress({ ...progress });
     const result = await runOcrOnReceipt(r, companyId);
     progress.done += 1;
-    if (result.ok) progress.ok += 1; else progress.failed += 1;
+    if (result.ok) {
+      progress.ok += 1;
+    } else {
+      progress.failed += 1;
+      console.error(`[ocr-batch] receipt ${r.id} fallo:`, result.error);
+    }
     onProgress({ ...progress });
   }
   progress.current = null;
