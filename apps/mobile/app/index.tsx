@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
@@ -13,11 +14,12 @@ const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_g
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 export default function CheckSuiteHome() {
-  const router     = useRouter();
-  const navigation = useNavigation();
-  const [loading,   setLoading]   = useState(true);
-  const [userRole,  setUserRole]  = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const router      = useRouter();
+  const navigation  = useNavigation();
+  const [loading,     setLoading]     = useState(true);
+  const [userRole,    setUserRole]    = useState<string | null>(null);
+  const [userEmail,   setUserEmail]   = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -30,13 +32,39 @@ export default function CheckSuiteHome() {
         const user = session?.user;
         if (!user) { setLoading(false); return; }
         setUserEmail(user.email ?? null);
-        const { data: member } = await supabase
+
+        // Traer TODAS las membresías activas del usuario — si pertenece a
+        // más de una empresa, un query sin company_id + .maybeSingle()
+        // fallaba en silencio (múltiples filas) y dejaba userRole en null,
+        // ocultando todos los módulos excepto GastoCheck (que no depende
+        // del rol). Se escoge explícitamente la empresa seleccionada.
+        const { data: memberships } = await supabase
           .from('company_members')
-          .select('role')
+          .select('company_id, role')
           .eq('user_id', user.id)
-          .eq('status', 'active')
-          .maybeSingle();
-        if (member?.role) setUserRole(member.role);
+          .eq('status', 'active');
+
+        if (memberships && memberships.length > 0) {
+          let selectedId = await AsyncStorage.getItem('selectedCompanyId');
+          let member = selectedId ? memberships.find(m => m.company_id === selectedId) : undefined;
+
+          if (!member) {
+            // Sin selección guardada, o la guardada ya no es válida para
+            // este usuario — usar la primera membresía y persistirla,
+            // igual que hace empresas.tsx.
+            member = memberships[0];
+            await AsyncStorage.setItem('selectedCompanyId', member.company_id);
+          }
+
+          setUserRole(member.role);
+
+          const { data: co } = await supabase
+            .from('companies')
+            .select('name')
+            .eq('id', member.company_id)
+            .maybeSingle();
+          setCompanyName((co as any)?.name ?? null);
+        }
       } finally {
         setLoading(false);
       }
@@ -87,6 +115,13 @@ export default function CheckSuiteHome() {
       </View>
 
       <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        {companyName && (
+          <TouchableOpacity style={styles.companyPill} onPress={() => router.push('/empresas')} activeOpacity={0.7}>
+            <Text style={styles.companyPillText}>🏢 {companyName}</Text>
+            <Text style={styles.companyPillSwitch}>Cambiar</Text>
+          </TouchableOpacity>
+        )}
+
         <TrialBanner onUpgrade={() => router.push('/settings')} />
 
         <Text style={styles.sectionLabel}>MÓDULOS</Text>
@@ -185,6 +220,14 @@ const styles = StyleSheet.create({
   brandTitle:    { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   brandTagline:  { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   versionText:   { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 14 },
+
+  companyPill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14,
+    marginBottom: 4, borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  companyPillText:   { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  companyPillSwitch: { fontSize: 12, fontWeight: '700', color: BRAND.csblue },
 
   sectionLabel: {
     fontSize: 11, fontWeight: '800', color: '#90A4AE',
