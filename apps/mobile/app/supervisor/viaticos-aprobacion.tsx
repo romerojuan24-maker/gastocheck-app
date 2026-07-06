@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 
-const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor'];
+const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'];
 
 interface ViajeSubmitted {
   id:             string;

@@ -57,7 +57,7 @@ type Tab          = 'reembolsos' | 'expenses' | 'requests' | 'employees';
 type ExpenseFilter = 'pending' | 'all';
 
 // Roles que pueden acceder al panel supervisor
-const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor'];
+const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'];
 
 // ── Componente ─────────────────────────────────────────────────────────────────
 

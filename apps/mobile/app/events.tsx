@@ -80,7 +80,7 @@ export default function EventsScreen() {
       setCompanyId(member.company_id);
       setUserRole(member.role);
 
-      const isOwner = ['owner', 'admin', 'supervisor'].includes(member.role);
+      const isOwner = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'].includes(member.role);
 
       // Cargar gastadores para el selector (solo si es owner)
       if (isOwner) {
@@ -222,7 +222,7 @@ export default function EventsScreen() {
     );
   }
 
-  const isOwner = ['owner', 'admin', 'supervisor'].includes(userRole);
+  const isOwner = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'].includes(userRole);
 
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>

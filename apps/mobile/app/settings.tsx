@@ -169,7 +169,7 @@ export default function SettingsScreen() {
   }
 
   const roleMeta = ROLE_LABELS[role] ?? ROLE_LABELS.employee;
-  const isSupervisor = ['owner', 'admin', 'accountant', 'supervisor'].includes(role ?? '');
+  const isSupervisor = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'].includes(role ?? '');
   const isFleet = isFleetSector(profile?.sector ?? null);
 
   return (

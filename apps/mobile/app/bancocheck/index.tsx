@@ -24,7 +24,7 @@ import type { BankTransaction, TransactionTab } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BANCO_COLOR = '#FF6B35'  // Naranja banco
-const ADMIN_ROLES = ['owner', 'admin']
+const ADMIN_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general']
 
 const CONTADOR_TABS = [
   { icon: '🏦', label: 'Cuentas',        badge: 0 },

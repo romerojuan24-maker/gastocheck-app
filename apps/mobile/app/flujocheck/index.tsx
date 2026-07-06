@@ -24,7 +24,7 @@ import type { CashFlowItem } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FLUJO_COLOR = BRAND.blue  // '#1565C0'
-const ADMIN_ROLES = ['owner', 'admin']
+const ADMIN_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general']
 
 const CONTADOR_TABS = [
   { icon: '📊', label: 'Flujo',      badge: 0 },

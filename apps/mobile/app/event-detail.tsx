@@ -85,7 +85,7 @@ export default function EventDetailScreen() {
   const available  = (event?.budget ?? 0) - totalSpent;
   const pct        = event?.budget ? Math.min(totalSpent / event.budget, 1) : 0;
 
-  const isOwner = ['owner', 'admin', 'supervisor'].includes(userRole);
+  const isOwner = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'].includes(userRole);
 
   const loadData = useCallback(async () => {
     if (!eventId) return;

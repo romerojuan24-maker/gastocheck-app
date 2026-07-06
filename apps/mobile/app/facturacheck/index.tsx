@@ -24,7 +24,7 @@ import type { CfdiDocument } from './types'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FACTURA_COLOR = BRAND.purple  // '#7B1FA2'
-const ADMIN_ROLES = ['owner', 'admin']
+const ADMIN_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general']
 
 const CONTADOR_TABS = [
   { icon: '🧾', label: 'CFDIs',         badge: 0 },

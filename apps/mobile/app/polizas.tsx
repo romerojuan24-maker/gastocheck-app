@@ -84,7 +84,7 @@ export default function PolizasScreen() {
   const [acctTarget,   setAcctTarget]   = useState<ReceiptLine | null>(null);
   const [acctSearch,   setAcctSearch]   = useState('');
 
-  const isContador = ['owner', 'admin', 'accountant', 'supervisor'].includes(myRole);
+  const isContador = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'].includes(myRole);
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ export default function PolizasScreen() {
     setCompanyId(m.company_id);
     setMyRole(m.role ?? 'spender');
 
-    const isAdmin = ['owner', 'admin', 'accountant', 'supervisor'].includes(m.role);
+    const isAdmin = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'].includes(m.role);
 
     // Reembolsos pendientes
     setLoadingReb(true);
