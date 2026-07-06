@@ -146,6 +146,16 @@ export default function CheckSuiteHome() {
           />
         )}
 
+        {showMore && (
+          <ModuleCard
+            icon="👥"
+            iconBg={BRAND.purple ?? '#7B1FA2'}
+            title="Equipo"
+            subtitle="Miembros, roles e invitaciones — para todos los módulos"
+            onPress={() => router.push('/equipo' as any)}
+          />
+        )}
+
         {/* ── Módulos complementarios (mandos / dev) ── */}
         {showMore && (
           <>

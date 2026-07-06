@@ -63,8 +63,8 @@ Deno.serve(async (req) => {
       .eq('status', 'active')
       .maybeSingle();
 
-    if (!callerMember || !['owner', 'admin', 'supervisor'].includes(callerMember.role)) {
-      return Response.json({ error: 'Sin permisos para agregar compradores' }, { status: 403, headers: CORS });
+    if (!callerMember || !['owner', 'admin', 'supervisor', 'accountant', 'contador_general'].includes(callerMember.role)) {
+      return Response.json({ error: 'Sin permisos para invitar al equipo' }, { status: 403, headers: CORS });
     }
 
     // Contraseña: usar la proporcionada o generar una temporal

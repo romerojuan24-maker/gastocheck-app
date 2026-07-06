@@ -38,7 +38,6 @@ export default function CobraCheckHome() {
   const [companyId,   setCompanyId]  = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [userId,      setUserId]     = useState<string | null>(null);
-  const [members,     setMembers]    = useState<Array<{ user_id: string; role: string; full_name: string | null }>>([]);
 
   const [adminTab, setAdminTab] = useState(0); // default: Empresa
   const [contTab,  setContTab]  = useState(0); // default: Cobranza
@@ -78,20 +77,6 @@ export default function CobraCheckHome() {
           .from('companies').select('name')
           .eq('id', member.company_id).maybeSingle();
         setCompanyName((co as any)?.name ?? null);
-
-        if (ADMIN_ROLES.includes(member.role)) {
-          const { data: mlist } = await supabase
-            .from('company_members')
-            .select('user_id, role, profiles:user_id(full_name)')
-            .eq('company_id', member.company_id)
-            .eq('status', 'active')
-            .order('role');
-          setMembers((mlist ?? []).map((m: any) => ({
-            user_id:   m.user_id,
-            role:      m.role,
-            full_name: (m.profiles as any)?.full_name ?? null,
-          })));
-        }
       }
     } catch (err) {
       console.error('cobracheck.loadData failed:', err instanceof Error ? err.message : err);
@@ -349,11 +334,6 @@ export default function CobraCheckHome() {
     { icon: '⚙️', label: 'Config',   badge: 0 },
   ];
 
-  function inviteCode() {
-    if (!companyId) return '--------';
-    return companyId.replace(/-/g, '').substring(0, 8).toUpperCase();
-  }
-
   return (
     <View style={s.screen}>
       <TopBar />
@@ -376,31 +356,14 @@ export default function CobraCheckHome() {
         {/* ── Tab 1: Equipo ── */}
         {adminTab === 1 && (
           <ScrollView contentContainerStyle={s.pad}>
-            <Text style={s.tabTitle}>Equipo CobraCheck</Text>
-            {members.length === 0 ? (
-              <EmptyComingSoon icon="👥" title="Sin miembros" sub="Invita a contadores y cobradores" />
-            ) : (
-              members.map((m) => (
-                <View key={m.user_id} style={s.memberRow}>
-                  <View style={[s.avatar, { width: 42, height: 42, borderRadius: 21, marginRight: 12, backgroundColor: COBRA_COLOR + '18' }]}>
-                    <Text style={[s.avatarText, { color: COBRA_COLOR, fontSize: 18 }]}>
-                      {(m.full_name ?? m.user_id).charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.memberName}>{m.full_name ?? '(sin nombre)'}{m.user_id === userId ? '  (tú)' : ''}</Text>
-                    <Text style={{ fontSize: 12, color: '#90A4AE', marginTop: 2 }}>{ROLE_LABEL[m.role] ?? m.role}</Text>
-                  </View>
-                </View>
-              ))
-            )}
-            <View style={{ marginTop: 16 }}>
-              <Text style={s.sectionLabel}>Código de empresa</Text>
-              <View style={s.codeBox}>
-                <Text style={s.codeLabel}>Comparte este código con tu equipo</Text>
-                <Text style={s.codeValue}>{inviteCode()}</Text>
-              </View>
-            </View>
+            <Text style={s.tabTitle}>Equipo</Text>
+            <Text style={{ fontSize: 13, color: '#90A4AE', marginBottom: 14, lineHeight: 18 }}>
+              La gestión de equipo (miembros, roles e invitaciones) ahora es una
+              sola pantalla para toda la plataforma, sin importar el módulo.
+            </Text>
+            <BigCard icon="👥" title="Ir a Equipo"
+              sub="Ver miembros e invitar contadores y cobradores"
+              bg={COBRA_COLOR} onPress={() => router.push('/equipo' as any)} />
           </ScrollView>
         )}
 
@@ -579,14 +542,4 @@ const s = StyleSheet.create({
   empty:      { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 32, backgroundColor: '#fff', borderRadius: 16, marginTop: 4 },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: BRAND.navy, marginBottom: 6 },
   emptySub:   { fontSize: 13, color: '#90A4AE', textAlign: 'center', lineHeight: 19 },
-
-  // Team list
-  memberRow:  { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
-  memberName: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-
-  // Invite code
-  codeBox:      { backgroundColor: BRAND.gray, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 16 },
-  codeLabel:    { fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase' },
-  codeValue:    { fontSize: 26, fontWeight: '800', color: BRAND.navy, letterSpacing: 4, marginTop: 4 },
-  sectionLabel: { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
 });

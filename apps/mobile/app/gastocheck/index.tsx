@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, Platform, Modal, Share,
+  ScrollView, ActivityIndicator, Alert, Platform, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -32,12 +32,6 @@ const ROLE_LABEL: Record<string, string> = {
   supervisor:       '📊 Supervisor',
   spender:          '🛍 Comprador',
   comprador:        '🛍 Comprador',
-};
-
-const getMemberColor = (role: string): string => {
-  if (['owner', 'admin'].includes(role)) return BRAND.navy;
-  if (['accountant', 'contador_general', 'supervisor'].includes(role)) return BRAND.blue;
-  return BRAND.green;
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -73,7 +67,6 @@ export default function GastoCheckHome() {
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [userId,     setUserId]     = useState<string | null>(null);
   const [companyId,  setCompanyId]  = useState<string | null>(null);
-  const [members,    setMembers]    = useState<Array<{ user_id: string; role: string; full_name: string | null }>>([]);
 
   useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -110,7 +103,7 @@ export default function GastoCheckHome() {
       if (isAdmin && member.company_id) {
         const tenDaysAgo = new Date();
         tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-        const [{ count: oc }, { count: tc }, { data: mlist }, { data: co }] = await Promise.all([
+        const [{ count: oc }, { count: tc }, { data: co }] = await Promise.all([
           supabase
             .from('policies')
             .select('id', { count: 'exact', head: true })
@@ -123,12 +116,6 @@ export default function GastoCheckHome() {
             .eq('company_id', member.company_id)
             .eq('status', 'active'),
           supabase
-            .from('company_members')
-            .select('user_id, role, profiles:user_id(full_name)')
-            .eq('company_id', member.company_id)
-            .eq('status', 'active')
-            .order('role'),
-          supabase
             .from('companies')
             .select('name')
             .eq('id', member.company_id)
@@ -137,11 +124,6 @@ export default function GastoCheckHome() {
         setOverdueAdv(oc ?? 0);
         setTeamCount(tc ?? 0);
         setCompanyName((co as any)?.name ?? null);
-        setMembers((mlist ?? []).map((m: any) => ({
-          user_id:   m.user_id,
-          role:      m.role,
-          full_name: (m.profiles as any)?.full_name ?? null,
-        })));
       }
 
       if (isSupervisor && member.company_id) {
@@ -250,101 +232,6 @@ export default function GastoCheckHome() {
         },
       },
     ]);
-  }
-
-  function showMemberOptions(m: { user_id: string; role: string; full_name: string | null }) {
-    const name = m.full_name ?? '(sin nombre)';
-    const isSelf = m.user_id === userId;
-    Alert.alert(
-      name,
-      `Rol: ${ROLE_LABEL[m.role] ?? m.role}`,
-      [
-        ...(!isSelf ? [{ text: '🔄 Cambiar rol', onPress: () => changeMemberRole(m) }] : []),
-        ...(!isSelf ? [{ text: '🚫 Quitar del equipo', style: 'destructive' as const, onPress: () => confirmRemoveMember(m) }] : []),
-        { text: 'Cancelar', style: 'cancel' as const },
-      ]
-    );
-  }
-
-  function changeMemberRole(m: { user_id: string; role: string; full_name: string | null }) {
-    if (!companyId) return;
-    const opts = [
-      { role: 'admin',     label: '👑 Admin' },
-      { role: 'accountant', label: '📊 Contador' },
-      { role: 'spender', label: '🛍 Comprador' },
-    ].filter((o) => o.role !== m.role);
-    Alert.alert(
-      `Cambiar rol de ${m.full_name ?? '...'}`,
-      'Selecciona el nuevo rol:',
-      [
-        ...opts.map((o) => ({
-          text: o.label,
-          onPress: async () => {
-            const { error } = await supabase.from('company_members').update({ role: o.role })
-              .eq('user_id', m.user_id).eq('company_id', companyId);
-            if (error) { Alert.alert('Error', 'No se pudo cambiar el rol.'); return; }
-            loadData();
-          },
-        })),
-        { text: 'Cancelar', style: 'cancel' as const },
-      ]
-    );
-  }
-
-  async function shareInvite(role: 'admin' | 'comprador' | 'accountant') {
-    if (!companyId) return;
-    const name = companyName ?? 'la empresa';
-    const ROLE_INFO = {
-      admin: {
-        label:   'Admin',
-        accesos: 'Acceso completo de administrador: gestiona la empresa, cuentas bancarias, equipo de trabajo, flotilla y toda la configuración.',
-      },
-      accountant: {
-        label:   'Contador',
-        accesos: 'Acceso completo contable: clasifica cuentas, valida CFDI en SAT, genera pólizas, exporta a CONTPAQi/CSV, y reportes de operación.',
-      },
-      comprador: {
-        label:   'Comprador',
-        accesos: 'Captura tickets con cámara, genera reembolsos, consulta comprobantes propios y ve los proveedores de la empresa.',
-      },
-    };
-    const { label, accesos } = ROLE_INFO[role];
-    const msg =
-      `Hola! Te invito a unirte a *${name}* en GastoCheck como *${label}*.\n\n` +
-      `📋 *${label} — Tus accesos:*\n${accesos}\n\n` +
-      `Para darte de alta, ve a la versión web de GastoCheck → *Configuración → Equipo* ` +
-      `e ingresa tu correo (${label}). Vas a recibir un correo para activar tu cuenta y ` +
-      `entrar directo con tu rol ya asignado.\n\n` +
-      `Una vez activa tu cuenta, descarga la app:\n` +
-      `📱 iOS: https://apps.apple.com/app/gastocheck\n` +
-      `🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck`;
-    try { await Share.share({ message: msg }); } catch { /* cancelado */ }
-  }
-
-  function confirmRemoveMember(m: { user_id: string; role: string; full_name: string | null }) {
-    if (!companyId) return;
-    Alert.alert(
-      '¿Quitar del equipo?',
-      `${m.full_name ?? '(sin nombre)'} perderá acceso a esta empresa.`,
-      [
-        { text: 'Cancelar', style: 'cancel' as const },
-        {
-          text: 'Quitar', style: 'destructive' as const,
-          onPress: async () => {
-            const { error } = await supabase
-              .from('company_members')
-              .update({ status: 'disabled' })
-              .eq('user_id', m.user_id)
-              .eq('company_id', companyId);
-            if (error) {
-              Alert.alert('Error al quitar', error.message);
-              return;
-            }
-            loadData();
-          },
-        },
-      ]
-    );
   }
 
   // ── Shared components ───────────────────────────────────────────────────────
@@ -700,60 +587,13 @@ export default function GastoCheckHome() {
         {adminTab === 1 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Equipo</Text>
-            {members.length === 0 ? (
-              <EmptyState icon="👥" title="Sin miembros"
-                sub="Invita a tu equipo con el botón de abajo" />
-            ) : (
-              members.map((m) => (
-                <TouchableOpacity
-                  key={m.user_id}
-                  style={s.memberRow}
-                  onPress={() => showMemberOptions(m)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[s.memberAvatar, { backgroundColor: getMemberColor(m.role) + '18' }]}>
-                    <Text style={[s.memberAvatarText, { color: getMemberColor(m.role) }]}>
-                      {(m.full_name ?? m.user_id).charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.memberName}>
-                      {m.full_name ?? '(sin nombre)'}{m.user_id === userId ? '  (tú)' : ''}
-                    </Text>
-                    <View style={[s.pill, {
-                      backgroundColor: getMemberColor(m.role) + '18',
-                      marginTop: 4, alignSelf: 'flex-start',
-                    }]}>
-                      <Text style={[s.pillText, { color: getMemberColor(m.role) }]}>
-                        {ROLE_LABEL[m.role] ?? m.role}
-                      </Text>
-                    </View>
-                  </View>
-                  {m.user_id !== userId && (
-                    <Text style={{ fontSize: 18, color: '#B0BEC5' }}>···</Text>
-                  )}
-                </TouchableOpacity>
-              ))
-            )}
-            {/* ── Invitar ────────────────────────────────── */}
-            <View style={{ marginTop: 20 }}>
-              <Text style={[s.tabTitle, { fontSize: 16, marginBottom: 8 }]}>Invitar al Equipo</Text>
-              {([
-                { role: 'admin'      as const, icon: '👑', label: 'Admin',    desc: 'Acceso completo: empresa, equipo, cuentas bancarias y configuración.',       color: BRAND.navy   },
-                { role: 'accountant' as const, icon: '🧮', label: 'Contador', desc: 'Clasifica cuentas, valida CFDI, genera pólizas y exporta a CONTPAQi.',      color: BRAND.purple },
-                { role: 'comprador'  as const, icon: '🛒', label: 'Comprador',desc: 'Captura tickets, genera reembolsos y consulta proveedores.',                color: BRAND.green  },
-              ]).map(({ role, icon, label, desc, color }) => (
-                <View key={role} style={[s.roleCard, { borderLeftColor: color }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.roleCardTitle}>{icon} {label}</Text>
-                    <Text style={s.roleCardDesc}>{desc}</Text>
-                  </View>
-                  <TouchableOpacity style={[s.roleInviteBtn, { backgroundColor: color }]} onPress={() => shareInvite(role)}>
-                    <Text style={s.roleInviteBtnText}>Invitar</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
+            <Text style={{ fontSize: 13, color: '#90A4AE', marginBottom: 14, lineHeight: 18 }}>
+              La gestión de equipo (miembros, roles e invitaciones) ahora es una
+              sola pantalla para toda la plataforma, sin importar el módulo.
+            </Text>
+            <BigCard icon="👥" title="Ir a Equipo"
+              sub={`${teamCount} miembro${teamCount !== 1 ? 's' : ''} activo${teamCount !== 1 ? 's' : ''}`}
+              bg={BRAND.purple} onPress={() => router.push('/equipo' as any)} />
           </ScrollView>
         )}
 
@@ -1151,19 +991,6 @@ const s = StyleSheet.create({
   switcherLabel:     { fontSize: 16, fontWeight: '700', color: BRAND.navy },
   switcherSub:       { fontSize: 12, color: '#90A4AE', marginTop: 2 },
   switcherCheck:     { fontSize: 20, fontWeight: '800' },
-
-  // Member list (Admin Equipo tab)
-  memberRow:        { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
-  memberAvatar:     { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  memberAvatarText: { fontSize: 18, fontWeight: '800' },
-  memberName:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
-
-  // Invite section (Admin Equipo tab)
-  roleCard:          { backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderLeftWidth: 4, borderWidth: 1, borderColor: '#E0E0E0' },
-  roleCardTitle:     { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
-  roleCardDesc:      { fontSize: 12, color: '#607D8B', lineHeight: 16 },
-  roleInviteBtn:     { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, minWidth: 70, alignItems: 'center' },
-  roleInviteBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   sectionLabel:      { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
   viewModeChip:      { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#CFD8DC', backgroundColor: '#F5F7FA', gap: 2 },
   viewModeChipText:  { fontSize: 12, fontWeight: '700', color: BRAND.navy },
