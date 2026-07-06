@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
 import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode';
+import { CompanySwitcher } from '../shared/components/CompanySwitcher';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -686,9 +687,7 @@ export default function GastoCheckHome() {
             <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
               sub="Datos fiscales, cuentas bancarias y plan"
               bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
-            <NavCard icon="🔀" title="Cambiar empresa"
-              sub="Seleccionar o crear otra empresa"
-              onPress={() => router.push('/empresas' as any)} />
+            <CompanySwitcher color={BRAND.navy} />
           </ScrollView>
         )}
 

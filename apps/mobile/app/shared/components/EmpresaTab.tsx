@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { BRAND } from '@gastocheck/shared'
+import { CompanySwitcher } from './CompanySwitcher'
 
 export type PanelViewMode = 'admin' | 'contador'
 
@@ -50,18 +51,7 @@ export function EmpresaTab({ companyName, viewMode, onSelectMode, color }: Props
         <Text style={s.bigCardSub}>Datos fiscales, cuentas bancarias y plan</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={s.navCard}
-        onPress={() => router.push('/empresas' as any)}
-        activeOpacity={0.85}
-      >
-        <Text style={s.navCardIcon}>🔀</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={s.navCardTitle}>Cambiar empresa</Text>
-          <Text style={s.navCardSub}>Seleccionar o crear otra empresa</Text>
-        </View>
-        <Text style={s.navCardArrow}>›</Text>
-      </TouchableOpacity>
+      <CompanySwitcher color={color} />
     </ScrollView>
   )
 }

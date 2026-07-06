@@ -8,11 +8,23 @@ import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const MAX_COMPANIES = 3;
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: '👑 Propietario',
+  admin: '👑 Admin',
+  contador_general: '📊 Contador General',
+  accountant: '🧮 Contador de Módulo',
+  spender: '🛒 Comprador',
+  collector: '🎯 Cobrador',
+  supervisor: '📋 Supervisor',
+};
+
 interface CompanyItem {
   id: string;
   name: string;
   rfc: string | null;
-  role: 'owner' | 'admin' | 'supervisor' | 'comprador';
+  role: string;
 }
 
 export default function EmpresasScreen() {
@@ -31,13 +43,14 @@ export default function EmpresasScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Obtener todas las empresas del usuario (donde tiene owner/admin)
+      // Todas las empresas activas del usuario, sin importar su rol —
+      // antes solo mostraba owner/admin, escondiendo empresas donde el
+      // usuario es contador/comprador/cobrador.
       const { data: members } = await supabase
         .from('company_members')
         .select('company_id, role')
         .eq('user_id', user.id)
-        .eq('status', 'active')
-        .in('role', ['owner', 'admin']);
+        .eq('status', 'active');
 
       if (!members || members.length === 0) return;
 
@@ -76,6 +89,10 @@ export default function EmpresasScreen() {
   useEffect(() => { load(); }, [load]);
 
   async function handleCreate() {
+    if (companies.length >= MAX_COMPANIES) {
+      Alert.alert('Límite alcanzado', `Puedes tener hasta ${MAX_COMPANIES} empresas.`);
+      return;
+    }
     if (!newName.trim()) {
       Alert.alert('Requerido', 'El nombre de la empresa es obligatorio.');
       return;
@@ -154,7 +171,7 @@ export default function EmpresasScreen() {
                     </Text>
                   )}
                   <Text style={[styles.companyRole, selectedId === co.id && { color: 'rgba(255,255,255,0.7)' }]}>
-                    {co.role === 'owner' ? '👑 Propietario' : '🔑 Administrador'}
+                    {ROLE_LABEL[co.role] ?? co.role}
                   </Text>
                 </View>
                 {selectedId === co.id && (
@@ -169,8 +186,14 @@ export default function EmpresasScreen() {
 
         {/* ── Botones de acción ── */}
         <View style={{ gap: 10, marginTop: 20 }}>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowCreate(true)}>
-            <Text style={styles.btnSecondaryText}>+ Crear Nueva Empresa</Text>
+          <TouchableOpacity
+            style={[styles.btnSecondary, companies.length >= MAX_COMPANIES && { opacity: 0.5 }]}
+            onPress={() => setShowCreate(true)}
+            disabled={companies.length >= MAX_COMPANIES}
+          >
+            <Text style={styles.btnSecondaryText}>
+              {companies.length >= MAX_COMPANIES ? `Máximo ${MAX_COMPANIES} empresas` : '+ Crear Nueva Empresa'}
+            </Text>
           </TouchableOpacity>
         </View>
 

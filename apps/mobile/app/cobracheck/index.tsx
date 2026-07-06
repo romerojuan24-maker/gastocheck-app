@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
+import { CompanySwitcher } from '../shared/components/CompanySwitcher';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -343,9 +344,7 @@ export default function CobraCheckHome() {
             <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
               sub="Datos fiscales, usuarios y configuración"
               bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
-            <NavCard icon="🔀" title="Cambiar empresa"
-              sub="Seleccionar o crear otra empresa"
-              onPress={() => router.push('/empresas' as any)} />
+            <CompanySwitcher color={COBRA_COLOR} />
           </ScrollView>
         )}
 
