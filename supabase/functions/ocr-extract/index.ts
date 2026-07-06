@@ -57,9 +57,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { image_base64, mime_type } = (await req.json()) as {
+    const { image_base64, mime_type, skip_crop } = (await req.json()) as {
       image_base64: string;
       mime_type?: string;
+      skip_crop?: boolean;
     };
 
     if (!image_base64) {
@@ -315,8 +316,11 @@ Reglas:
 
     // ── Recorte automático del documento (si Gemini devolvió un bounding box confiable) ──
     // No falla el OCR si el recorte da error — result ya tiene todos los datos útiles.
+    // Decodificar/recortar/re-codificar con imagescript es el paso más lento de esta
+    // función (más que la llamada a Gemini). Los llamadores que solo necesitan los
+    // datos extraídos (ej. revisión síncrona con spinner) deben mandar skip_crop:true.
     let croppedImageBase64: string | null = null;
-    if (result.documentBox) {
+    if (result.documentBox && !skip_crop) {
       try {
         const { x0, y0, x1, y1 } = result.documentBox;
         const validBox =

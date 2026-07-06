@@ -318,7 +318,10 @@ export default function CaptureScreen() {
     if (!photo?.base64) return;
     setOcrRunning(true);
     try {
-      const { data: result, error: ocrErr } = await extractFromImage(photo.base64, 'image/jpeg');
+      // skipCrop: esta pantalla espera el resultado con spinner y nunca usa
+      // croppedImageBase64 — pedirlo solo agrega el paso más lento de la
+      // función (decode/crop/encode de imagen) sin ningún beneficio aquí.
+      const { data: result, error: ocrErr } = await extractFromImage(photo.base64, 'image/jpeg', true);
       if (result) {
         setExtracted(result);
         const prov = result.providerName ?? '';

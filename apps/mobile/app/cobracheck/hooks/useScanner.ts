@@ -20,7 +20,9 @@ export function useScanner(imageUri: string | null) {
       })
 
       // Llamar a OCR real (Gemini 1.5 Flash via Edge Function)
-      const { data: ocrData, error: ocrError } = await extractFromImage(base64, 'image/jpeg')
+      // skipCrop: este scanner nunca usa croppedImageBase64, solo bloquea
+      // esperando el recorte sin ningún beneficio.
+      const { data: ocrData, error: ocrError } = await extractFromImage(base64, 'image/jpeg', true)
 
       if (ocrError || !ocrData) {
         setError(ocrError || 'No se pudo analizar la imagen')

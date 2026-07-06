@@ -8,6 +8,7 @@ export function useOcr() {
   async function extractFromImage(
     base64: string,
     mimeType: string = 'image/jpeg',
+    skipCrop: boolean = false,
   ): Promise<{ data: OcrResult | null; error: string | null; croppedImageBase64: string | null }> {
     setLoading(true)
     try {
@@ -22,7 +23,7 @@ export function useOcr() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ image_base64: base64, mime_type: mimeType }),
+        body: JSON.stringify({ image_base64: base64, mime_type: mimeType, skip_crop: skipCrop }),
       })
 
       if (!res.ok) {
