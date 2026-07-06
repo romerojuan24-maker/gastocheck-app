@@ -83,7 +83,7 @@ export default function AdministracionScreen() {
   // Cuentas bancarias
   interface BankAccount {
     id: string; bank_name: string; account_last4: string | null;
-    clabe: string | null; account_holder: string | null;
+    clabe_last4: string | null; account_holder: string | null;
     account_type: string; active: boolean;
   }
   const [bankAccounts,    setBankAccounts]    = useState<BankAccount[]>([]);
@@ -237,7 +237,7 @@ export default function AdministracionScreen() {
     if (!selectedId) return;
     const { data } = await supabase
       .from('company_bank_accounts')
-      .select('id, bank_name, account_last4, clabe, account_holder, account_type, active')
+      .select('id, bank_name, account_last4, clabe_last4, account_holder, account_type, active')
       .eq('company_id', selectedId)
       .eq('active', true)
       .order('created_at', { ascending: true });
@@ -250,15 +250,16 @@ export default function AdministracionScreen() {
     if (!selectedId) return;
     setSavingBank(true);
     try {
-      const { error } = await supabase.from('company_bank_accounts').insert({
+      const { data: inserted, error } = await supabase.from('company_bank_accounts').insert({
         company_id:     selectedId,
         bank_name:      bBank.trim(),
         account_last4:  bLast4.trim() || null,
         clabe:          bClabe.trim() || null,
         account_holder: bHolder.trim() || null,
         account_type:   bType,
-      });
+      }).select('id').single();
       if (error) throw error;
+      logBankAudit('bank_account_created', inserted.id, bBank.trim());
       setBBank(''); setBLast4(''); setBClabe(''); setBHolder(''); setBType('checking');
       setShowBankModal(false);
       loadBankAccounts();
@@ -274,9 +275,21 @@ export default function AdministracionScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Desactivar', style: 'destructive', onPress: async () => {
         await supabase.from('company_bank_accounts').update({ active: false }).eq('id', id);
+        logBankAudit('bank_account_deactivated', id, name);
         loadBankAccounts();
       }},
     ]);
+  }
+
+  async function logBankAudit(action: string, bankAccountId: string, bankName: string) {
+    const selectedId = await AsyncStorage.getItem('selectedCompanyId');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!selectedId || !user) return;
+    await supabase.from('audit_logs').insert({
+      company_id: selectedId, user_id: user.id,
+      entity_type: 'company_bank_account', entity_id: bankAccountId,
+      action, new_values: { bank_name: bankName },
+    });
   }
 
   if (loading) {
@@ -434,7 +447,7 @@ export default function AdministracionScreen() {
             <Text style={styles.bankSub}>
               {ba.account_type === 'savings' ? 'Ahorros' : 'Cheques'}
               {ba.account_last4 ? `  ···${ba.account_last4}` : ''}
-              {ba.clabe ? `  CLABE: ···${ba.clabe.slice(-4)}` : ''}
+              {ba.clabe_last4 ? `  CLABE: ···${ba.clabe_last4}` : ''}
             </Text>
             {ba.account_holder ? (
               <Text style={styles.bankHolder}>{ba.account_holder}</Text>

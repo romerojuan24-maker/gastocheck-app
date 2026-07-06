@@ -141,6 +141,13 @@ Deno.serve(async (httpReq) => {
   if (httpReq.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS })
 
   try {
+    const authHeader = httpReq.headers.get('Authorization') ?? ''
+    const supabaseUser = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user: caller }, error: authErr } = await supabaseUser.auth.getUser()
+    if (authErr || !caller) return Response.json({ error: 'No autenticado' }, { status: 401, headers: CORS })
+
     const { request_id } = await httpReq.json()
     if (!request_id) return Response.json({ error: 'request_id requerido' }, { status: 400, headers: CORS })
 
@@ -149,6 +156,17 @@ Deno.serve(async (httpReq) => {
     const { data: req, error: e1 } = await admin.from('cfdi_issue_requests').select('*').eq('id', request_id).single()
     if (e1 || !req) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404, headers: CORS })
     if (req.status === 'timbrado') return Response.json({ error: 'Ya está timbrada', uuid: req.uuid_cfdi }, { status: 409, headers: CORS })
+
+    const { data: member } = await admin
+      .from('company_members')
+      .select('role')
+      .eq('company_id', req.company_id)
+      .eq('user_id', caller.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!member || !['owner', 'admin', 'accountant'].includes(member.role)) {
+      return Response.json({ error: 'Sin permisos para timbrar en esta empresa' }, { status: 403, headers: CORS })
+    }
 
     const { data: cfg } = await admin
       .from('cfdi_provider_configs')
@@ -178,6 +196,12 @@ Deno.serve(async (httpReq) => {
         status: 'timbrado', uuid_cfdi: result.uuid, provider: cfg.provider,
         provider_id: result.provider_id, pdf_storage_path: result.pdf_url, timbrado_at: new Date().toISOString(),
       }).eq('id', request_id)
+      await admin.from('audit_logs').insert({
+        company_id: req.company_id, user_id: caller.id,
+        entity_type: 'cfdi_issue_request', entity_id: request_id,
+        action: 'cfdi_timbrado',
+        new_values: { uuid_cfdi: result.uuid, provider: cfg.provider, receptor_rfc: (req as any).receptor_rfc, total: (req as any).total },
+      })
       return Response.json({ ok: true, uuid: result.uuid, provider: cfg.provider }, { headers: CORS })
     } catch (err) {
       await admin.from('cfdi_issue_requests').update({ status: 'error', error_message: String(err) }).eq('id', request_id)

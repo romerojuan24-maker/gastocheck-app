@@ -86,6 +86,13 @@ Deno.serve(async (req) => {
 
     if (error) return Response.json({ error: error.message }, { status: 500, headers: CORS });
 
+    await supabase.from('audit_logs').insert({
+      company_id, user_id: caller.id,
+      entity_type: 'cfdi_provider_config', entity_id: company_id,
+      action: 'pac_config_updated',
+      new_values: { provider, rfc, mode: update.mode, is_active: update.is_active, credentials_changed: !!(body.pac_user || body.pac_pass) },
+    });
+
     return Response.json({ ok: true }, { headers: CORS });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500, headers: CORS });
