@@ -165,8 +165,15 @@ Deno.serve(async (httpReq) => {
     const adapter = ADAPTERS[(cfg.provider || '').toLowerCase()]
     if (!adapter) return Response.json({ error: `Proveedor no soportado: ${cfg.provider}` }, { status: 400, headers: CORS })
 
+    // pac_user_enc/pac_pass_enc están cifrados en la base de datos (pgcrypto).
+    // La llave solo vive en este secreto de entorno — nunca en la BD ni en el cliente.
+    const ENC_KEY = Deno.env.get('CFDI_ENC_KEY') ?? ''
+    const { data: pacUser } = await admin.rpc('pgp_decrypt_secret', { enc: cfg.pac_user_enc, enc_key: ENC_KEY })
+    const { data: pacPass } = await admin.rpc('pgp_decrypt_secret', { enc: cfg.pac_pass_enc, enc_key: ENC_KEY })
+    const cfgDecrypted = { ...cfg, pac_user_enc: pacUser, pac_pass_enc: pacPass }
+
     try {
-      const result = await adapter(cfg as ProviderConfig, req as IssueRequest)
+      const result = await adapter(cfgDecrypted as ProviderConfig, req as IssueRequest)
       await admin.from('cfdi_issue_requests').update({
         status: 'timbrado', uuid_cfdi: result.uuid, provider: cfg.provider,
         provider_id: result.provider_id, pdf_storage_path: result.pdf_url, timbrado_at: new Date().toISOString(),

@@ -25,8 +25,10 @@ export default function EmitirCfdiPage() {
       const u = await getSessionUser()
       if (u?.company_id) {
         setCompanyId(u.company_id)
-        const { data } = await supabase.from('cfdi_provider_configs').select('*').eq('company_id', u.company_id).maybeSingle()
-        if (data) { setCfg(data); setHasActive(!!data.is_active) }
+        // Nunca se pide/lee el password real: pac-config-get solo devuelve
+        // si ya hay uno guardado (pac_user_set/pac_pass_set), no el valor.
+        const { data } = await supabase.functions.invoke('pac-config-get', { body: { company_id: u.company_id } })
+        if (data?.config) { setCfg(data.config); setHasActive(!!data.config.is_active) }
       }
       setLoading(false)
     })()
@@ -35,14 +37,23 @@ export default function EmitirCfdiPage() {
   async function saveConfig() {
     if (!companyId) return
     setMsg(null)
-    const payload = {
+    // pac_user/pac_pass solo se envían si el usuario escribió algo nuevo —
+    // se cifran del lado del servidor (pac-config-set), nunca se guardan
+    // en texto plano desde el navegador.
+    const payload: Record<string, unknown> = {
       company_id: companyId, provider: cfg.provider, rfc: cfg.rfc, razon_social: cfg.razon_social,
       regimen_fiscal: cfg.regimen_fiscal, codigo_postal_fiscal: cfg.codigo_postal_fiscal,
-      pac_user_enc: cfg.pac_user_enc, pac_pass_enc: cfg.pac_pass_enc, mode: cfg.mode, is_active: cfg.is_active,
+      mode: cfg.mode, is_active: cfg.is_active,
     }
-    const { error } = await supabase.from('cfdi_provider_configs').upsert(payload, { onConflict: 'company_id,provider' })
-    setMsg(error ? `❌ ${error.message}` : '✅ Configuración guardada')
-    if (!error) setHasActive(!!cfg.is_active)
+    if (cfg.pac_user) payload.pac_user = cfg.pac_user
+    if (cfg.pac_pass) payload.pac_pass = cfg.pac_pass
+    const { data, error } = await supabase.functions.invoke('pac-config-set', { body: payload })
+    const failed = error || data?.error
+    setMsg(failed ? `❌ ${data?.error || error?.message}` : '✅ Configuración guardada')
+    if (!failed) {
+      setHasActive(!!cfg.is_active)
+      setCfg({ ...cfg, pac_user: '', pac_pass: '', pac_user_set: cfg.pac_user ? true : cfg.pac_user_set, pac_pass_set: cfg.pac_pass ? true : cfg.pac_pass_set })
+    }
   }
 
   async function emitir() {
@@ -125,8 +136,14 @@ export default function EmitirCfdiPage() {
           <F label="Razón social"><input className="inp" value={cfg.razon_social ?? ''} onChange={(e) => setCfg({ ...cfg, razon_social: e.target.value })} /></F>
           <F label="CP fiscal"><input className="inp" value={cfg.codigo_postal_fiscal ?? ''} onChange={(e) => setCfg({ ...cfg, codigo_postal_fiscal: e.target.value })} /></F>
           <div className="grid grid-cols-2 gap-3">
-            <F label="Usuario PAC / API user"><input className="inp" value={cfg.pac_user_enc ?? ''} onChange={(e) => setCfg({ ...cfg, pac_user_enc: e.target.value })} /></F>
-            <F label="Password / API key"><input type="password" className="inp" value={cfg.pac_pass_enc ?? ''} onChange={(e) => setCfg({ ...cfg, pac_pass_enc: e.target.value })} /></F>
+            <F label={`Usuario PAC / API user${cfg.pac_user_set ? ' (ya configurado)' : ''}`}>
+              <input className="inp" placeholder={cfg.pac_user_set ? '•••••••• (dejar vacío para no cambiar)' : ''}
+                value={cfg.pac_user ?? ''} onChange={(e) => setCfg({ ...cfg, pac_user: e.target.value })} />
+            </F>
+            <F label={`Password / API key${cfg.pac_pass_set ? ' (ya configurado)' : ''}`}>
+              <input type="password" className="inp" placeholder={cfg.pac_pass_set ? '•••••••• (dejar vacío para no cambiar)' : ''}
+                value={cfg.pac_pass ?? ''} onChange={(e) => setCfg({ ...cfg, pac_pass: e.target.value })} />
+            </F>
           </div>
           <F label="Modo">
             <select className="inp" value={cfg.mode} onChange={(e) => setCfg({ ...cfg, mode: e.target.value })}>
