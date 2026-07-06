@@ -138,7 +138,8 @@ export default function ViaticosScreen() {
         const { data: counts } = await supabase
           .from('receipts')
           .select('viatico_id')
-          .in('viatico_id', ids);
+          .in('viatico_id', ids)
+          .neq('status', 'cancelled');
 
         const countMap: Record<string, number> = {};
         (counts ?? []).forEach((r: any) => {
@@ -165,6 +166,7 @@ export default function ViaticosScreen() {
       .from('receipts')
       .select('id, gc_folio, provider_name, total_amount, receipt_date, status, source_type, fiscal_uuid, sat_validation_status')
       .eq('viatico_id', viaje.id)
+      .neq('status', 'cancelled')
       .order('receipt_date', { ascending: false });
     setViajeReceipts((data ?? []) as ViajeReceipt[]);
     setReceiptsLoading(false);

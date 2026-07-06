@@ -376,13 +376,16 @@ export default function GastoCheckHome() {
   }
 
   function PillBar({ accentColor }: { accentColor: string }) {
-    const pendingAlert = isAdmin
+    // Se basa en displayAs (lo que realmente se está viendo/previsualizando),
+    // no en isAdmin/isSupervisor crudos — si un admin activa "Vista Comprador"
+    // para probar, no debe seguir viendo alertas de nivel administrador.
+    const pendingAlert = displayAs === 'admin'
       ? (overdueAdv > 0 ? `⚠️ ${overdueAdv} anticipo${overdueAdv !== 1 ? 's' : ''} vencido${overdueAdv !== 1 ? 's' : ''}` : null)
-      : isSupervisor
+      : displayAs === 'contador'
         ? (pendingReimb + pendingAdvReq > 0 ? `● ${pendingReimb + pendingAdvReq} pendiente${pendingReimb + pendingAdvReq !== 1 ? 's' : ''}` : null)
         : (pendingCount > 0 ? `● ${pendingCount} ticket${pendingCount !== 1 ? 's' : ''} sin reembolso` : null);
 
-    const alertColor = (isAdmin || isSupervisor) ? BRAND.red : BRAND.orange;
+    const alertColor = (displayAs === 'admin' || displayAs === 'contador') ? BRAND.red : BRAND.orange;
 
     return (
       <View style={s.pillBar}>
@@ -494,9 +497,6 @@ export default function GastoCheckHome() {
                   ? `${pendingCount} listo${pendingCount !== 1 ? 's' : ''} para reembolso`
                   : 'Historial de tickets escaneados'}
                 bg={BRAND.navy} onPress={() => router.push('/receipts')} />
-              <NavCard icon="📄" title="Mis Pólizas"
-                sub="Crear póliza e integrar comprobantes"
-                onPress={() => router.push('/polizas' as any)} />
               <NavCard icon="✈️" title="Viáticos"
                 sub="Gastos de viaje: renta, comidas, hospedaje"
                 onPress={() => router.push('/viaticos' as any)} />
