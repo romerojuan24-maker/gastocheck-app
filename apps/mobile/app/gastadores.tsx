@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 const INVITE_FN = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/invite-gastador`;
 
@@ -38,11 +39,7 @@ export default function GastadoresScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
       if (!member) return;
       setCompanyId(member.company_id);
 

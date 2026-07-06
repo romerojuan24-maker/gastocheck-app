@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 const money = (n: number) =>
@@ -70,11 +71,7 @@ export default function EventsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id, role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
       if (!member) return;
 
       setCompanyId(member.company_id);

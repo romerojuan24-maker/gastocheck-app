@@ -8,6 +8,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import CatalogImportModal from './catalogo-import-modal';
 
 interface Account {
@@ -55,8 +56,7 @@ export default function CatalogoCuentasScreen() {
     const { data: { session: catSession } } = await supabase.auth.getSession();
     const user = catSession?.user;
     if (!user) { setLoading(false); return; }
-    const { data: m } = await supabase
-      .from('company_members').select('company_id').eq('user_id', user.id).maybeSingle();
+    const m = await getActiveMembership(user.id);
     if (m?.company_id) {
       setCompanyId(m.company_id);
       await loadAccounts(m.company_id);

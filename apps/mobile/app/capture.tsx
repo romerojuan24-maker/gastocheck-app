@@ -13,6 +13,7 @@ import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import DatePickerField from '../components/DatePickerField';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import {
   BRAND, DUPLICATE_STATUS_META, isFleetSector,
   VEHICLE_TYPE_ICONS, vehicleDisplayName, suggestCategoryFromProvider,
@@ -57,9 +58,7 @@ export default function CaptureScreen() {
       const user = initSession?.user;
       if (!user) return;
       setMemberUserId(user.id);
-      const { data: m } = await supabase
-        .from('company_members').select('company_id')
-        .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (m?.company_id) {
         setMemberCompanyId(m.company_id);
         loadCategories(m.company_id);
@@ -564,16 +563,8 @@ export default function CaptureScreen() {
       if (!user) throw new Error('No autenticado');
 
       // Obtener company_id del membership (sin necesidad de póliza abierta)
-      const { data: membership, error: memErr } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const membership = await getActiveMembership(user.id);
 
-      if (memErr) throw new Error('Error obteniendo empresa: ' + memErr.message);
       if (!membership?.company_id) {
         Alert.alert('Sin empresa', 'No tienes una empresa activa. Contacta a tu administrador.');
         return;

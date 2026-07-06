@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import { BRAND } from '@gastocheck/shared';
 
 type Section = 'reembolsos' | 'polizas';
@@ -92,8 +93,7 @@ export default function PolizasScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: m } = await supabase.from('company_members')
-      .select('company_id, role').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    const m = await getActiveMembership(user.id);
     if (!m) return;
 
     setCompanyId(m.company_id);

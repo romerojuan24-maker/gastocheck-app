@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 const money = (n: number) =>
@@ -38,9 +39,7 @@ export default function PresupuestoScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setCurrentUserId(user.id);
-      const { data: m } = await supabase
-        .from('company_members').select('company_id, role')
-        .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (!m || !['owner', 'admin', 'superadmin', 'supervisor'].includes(m.role)) return;
       setCompanyId(m.company_id);
     })();

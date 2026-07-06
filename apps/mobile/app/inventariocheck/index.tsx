@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BRAND, APP_VERSION } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
+import { getActiveMembership } from '../../lib/membership'
 
 // Hooks
 import { useInventarioProducts, useInventarioAlerts, useInventarioMutations } from './hooks'
@@ -61,12 +62,7 @@ export default function InventarioCheckHome() {
       if (!user) { setLoading(false); return }
       setUserEmail(user.email ?? null)
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
+      const member = await getActiveMembership(user.id)
 
       if (member) {
         setUserRole(member.role)

@@ -11,6 +11,7 @@ import {
 } from '@gastocheck/shared';
 import type { Receipt, ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -46,11 +47,9 @@ export default function ReceiptDetailScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const [{ data: rec }, { data: member }] = await Promise.all([
+      const [{ data: rec }, member] = await Promise.all([
         supabase.from('receipts').select('*').eq('id', id).single(),
-        user
-          ? supabase.from('company_members').select('role').eq('user_id', user.id).single()
-          : Promise.resolve({ data: null }),
+        user ? getActiveMembership(user.id) : Promise.resolve(null),
       ]);
 
       const r = rec as Receipt;

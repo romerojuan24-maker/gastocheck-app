@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { BRAND, BATCH_STATUS_META, suggestBatchName } from '@gastocheck/shared';
 import type { BatchStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 interface Batch {
@@ -60,11 +61,7 @@ export default function BatchesScreen() {
       if (!user) return;
 
       // Obtener company_id del usuario
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
+      const member = await getActiveMembership(user.id);
       if (!member) return;
       setCompanyId(member.company_id);
 
