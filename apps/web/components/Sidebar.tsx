@@ -14,7 +14,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/hoy',           label: 'Hoy',           icon: '⚡', roles: ['owner', 'admin'] },
   { href: '/pendientes',    label: 'Pendientes',     icon: '📋', roles: ['owner', 'admin', 'accountant', 'supervisor'] },
-  { href: '/gastocheck',    label: 'GastoCheck',     icon: '🧾', roles: ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'viewer'] },
+  { href: '/gastocheck',    label: 'GastoCheck',     icon: '🧾', roles: ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender', 'viewer'] },
   { href: '/cobracheck',    label: 'CobraCheck',     icon: '💰', roles: ['owner', 'admin', 'accountant'] },
   { href: '/clientes',      label: 'Clientes',       icon: '👥', roles: ['owner', 'admin', 'accountant', 'supervisor', 'collector'] },
   { href: '/bancocheck',    label: 'BancoCheck',     icon: '🏦', roles: ['owner', 'admin', 'accountant'] },
@@ -30,6 +30,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   accountant: 'bg-emerald-500',
   supervisor: 'bg-amber-500',
   buyer:      'bg-orange-500',
+  spender:    'bg-orange-500',
   collector:  'bg-teal-500',
   viewer:     'bg-slate-500',
 };
@@ -40,6 +41,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   accountant: 'Contador',
   supervisor: 'Supervisor',
   buyer:      'Comprador',
+  spender:    'Comprador',
   collector:  'Cobrador',
   viewer:     'Visor',
 };

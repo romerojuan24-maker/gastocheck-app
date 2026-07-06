@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const VALID_ROLES = ['admin', 'accountant', 'supervisor', 'buyer', 'collector', 'viewer']
+const VALID_ROLES = ['admin', 'accountant', 'supervisor', 'buyer', 'spender', 'collector', 'viewer']
 
 export async function PATCH(
   req: NextRequest,

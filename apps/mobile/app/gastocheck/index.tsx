@@ -271,7 +271,7 @@ export default function GastoCheckHome() {
     const opts = [
       { role: 'admin',     label: '👑 Admin' },
       { role: 'accountant', label: '📊 Contador' },
-      { role: 'comprador', label: '🛍 Comprador' },
+      { role: 'spender', label: '🛍 Comprador' },
     ].filter((o) => o.role !== m.role);
     Alert.alert(
       `Cambiar rol de ${m.full_name ?? '...'}`,
@@ -280,8 +280,9 @@ export default function GastoCheckHome() {
         ...opts.map((o) => ({
           text: o.label,
           onPress: async () => {
-            await supabase.from('company_members').update({ role: o.role })
+            const { error } = await supabase.from('company_members').update({ role: o.role })
               .eq('user_id', m.user_id).eq('company_id', companyId);
+            if (error) { Alert.alert('Error', 'No se pudo cambiar el rol.'); return; }
             loadData();
           },
         })),

@@ -11,6 +11,7 @@ export type UserRole =
   | 'accountant'
   | 'supervisor'
   | 'buyer'
+  | 'spender'
   | 'collector'
   | 'viewer';
 

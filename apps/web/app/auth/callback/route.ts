@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       const homeRoutes: Record<string, string> = {
         owner: '/hoy', admin: '/hoy',
         accountant: '/pendientes', supervisor: '/pendientes',
-        buyer: '/gastocheck', collector: '/gastocheck', viewer: '/gastocheck',
+        buyer: '/gastocheck', spender: '/gastocheck', collector: '/gastocheck', viewer: '/gastocheck',
       }
       const home = homeRoutes[role] ?? '/gastocheck'
       return NextResponse.redirect(`${origin}${home}`)

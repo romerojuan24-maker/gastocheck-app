@@ -63,7 +63,7 @@ export default function CajasChicasPage() {
         .from('company_members')
         .select('user_id, profiles(full_name)')
         .eq('company_id', cid)
-        .in('role', ['spender', 'comprador'])
+        .in('role', ['spender'])
 
       const nameMap: Record<string, string> = {}
       for (const p of (profiles ?? []) as Profile[]) {

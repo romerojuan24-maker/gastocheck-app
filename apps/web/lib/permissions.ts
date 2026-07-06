@@ -9,9 +9,9 @@ export const PERMISSIONS = {
 
   // ── Comprobantes ────────────────────────────────────────────────────────
   comprobantes: {
-    view:    ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'viewer'],
-    create:  ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
-    edit:    ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
+    view:    ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender', 'viewer'],
+    create:  ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
+    edit:    ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
     delete:  ['owner', 'admin', 'accountant'],
     approve: ['owner', 'admin', 'accountant', 'supervisor'],
     reject:  ['owner', 'admin', 'accountant', 'supervisor'],
@@ -47,13 +47,13 @@ export const PERMISSIONS = {
 
   // ── Escanear / OCR ──────────────────────────────────────────────────────
   escanear: {
-    use: ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
+    use: ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
   },
 
   // ── Nuevo Comprobante (manual web) ──────────────────────────────────────
   nuevo_comprobante: {
-    create: ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
-    edit:   ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
+    create: ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
+    edit:   ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
     cancel: ['owner', 'admin', 'accountant', 'supervisor'],
   },
 
@@ -64,11 +64,11 @@ export const PERMISSIONS = {
 
   // ── GastoCheck Home (tarjetas de navegación) ────────────────────────────
   gastocheck_home: {
-    ver_comprobantes:  ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'viewer'],
+    ver_comprobantes:  ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender', 'viewer'],
     ver_polizas:       ['owner', 'admin', 'accountant', 'supervisor'],
     ver_cuentas_pagar: ['owner', 'admin', 'accountant', 'supervisor'],
     ver_cajas_chicas:  ['owner', 'admin', 'accountant', 'supervisor'],
-    ver_escanear:      ['owner', 'admin', 'accountant', 'supervisor', 'buyer'],
+    ver_escanear:      ['owner', 'admin', 'accountant', 'supervisor', 'buyer', 'spender'],
     ver_contador:      ['owner', 'admin', 'accountant'],
   },
 

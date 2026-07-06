@@ -78,6 +78,15 @@ const ROLES_DEF: Record<string, RoleDef> = {
       { icon: '🧾', name: 'GastoCheck' },
     ],
   },
+  spender: {
+    label: 'Comprador',
+    description: 'Registra gastos, sube comprobantes y solicita anticipos',
+    badge:  'bg-orange-100 text-orange-700 border border-orange-200',
+    avatar: 'bg-orange-500',
+    modules: [
+      { icon: '🧾', name: 'GastoCheck' },
+    ],
+  },
   collector: {
     label: 'Cobrador',
     description: 'Gestiona rutas de cobranza y registra pagos de clientes',
@@ -100,7 +109,7 @@ const ROLES_DEF: Record<string, RoleDef> = {
 }
 
 // Roles que se pueden asignar al invitar (owner no se puede invitar)
-const INVITABLE_ROLES = ['admin', 'accountant', 'supervisor', 'buyer', 'collector', 'viewer']
+const INVITABLE_ROLES = ['admin', 'accountant', 'supervisor', 'spender', 'collector', 'viewer']
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -203,7 +212,7 @@ export default function ConfiguracionPage() {
   // equipo
   const [members, setMembers]     = useState<Member[]>([])
   const [invEmail, setInvEmail]   = useState('')
-  const [invRole, setInvRole]     = useState('buyer')
+  const [invRole, setInvRole]     = useState('spender')
   const [invLoading, setInvLoading] = useState(false)
   const [invMsg, setInvMsg]       = useState<{ ok: boolean; text: string } | null>(null)
   const [showInvite, setShowInvite] = useState(false)
