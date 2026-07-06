@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, Alert, ActivityIndicator, Modal,
+  TextInput, Alert, ActivityIndicator, Modal, Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,6 +14,8 @@ import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
+const ADMIN_TIER = ['owner', 'admin'];
+const CONTADOR_TIER = ['accountant', 'contador_general', 'supervisor'];
 
 const ROLE_META: Record<string, { label: string; icon: string; color: string; desc: string }> = {
   owner:            { label: 'Propietario',       icon: '👑', color: BRAND.navy,   desc: 'Acceso total, no se puede invitar (se crea al registrar la empresa).' },
@@ -25,7 +27,20 @@ const ROLE_META: Record<string, { label: string; icon: string; color: string; de
   supervisor:       { label: 'Supervisor',         icon: '📋', color: BRAND.orange ?? '#FB8C00', desc: 'Aprueba anticipos y reembolsos del equipo.' },
 };
 
-const INVITABLE_ROLES = ['admin', 'contador_general', 'accountant', 'spender', 'collector'];
+// Qué roles puede invitar cada nivel — Admin ve todo; Contador (de módulo o
+// general) invita a su propio nivel + operativos, nunca a otro Admin.
+// Comprador/Cobrador además se filtran por módulo contratado (organization_modules).
+function invitableRolesFor(userRole: string | null, hasGastoCheck: boolean, hasCobraCheck: boolean): string[] {
+  const roles: string[] = [];
+  if (userRole && ADMIN_TIER.includes(userRole)) {
+    roles.push('admin', 'contador_general', 'accountant');
+  } else if (userRole && CONTADOR_TIER.includes(userRole)) {
+    roles.push('accountant', 'contador_general');
+  }
+  if (hasGastoCheck) roles.push('spender');
+  if (hasCobraCheck) roles.push('collector');
+  return roles;
+}
 
 interface Member {
   user_id: string;
@@ -41,12 +56,17 @@ export default function EquipoScreen() {
   const [userId,      setUserId]      = useState<string | null>(null);
   const [userRole,    setUserRole]    = useState<string | null>(null);
   const [members,     setMembers]     = useState<Member[]>([]);
+  const [hasGastoCheck, setHasGastoCheck] = useState(true);
+  const [hasCobraCheck, setHasCobraCheck] = useState(true);
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteRole, setInviteRole] = useState<string>('spender');
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviting, setInviting] = useState(false);
+
+  const invitableRoles = invitableRolesFor(userRole, hasGastoCheck, hasCobraCheck);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +90,14 @@ export default function EquipoScreen() {
 
       const { data: co } = await supabase.from('companies').select('name').eq('id', selectedId).maybeSingle();
       setCompanyName((co as any)?.name ?? null);
+
+      const { data: mods } = await supabase
+        .from('organization_modules')
+        .select('module_id, is_active')
+        .eq('company_id', selectedId)
+        .in('module_id', ['gastocheck', 'cobracheck']);
+      setHasGastoCheck((mods ?? []).some((m: any) => m.module_id === 'gastocheck' && m.is_active));
+      setHasCobraCheck((mods ?? []).some((m: any) => m.module_id === 'cobracheck' && m.is_active));
 
       const { data: mlist } = await supabase
         .from('company_members')
@@ -102,7 +130,7 @@ export default function EquipoScreen() {
 
   function changeMemberRole(m: Member) {
     if (!companyId) return;
-    const opts = INVITABLE_ROLES
+    const opts = invitableRoles
       .filter((r) => r !== m.role)
       .map((r) => ({ role: r, label: `${ROLE_META[r].icon} ${ROLE_META[r].label}` }));
     Alert.alert(
@@ -167,14 +195,36 @@ export default function EquipoScreen() {
         return;
       }
       setShowInvite(false);
+      const name = inviteName.trim();
+      const phone = invitePhone.trim();
+      const roleLabel = ROLE_META[inviteRole]?.label ?? inviteRole;
+      const tempPassword: string | undefined = data?.temp_password;
       setInviteName('');
       setInviteEmail('');
-      const tempMsg = data?.temp_password ? `\n\nContraseña temporal: ${data.temp_password}` : '';
-      Alert.alert('✓ Invitado', `${inviteName.trim()} ya tiene acceso como ${ROLE_META[inviteRole]?.label}.${tempMsg}`);
+      setInvitePhone('');
       load();
+
+      if (phone) {
+        sendWhatsappInvite(phone, name, roleLabel, inviteEmail.trim(), tempPassword);
+      } else {
+        const tempMsg = tempPassword ? `\n\nContraseña temporal: ${tempPassword}` : '';
+        Alert.alert('✓ Invitado', `${name} ya tiene acceso como ${roleLabel}.${tempMsg}`);
+      }
     } finally {
       setInviting(false);
     }
+  }
+
+  function sendWhatsappInvite(phone: string, name: string, roleLabel: string, email: string, tempPassword?: string) {
+    const digits = phone.replace(/\D/g, '');
+    const passLine = tempPassword ? `\nContraseña temporal: ${tempPassword}` : '';
+    const message =
+      `Hola ${name}, ya tienes acceso a CHECK SUITE${companyName ? ` (${companyName})` : ''} ` +
+      `como ${roleLabel}.\n\nCorreo: ${email}${passLine}\n\nDescarga la app y entra con esos datos.`;
+    const url = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('✓ Invitado', `${name} ya tiene acceso como ${roleLabel}. No se pudo abrir WhatsApp.`);
+    });
   }
 
   if (loading) {
@@ -241,9 +291,11 @@ export default function EquipoScreen() {
           })
         )}
 
-        <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)}>
-          <Text style={styles.inviteBtnText}>+ Invitar al equipo</Text>
-        </TouchableOpacity>
+        {invitableRoles.length > 0 && (
+          <TouchableOpacity style={styles.inviteBtn} onPress={() => { setInviteRole(invitableRoles[0]); setShowInvite(true); }}>
+            <Text style={styles.inviteBtnText}>+ Invitar al equipo</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Modal invitar */}
@@ -260,9 +312,14 @@ export default function EquipoScreen() {
               <TextInput style={styles.input} value={inviteEmail} onChangeText={setInviteEmail} placeholder="correo@empresa.com"
                 placeholderTextColor="#B0BEC5" autoCapitalize="none" keyboardType="email-address" />
 
+              <Text style={styles.fieldLabel}>WhatsApp (opcional)</Text>
+              <TextInput style={styles.input} value={invitePhone} onChangeText={setInvitePhone} placeholder="521 55 1234 5678"
+                placeholderTextColor="#B0BEC5" keyboardType="phone-pad" />
+              <Text style={styles.fieldSubHint}>Si lo llenas, al invitar se abre WhatsApp con el mensaje de acceso listo para enviar.</Text>
+
               <Text style={styles.fieldLabel}>Rol</Text>
               <View style={{ gap: 8, marginBottom: 8 }}>
-                {INVITABLE_ROLES.map((r) => {
+                {invitableRoles.map((r) => {
                   const meta = ROLE_META[r];
                   const active = inviteRole === r;
                   return (
@@ -329,6 +386,7 @@ const styles = StyleSheet.create({
   modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, maxHeight: '85%' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 6, marginTop: 8 },
+  fieldSubHint: { fontSize: 11, color: '#B0BEC5', marginTop: -2, marginBottom: 4, lineHeight: 15 },
   input: { backgroundColor: '#fff', borderRadius: 12, padding: 13, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 15, color: BRAND.navy },
 
   roleOption: {
