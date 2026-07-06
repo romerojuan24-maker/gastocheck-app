@@ -1,11 +1,13 @@
 // Reembolsos — Flujo completo Contador: clasificar → validar SAT → generar póliza → enviar
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView, Share,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../../lib/supabase';
+import { getActiveMembership } from '../../../lib/membership';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -98,8 +100,7 @@ export default function ReembolsosContadorScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: m } = await supabase.from('company_members')
-        .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (!m) return;
       setCompanyId(m.company_id);
 
@@ -123,7 +124,7 @@ export default function ReembolsosContadorScreen() {
     }
   }, [statusFilter]);
 
-  useEffect(() => { loadReembolsos(); }, [loadReembolsos]);
+  useFocusEffect(useCallback(() => { loadReembolsos(); }, [loadReembolsos]));
 
   // ── Cargar líneas de un reembolso ──────────────────────────────────────────
 
