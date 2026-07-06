@@ -105,7 +105,10 @@ export default function EmpresasScreen() {
   async function handleSelect(id: string) {
     setSelectedId(id);
     await AsyncStorage.setItem('selectedCompanyId', id);
-    router.push('/administracion');
+    // Al elegir con cuál empresa trabajar, ir directo al menú principal
+    // (ya muestra el nombre de la empresa activa) — antes mandaba a
+    // Administración, obligando a usar la flecha atrás para ver el menú.
+    router.replace('/');
   }
 
   if (loading) {

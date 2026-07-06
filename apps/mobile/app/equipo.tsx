@@ -252,33 +252,35 @@ export default function EquipoScreen() {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Invitar al equipo</Text>
 
-            <Text style={styles.fieldLabel}>Nombre completo</Text>
-            <TextInput style={styles.input} value={inviteName} onChangeText={setInviteName} placeholder="Nombre y apellido" placeholderTextColor="#B0BEC5" />
+            <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>Nombre completo</Text>
+              <TextInput style={styles.input} value={inviteName} onChangeText={setInviteName} placeholder="Nombre y apellido" placeholderTextColor="#B0BEC5" />
 
-            <Text style={styles.fieldLabel}>Correo</Text>
-            <TextInput style={styles.input} value={inviteEmail} onChangeText={setInviteEmail} placeholder="correo@empresa.com"
-              placeholderTextColor="#B0BEC5" autoCapitalize="none" keyboardType="email-address" />
+              <Text style={styles.fieldLabel}>Correo</Text>
+              <TextInput style={styles.input} value={inviteEmail} onChangeText={setInviteEmail} placeholder="correo@empresa.com"
+                placeholderTextColor="#B0BEC5" autoCapitalize="none" keyboardType="email-address" />
 
-            <Text style={styles.fieldLabel}>Rol</Text>
-            <View style={{ gap: 8, marginBottom: 16 }}>
-              {INVITABLE_ROLES.map((r) => {
-                const meta = ROLE_META[r];
-                const active = inviteRole === r;
-                return (
-                  <TouchableOpacity key={r} style={[styles.roleOption, active && { borderColor: meta.color, backgroundColor: meta.color + '10' }]}
-                    onPress={() => setInviteRole(r)}>
-                    <Text style={{ fontSize: 18, marginRight: 10 }}>{meta.icon}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.roleOptionTitle, active && { color: meta.color }]}>{meta.label}</Text>
-                      <Text style={styles.roleOptionDesc}>{meta.desc}</Text>
-                    </View>
-                    {active && <Text style={{ color: meta.color, fontSize: 16 }}>✓</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+              <Text style={styles.fieldLabel}>Rol</Text>
+              <View style={{ gap: 8, marginBottom: 8 }}>
+                {INVITABLE_ROLES.map((r) => {
+                  const meta = ROLE_META[r];
+                  const active = inviteRole === r;
+                  return (
+                    <TouchableOpacity key={r} style={[styles.roleOption, active && { borderColor: meta.color, backgroundColor: meta.color + '10' }]}
+                      onPress={() => setInviteRole(r)}>
+                      <Text style={{ fontSize: 18, marginRight: 10 }}>{meta.icon}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.roleOptionTitle, active && { color: meta.color }]}>{meta.label}</Text>
+                        <Text style={styles.roleOptionDesc}>{meta.desc}</Text>
+                      </View>
+                      {active && <Text style={{ color: meta.color, fontSize: 16 }}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
 
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
               <TouchableOpacity style={[styles.modalCancelBtn, { flex: 1 }]} onPress={() => setShowInvite(false)}>
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
