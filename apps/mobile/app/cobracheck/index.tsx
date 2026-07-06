@@ -119,6 +119,23 @@ export default function CobraCheckHome() {
   const isContador = userRole ? CONTADOR_ROLES.includes(userRole) : false;
   const isCobrador = userRole === 'collector';
 
+  // Cualquier rol que no sea admin, contador ni cobrador (spender, buyer,
+  // viewer, etc.) no debe caer por default en la vista ADMIN completa —
+  // no tiene ningún acceso a CobraCheck.
+  if (!isAdmin && !isContador && !isCobrador) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray, padding: 24 }}>
+        <Text style={{ fontSize: 40, marginBottom: 12 }}>🔒</Text>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.navy, textAlign: 'center' }}>
+          Sin acceso a CobraCheck
+        </Text>
+        <Text style={{ fontSize: 13, color: '#90A4AE', textAlign: 'center', marginTop: 6 }}>
+          Tu rol no tiene permiso para ver este módulo.
+        </Text>
+      </View>
+    );
+  }
+
   // ── Shared sub-components ───────────────────────────────────────────────────
 
   function TopBar() {

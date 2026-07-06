@@ -119,7 +119,24 @@ export default function FacturaCheckHome() {
     )
   }
 
-  const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false
+  // ADMIN_ROLES es la lista COMPLETA de roles con acceso a FacturaCheck.
+  // Cualquier otro rol (spender, collector, buyer, viewer, etc.) no debe
+  // caer en la vista Contador por default — no tiene ningún acceso aquí.
+  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray, padding: 24 }}>
+        <Text style={{ fontSize: 40, marginBottom: 12 }}>🔒</Text>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.navy, textAlign: 'center' }}>
+          Sin acceso a FacturaCheck
+        </Text>
+        <Text style={{ fontSize: 13, color: '#90A4AE', textAlign: 'center', marginTop: 6 }}>
+          Tu rol no tiene permiso para ver este módulo.
+        </Text>
+      </View>
+    )
+  }
+
+  const isAdmin = ADMIN_ROLES.includes(userRole)
   const displayAs: PanelViewMode = isAdmin ? viewMode : 'contador'
   const FACTURA_TABS = displayAs === 'admin' ? ADMIN_TABS : CONTADOR_TABS
 
