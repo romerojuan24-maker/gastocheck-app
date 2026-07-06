@@ -54,12 +54,36 @@ async function logRemote(tag: string, level: string, message: string, metadata?:
   }
 }
 
+const SENSITIVE_KEY_RE = /token|password|secret|apikey|api_key|authorization|jwt|clabe|csd|cert|private_key/i;
+
+function redact(value: unknown, depth = 0): unknown {
+  if (depth > 4) return '[...]';
+  if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SENSITIVE_KEY_RE.test(k) ? '[REDACTED]' : redact(v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+// Objetos completos (respuestas de API, filas de tablas sensibles, sesiones)
+// no deben terminar sin filtrar en diagnostic_logs solo porque alguien hizo
+// console.error('x falló:', objeto) en vez de objeto.message. Se redactan
+// llaves sensibles y se trunca el tamaño total como defensa en profundidad.
 function argsToMessage(args: unknown[]): string {
   return args
     .map((a) => {
       if (typeof a === 'string') return a;
       if (a instanceof Error) return `${a.name}: ${a.message}`;
-      try { return JSON.stringify(a); } catch { return String(a); }
+      try {
+        const json = JSON.stringify(redact(a));
+        return json.length > 1000 ? `${json.slice(0, 1000)}…[truncated]` : json;
+      } catch {
+        return String(a);
+      }
     })
     .join(' ');
 }

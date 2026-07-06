@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCompanyMember } from '@/lib/api-auth'
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,13 +12,13 @@ export async function POST(req: NextRequest) {
     const { pathname } = req.nextUrl
 
     if (pathname.includes('/generate-cfdi')) {
-      return await handleGenerateCfdi(body)
+      return await handleGenerateCfdi(req, body)
     }
     if (pathname.includes('/distribute')) {
-      return await handleDistribute(body)
+      return await handleDistribute(req, body)
     }
     if (pathname.includes('/cancel')) {
-      return await handleCancel(body)
+      return await handleCancel(req, body)
     }
 
     return NextResponse.json({ error: 'Unknown endpoint' }, { status: 404 })
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 // POST /api/factura/generate-cfdi
 // ============================================================================
 
-async function handleGenerateCfdi(body: any) {
+async function handleGenerateCfdi(req: NextRequest, body: any) {
   try {
     const { company_id, receptor_rfc, receptor_name, subtotal, tax_amount, items } = body
 
@@ -60,6 +61,9 @@ async function handleGenerateCfdi(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Generate CFDI XML
     // TODO: Implement real XML generation after migrations
@@ -107,6 +111,9 @@ async function handleGetCfdis(req: NextRequest) {
       )
     }
 
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     // STUB: Query CFDIs
     // TODO: Query cfdi_documents table after migrations
     const cfdis = []
@@ -140,6 +147,14 @@ export async function PUT(req: NextRequest) {
     if (!cfdi_id) {
       return NextResponse.json({ error: 'Missing: cfdi_id' }, { status: 400 })
     }
+    if (!body.company_id) {
+      return NextResponse.json({ error: 'Missing: company_id' }, { status: 400 })
+    }
+
+    const auth = await requireCompanyMember(req, body.company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+    // NOTA: cuando se implemente de verdad, además verificar que el CFDI
+    // con este cfdi_id pertenezca realmente a body.company_id antes de tocarlo.
 
     // STUB: Update CFDI
     const updated_cfdi = { id: cfdi_id, ...body, updated_at: new Date().toISOString() }
@@ -160,7 +175,7 @@ export async function PUT(req: NextRequest) {
 // POST /api/factura/distribute
 // ============================================================================
 
-async function handleDistribute(body: any) {
+async function handleDistribute(req: NextRequest, body: any) {
   try {
     const { company_id, cfdi_id, channel, recipient_email, recipient_phone } = body
 
@@ -170,6 +185,9 @@ async function handleDistribute(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Queue distribution
     // TODO: Queue job to send via email/WhatsApp after migrations
@@ -199,7 +217,7 @@ async function handleDistribute(body: any) {
 // POST /api/factura/cancel
 // ============================================================================
 
-async function handleCancel(body: any) {
+async function handleCancel(req: NextRequest, body: any) {
   try {
     const { company_id, cfdi_id, reason } = body
 
@@ -209,6 +227,9 @@ async function handleCancel(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Cancel CFDI
     // TODO: Call PAC to cancel + update status after migrations
@@ -245,6 +266,9 @@ async function handleGetCredits(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Query credit balance
     // TODO: Query cfdi_credits + cfdi_credit_transactions after migrations
@@ -283,6 +307,9 @@ async function handleGetReports(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Generate reports
     // TODO: Aggregate cfdi_documents + distributions for reporting after migrations

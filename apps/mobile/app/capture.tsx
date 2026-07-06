@@ -169,7 +169,7 @@ export default function CaptureScreen() {
         .order('name');
 
       if (error) {
-        console.error('[loadCategories] Error:', error);
+        console.error('[loadCategories] Error:', error.message);
         return;
       }
 
@@ -192,7 +192,7 @@ export default function CaptureScreen() {
         })),
       );
     } catch (err) {
-      console.error('[loadCategories] Exception:', err);
+      console.error('[loadCategories] Exception:', err instanceof Error ? err.message : String(err));
       setCategories([]);
     }
   }
@@ -288,7 +288,7 @@ export default function CaptureScreen() {
                 .rpc('next_gc_folio', { p_company_id: memberCompanyId, p_type: 'receipt' });
               gc_folio = folioData ?? null;
             } catch (e) {
-              console.warn('[quickCapture] next_gc_folio falló:', e);
+              console.warn('[quickCapture] next_gc_folio falló:', e instanceof Error ? e.message : String(e));
             }
           }
 

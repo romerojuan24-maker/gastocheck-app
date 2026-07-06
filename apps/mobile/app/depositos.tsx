@@ -68,7 +68,7 @@ export default function DepositosScreen() {
       .in('role', COMPRADOR_ROLES);
 
     if (memErr) {
-      console.error('[depositos] Error loading members:', memErr);
+      console.error('[depositos] Error loading members:', memErr.message);
       setLoading(false);
       return;
     }
@@ -82,7 +82,7 @@ export default function DepositosScreen() {
         .in('id', userIds);
 
       if (profErr) {
-        console.error('[depositos] Error loading profiles:', profErr);
+        console.error('[depositos] Error loading profiles:', profErr.message);
         setCompradors(
           members.map((m: any) => ({
             user_id: m.user_id,
@@ -140,18 +140,18 @@ export default function DepositosScreen() {
       let attachmentUrl: string | null = null;
       if (photoUri) {
         const ext = photoUri.split('.').pop()?.toLowerCase() ?? 'jpg';
-        const path = `deposits/${companyId}/${Date.now()}.${ext}`;
+        // Ruta debe iniciar con company_id: la RLS de expense-attachments
+        // castea el primer segmento a uuid (auth_is_member((storage.foldername(name))[1]::uuid)).
+        const path = `${companyId}/deposits/${Date.now()}.${ext}`;
         const response = await fetch(photoUri);
         const blob = await response.blob();
         const { error: upErr } = await supabase.storage
           .from('expense-attachments')
           .upload(path, blob, { contentType: `image/${ext}` });
-        if (!upErr) {
-          const { data: urlData } = supabase.storage
-            .from('expense-attachments')
-            .getPublicUrl(path);
-          attachmentUrl = urlData.publicUrl;
-        }
+        // Bucket privado: se guarda la ruta, no una URL pública (getPublicUrl
+        // no sirve archivos de buckets privados). Generar signed URL bajo
+        // demanda al mostrar la imagen.
+        if (!upErr) attachmentUrl = path;
       }
 
       // Buscar póliza anticipo abierta del comprador

@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCompanyMember } from '@/lib/api-auth'
 
 // ============================================================================
 // POST /api/banco/import-statement
@@ -16,13 +17,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
 
     if (pathname.includes('/import-statement')) {
-      return await handleImportStatement(body)
+      return await handleImportStatement(req, body)
     }
     if (pathname.includes('/oauth-callback')) {
-      return await handleOAuthCallback(body)
+      return await handleOAuthCallback(req, body)
     }
     if (pathname.includes('/manual-match')) {
-      return await handleManualMatch(body)
+      return await handleManualMatch(req, body)
     }
 
     return NextResponse.json({ error: 'Unknown endpoint' }, { status: 404 })
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 // Handlers
 // ============================================================================
 
-async function handleImportStatement(body: any) {
+async function handleImportStatement(req: NextRequest, body: any) {
   try {
     const { company_id, file_format, file_url } = body
 
@@ -70,6 +71,9 @@ async function handleImportStatement(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: OCR processing
     // TODO: Integrate Tesseract/AWS Textract after migrations
@@ -106,6 +110,9 @@ async function handleGetAccounts(req: NextRequest) {
       )
     }
 
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     // STUB: Return connected accounts
     // TODO: Query bank_accounts_manual + bank_accounts_automated after migrations
     const accounts = {
@@ -138,6 +145,9 @@ async function handleGetTransactions(req: NextRequest) {
       )
     }
 
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
     // STUB: Return transactions
     // TODO: Query bank_transactions after migrations
     const transactions = []
@@ -163,7 +173,7 @@ async function handleGetTransactions(req: NextRequest) {
   }
 }
 
-async function handleOAuthCallback(body: any) {
+async function handleOAuthCallback(req: NextRequest, body: any) {
   try {
     const { company_id, oauth_provider, auth_code } = body
 
@@ -173,6 +183,9 @@ async function handleOAuthCallback(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Exchange auth_code for tokens
     // TODO: Implement actual OAuth token exchange after migrations
@@ -197,7 +210,7 @@ async function handleOAuthCallback(body: any) {
   }
 }
 
-async function handleManualMatch(body: any) {
+async function handleManualMatch(req: NextRequest, body: any) {
   try {
     const { company_id, transaction_a_id, transaction_b_id } = body
 
@@ -207,6 +220,9 @@ async function handleManualMatch(body: any) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id, ['owner', 'admin', 'accountant'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Create manual match
     // TODO: Update transaction_matching_log and bank_transactions after migrations
@@ -235,6 +251,9 @@ async function handleGetUnsupportedBanks(req: NextRequest) {
         { status: 400 }
       )
     }
+
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // STUB: Return unsupported bank requests
     // TODO: Query unsupported_bank_requests after migrations

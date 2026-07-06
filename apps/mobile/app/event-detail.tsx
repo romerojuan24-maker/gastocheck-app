@@ -205,10 +205,10 @@ export default function EventDetailScreen() {
         .upload(path, decode(photoB64), { contentType: 'image/jpeg', upsert: false });
       if (error) { console.warn('Upload warning:', error.message); return null; }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('event-comprobantes')
-        .getPublicUrl(path);
-      return publicUrl;
+      // Bucket privado: se guarda la ruta, no una URL pública. Para mostrar
+      // la imagen más adelante hay que generar un signed URL bajo demanda
+      // (supabase.storage.from('event-comprobantes').createSignedUrl(path, ttl)).
+      return path;
     } finally {
       setUploading(false);
     }

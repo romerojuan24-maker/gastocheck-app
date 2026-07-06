@@ -136,7 +136,7 @@ export default function MiRutaCobraScreen() {
           setClients(data as CobraClient[]);
         }
       } catch (e) {
-        console.error('Error cargando clientes:', e);
+        console.error('Error cargando clientes:', e instanceof Error ? e.message : String(e));
       } finally {
         setLoadingClients(false);
       }
@@ -158,7 +158,7 @@ export default function MiRutaCobraScreen() {
         setSelectedInvoices(data as CobraInvoice[]);
       }
     } catch (e) {
-      console.error('Error cargando facturas:', e);
+      console.error('Error cargando facturas:', e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -308,7 +308,7 @@ export default function MiRutaCobraScreen() {
           }]);
 
         if (error) {
-          console.error('Error sincronizando movimiento:', error);
+          console.error('Error sincronizando movimiento:', error.message);
         }
       }
 
@@ -349,7 +349,7 @@ export default function MiRutaCobraScreen() {
     } catch (e) {
       setSyncing(false);
       setSyncMsg('Error en la sincronización.');
-      console.error('Sync error:', e);
+      console.error('Sync error:', e instanceof Error ? e.message : String(e));
     }
   }
 

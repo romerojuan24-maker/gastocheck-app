@@ -291,14 +291,8 @@ export default function GastoCheckHome() {
     );
   }
 
-  function inviteCode() {
-    if (!companyId) return '--------';
-    return companyId.replace(/-/g, '').substring(0, 8).toUpperCase();
-  }
-
   async function shareInvite(role: 'admin' | 'comprador' | 'accountant') {
     if (!companyId) return;
-    const code = inviteCode();
     const name = companyName ?? 'la empresa';
     const ROLE_INFO = {
       admin: {
@@ -318,14 +312,12 @@ export default function GastoCheckHome() {
     const msg =
       `Hola! Te invito a unirte a *${name}* en GastoCheck como *${label}*.\n\n` +
       `📋 *${label} — Tus accesos:*\n${accesos}\n\n` +
-      `*Para unirte en 3 pasos:*\n` +
-      `1️⃣ Descarga GastoCheck:\n` +
-      `   📱 iOS: https://apps.apple.com/app/gastocheck\n` +
-      `   🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck\n\n` +
-      `2️⃣ Regístrate con tu nombre y correo\n\n` +
-      `3️⃣ Ingresa el código de empresa: *${code}*\n` +
-      `   (Tu rol como ${label} ya estará asignado)\n\n` +
-      `¡Listo! Estarás dentro de *${name}* en GastoCheck. 🎉`;
+      `Para darte de alta, ve a la versión web de GastoCheck → *Configuración → Equipo* ` +
+      `e ingresa tu correo (${label}). Vas a recibir un correo para activar tu cuenta y ` +
+      `entrar directo con tu rol ya asignado.\n\n` +
+      `Una vez activa tu cuenta, descarga la app:\n` +
+      `📱 iOS: https://apps.apple.com/app/gastocheck\n` +
+      `🤖 Android: https://play.google.com/store/apps/details?id=com.gastocheck`;
     try { await Share.share({ message: msg }); } catch { /* cancelado */ }
   }
 
@@ -746,10 +738,6 @@ export default function GastoCheckHome() {
             {/* ── Invitar ────────────────────────────────── */}
             <View style={{ marginTop: 20 }}>
               <Text style={[s.tabTitle, { fontSize: 16, marginBottom: 8 }]}>Invitar al Equipo</Text>
-              <View style={s.codeBox}>
-                <Text style={s.codeLabel}>Código de empresa</Text>
-                <Text style={s.codeValue}>{inviteCode()}</Text>
-              </View>
               {([
                 { role: 'admin'      as const, icon: '👑', label: 'Admin',    desc: 'Acceso completo: empresa, equipo, cuentas bancarias y configuración.',       color: BRAND.navy   },
                 { role: 'accountant' as const, icon: '🧮', label: 'Contador', desc: 'Clasifica cuentas, valida CFDI, genera pólizas y exporta a CONTPAQi.',      color: BRAND.purple },
@@ -1171,9 +1159,6 @@ const s = StyleSheet.create({
   memberName:       { fontSize: 15, fontWeight: '700', color: BRAND.navy },
 
   // Invite section (Admin Equipo tab)
-  codeBox:           { backgroundColor: BRAND.gray, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 4 },
-  codeLabel:         { fontSize: 11, fontWeight: '600', color: '#90A4AE', textTransform: 'uppercase' },
-  codeValue:         { fontSize: 26, fontWeight: '800', color: BRAND.navy, letterSpacing: 4, marginTop: 4 },
   roleCard:          { backgroundColor: '#FAFAFA', borderRadius: 12, padding: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderLeftWidth: 4, borderWidth: 1, borderColor: '#E0E0E0' },
   roleCardTitle:     { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   roleCardDesc:      { fontSize: 12, color: '#607D8B', lineHeight: 16 },

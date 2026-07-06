@@ -247,7 +247,7 @@ export default function ReceiptsScreen() {
       }
 
       const { data, error } = await query;
-      if (error) { console.error(error); return; }
+      if (error) { console.error(error.message); return; }
 
       const rows = (data as unknown as ReceiptRow[]) ?? [];
       if (!mountedRef.current) return;
