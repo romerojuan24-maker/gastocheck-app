@@ -28,7 +28,7 @@ export function useOcr() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        return { data: null, error: err.error || err.detail || `Error ${res.status}`, croppedImageBase64: null }
+        return { data: null, error: err.error || err.detail || err.message || `Error ${res.status}`, croppedImageBase64: null }
       }
 
       const body = await res.json()

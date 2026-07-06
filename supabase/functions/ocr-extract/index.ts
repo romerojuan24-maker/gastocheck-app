@@ -10,6 +10,12 @@ const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
+// Fotos de cámara a resolución completa del sensor (ej. 5472x7296 = 40MP) tronan el
+// worker (WORKER_RESOURCE_LIMIT / status 546) al decodificarlas con imagescript — es un
+// kill del runtime, no una excepción capturable, así que hay que evitar el intento en
+// vez de recuperarnos de él. Verificado: 497KB decodifica bien, 1.08MB (40MP) no.
+const MAX_CROP_BYTES = 600_000;
+
 interface OcrLineItem {
   name: string;
   quantity: number | null;
@@ -328,8 +334,11 @@ Reglas:
           x1 > x0 && y1 > y0 &&
           (x1 - x0) > 0.15 && (y1 - y0) > 0.15; // evita recortes absurdos o casi vacíos
 
-        if (validBox) {
-          const raw = decodeBase64(image_base64);
+        const raw = decodeBase64(image_base64);
+        if (validBox && raw.byteLength > MAX_CROP_BYTES) {
+          console.warn(`[ocr-extract] Imagen de ${raw.byteLength} bytes excede MAX_CROP_BYTES — se omite recorte para no tronar el worker`);
+          result.documentBox = null;
+        } else if (validBox) {
           const img = await decodeImage(raw);
           // Margen de seguridad 2% para no cortar texto pegado al borde detectado
           const pad = 0.02;
