@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
@@ -52,11 +53,7 @@ export default function AdvanceRequestScreen() {
       if (!user) return;
       setUserId(user.id);
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
+      const member = await getActiveMembership(user.id);
 
       if (!member) return;
       setCompanyId(member.company_id);

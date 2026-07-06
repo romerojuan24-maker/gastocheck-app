@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 const today = new Date().toISOString().slice(0, 10);
@@ -65,9 +66,7 @@ export default function RutasEquipoScreen() {
       const { data: { session: rutasSession } } = await supabase.auth.getSession();
       const user = rutasSession?.user;
       if (!user) return;
-      const { data: m } = await supabase
-        .from('company_members').select('company_id, role')
-        .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (!m || !['owner', 'admin', 'superadmin', 'supervisor'].includes(m.role)) return;
       setCompanyId(m.company_id);
     })();

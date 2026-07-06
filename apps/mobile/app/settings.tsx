@@ -8,6 +8,7 @@ import * as Updates from 'expo-updates';
 import { BRAND, APP_VERSION, isFleetSector } from '@gastocheck/shared';
 import type { CompanySector } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 // OTA_VERSION viene de @gastocheck/shared — un solo lugar para actualizar
 const OTA_VERSION = APP_VERSION;
@@ -49,18 +50,17 @@ export default function SettingsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, companies(name, sector)')
-        .eq('user_id', user.id)
-        .single();
+      const member = await getActiveMembership(user.id);
+      const { data: co } = member
+        ? await supabase.from('companies').select('name, sector').eq('id', member.company_id).maybeSingle()
+        : { data: null };
 
       setRole(member?.role ?? 'employee');
       setProfile({
         email:   user.email ?? '',
         role:    member?.role ?? 'employee',
-        company: (member?.companies as any)?.name ?? 'Sin empresa',
-        sector:  (member?.companies as any)?.sector ?? null,
+        company: (co as any)?.name ?? 'Sin empresa',
+        sector:  (co as any)?.sector ?? null,
       });
     } finally {
       setLoading(false);
@@ -210,26 +210,6 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Navegación */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Accesos rápidos</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/receipts')}>
-          <Text style={styles.menuIcon}>🧾</Text>
-          <Text style={styles.menuLabel}>Mis comprobantes</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/batches')}>
-          <Text style={styles.menuIcon}>📁</Text>
-          <Text style={styles.menuLabel}>Relaciones contables</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/advance-request')}>
-          <Text style={styles.menuIcon}>💸</Text>
-          <Text style={styles.menuLabel}>Mis solicitudes de anticipo</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Vertical Flotillas */}
       {isFleet && (

@@ -8,6 +8,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
+import { runOcrBatch, type BatchOcrReceipt } from '../lib/ocr-batch';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -20,6 +21,8 @@ interface ReceiptItem {
   fiscal_uuid: string | null;
   sat_validation_status: string | null;
   status: string;
+  file_storage_path: string | null;
+  source_type: string;
 }
 
 interface Reembolso {
@@ -44,6 +47,8 @@ export default function ReembolsoScreen() {
   const [showAddReceipts, setShowAddReceipts] = useState(false);
   const [availableReceipts, setAvailableReceipts] = useState<ReceiptItem[]>([]);
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
+  const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => { loadReembolso(); }, []);
   useFocusEffect(useCallback(() => { loadReembolso(); }, [reembolso_id]));
@@ -79,7 +84,7 @@ export default function ReembolsoScreen() {
       const { data: assigned } = await supabase
         .from('receipt_reembolsos')
         .select(
-          'receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, sat_validation_status, status)',
+          'receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, sat_validation_status, status, file_storage_path, source_type)',
           { count: 'exact' }
         )
         .eq('reembolso_id', reembolso_id);
@@ -253,6 +258,24 @@ export default function ReembolsoScreen() {
   }
 
 
+  async function analizarPendientesAhora() {
+    if (!reembolso) return;
+    const pendientes: BatchOcrReceipt[] = assignedReceipts
+      .filter(r => !r.provider_name && r.file_storage_path && r.source_type === 'photo')
+      .map(r => ({ id: r.id, file_storage_path: r.file_storage_path, source_type: r.source_type }));
+    if (pendientes.length === 0) return;
+
+    setOcrRunning(true);
+    setOcrProgress({ done: 0, total: pendientes.length });
+    try {
+      await runOcrBatch(pendientes, reembolso.company_id, (p) => setOcrProgress({ done: p.done, total: p.total }));
+      await loadReembolso();
+    } finally {
+      setOcrRunning(false);
+      setOcrProgress(null);
+    }
+  }
+
   async function handleSubmitReembolso() {
     if (!reembolso) return;
 
@@ -266,9 +289,10 @@ export default function ReembolsoScreen() {
       const proceed = await new Promise<boolean>(resolve =>
         Alert.alert(
           '⚠️ Comprobantes sin identificar',
-          `${sinOcr} comprobante${sinOcr !== 1 ? 's' : ''} no tiene${sinOcr !== 1 ? 'n' : ''} proveedor ni monto detectados por OCR. El contador no podrá clasificarlos fácilmente.\n\nUsa el botón OCR en Mis Comprobantes para analizarlos primero.`,
+          `${sinOcr} comprobante${sinOcr !== 1 ? 's' : ''} no tiene${sinOcr !== 1 ? 'n' : ''} proveedor ni monto detectados por OCR. El contador no podrá clasificarlos fácilmente.`,
           [
             { text: 'Cancelar y corregir', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Analizar ahora', onPress: () => { analizarPendientesAhora(); resolve(false); } },
             { text: 'Enviar de todas formas', onPress: () => resolve(true) },
           ]
         )
@@ -349,6 +373,15 @@ export default function ReembolsoScreen() {
         <Text style={styles.subtitle}>
           {assignedReceipts.length} comprobante{assignedReceipts.length !== 1 ? 's' : ''} · Total: {money(totalAmount)}
         </Text>
+
+        {ocrRunning && (
+          <View style={styles.ocrBanner}>
+            <ActivityIndicator size="small" color={BRAND.blue} />
+            <Text style={styles.ocrBannerText}>
+              Analizando comprobantes… {ocrProgress ? `${ocrProgress.done}/${ocrProgress.total}` : ''}
+            </Text>
+          </View>
+        )}
 
         {/* Recibos asignados */}
         {assignedReceipts.length > 0 ? (
@@ -552,6 +585,11 @@ const styles = StyleSheet.create({
   controlNum: { fontSize: 13, fontWeight: '900', color: BRAND.blue, letterSpacing: 1, marginBottom: 4 },
   title:    { fontSize: 20, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#90A4AE', marginBottom: 16 },
+  ocrBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#EEF2FF', borderRadius: 12, padding: 12, marginBottom: 16,
+  },
+  ocrBannerText: { fontSize: 13, fontWeight: '600', color: BRAND.blue },
 
   section: {
     backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 16,

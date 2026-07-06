@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
+import { getActiveMembership } from '../../lib/membership';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -54,12 +55,7 @@ export default function CobraCheckHome() {
       setUserEmail(user.email ?? null);
       setUserId(user.id);
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member) { setLoading(false); return; }
       setUserRole(member.role);

@@ -7,6 +7,7 @@ import {
 import { BRAND } from '@gastocheck/shared';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -126,12 +127,7 @@ export default function SupervisorScreen() {
       const user = session?.user;
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id, role')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member || !SUPERVISOR_ROLES.includes(member.role)) {
         Alert.alert('Sin acceso', 'Solo supervisores y contadores pueden ver este panel.');

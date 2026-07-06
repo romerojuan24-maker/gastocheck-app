@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 const money = (n: number) =>
@@ -63,8 +64,7 @@ export default function ReportesScreen() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: m } = await supabase
-        .from('company_members').select('company_id').eq('user_id', user.id).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (!m) return;
       setCompanyId(m.company_id);
       const { data: co } = await supabase

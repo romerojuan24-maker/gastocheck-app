@@ -17,6 +17,7 @@ import { useFlujoBalance, useFlujoItems, useFlujoMutations } from './hooks'
 import { CashFlowList, EditModal, KpiCards, CreditsTab, ProjectionTab, SettingsTab } from './components'
 import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
 import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode'
+import { getActiveMembership } from '../../lib/membership'
 
 // Tipos
 import type { CashFlowItem } from './types'
@@ -84,12 +85,7 @@ export default function FlujoCheckHome() {
       if (!user) { setLoading(false); return }
       setUserEmail(user.email ?? null)
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
+      const member = await getActiveMembership(user.id)
 
       if (member) {
         setUserRole(member.role)

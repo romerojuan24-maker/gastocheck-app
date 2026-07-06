@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import { trialDaysRemaining, isTrialActive } from '../lib/trial';
+import { getActiveMembership } from '../lib/membership';
 
 interface Props {
   onUpgrade?: () => void;
@@ -22,17 +23,10 @@ export default function TrialBanner({ onUpgrade }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: member } = await supabase
-      .from('company_members')
-      .select('company_id, companies(trial_ends_at)')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .limit(1)
-      .single();
-
+    const member = await getActiveMembership(user.id);
     if (member) {
-      const ends = (member.companies as any)?.trial_ends_at ?? null;
-      setTrialEndsAt(ends);
+      const { data: co } = await supabase.from('companies').select('trial_ends_at').eq('id', member.company_id).maybeSingle();
+      setTrialEndsAt((co as any)?.trial_ends_at ?? null);
     }
     setLoaded(true);
   }

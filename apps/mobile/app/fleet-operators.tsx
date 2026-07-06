@@ -9,6 +9,7 @@ import {
 } from '@gastocheck/shared';
 import type { FleetOperator, FleetVehicle, OperatorStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -52,8 +53,7 @@ export default function FleetOperatorsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members').select('company_id').eq('user_id', user.id).single();
+      const member = await getActiveMembership(user.id);
       if (!member) return;
       setCompanyId(member.company_id);
 

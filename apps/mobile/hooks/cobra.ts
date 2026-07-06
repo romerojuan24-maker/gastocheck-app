@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getActiveMembership } from '../lib/membership'
 import type { CobraClient } from '@gastocheck/shared'
 
 export function useCobrador() {
@@ -7,30 +8,24 @@ export function useCobrador() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getUser()
       if (!data.user) return
-      supabase
-        .from('company_members')
-        .select('company_id, role')
-        .eq('user_id', data.user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle()
-        .then(({ data: member, error: err }) => {
-          if (err || !member) {
-            setError('No se pudo cargar el usuario')
-            return
-          }
 
-          // Cobradores, supervisores, contadores y admins pueden acceder a CobraCheck
-          if (!['collector', 'supervisor', 'admin', 'owner', 'superadmin', 'accountant'].includes(member.role)) {
-            setError(`Acceso denegado: Tu rol no tiene acceso a CobraCheck (tienes rol: ${member.role})`)
-            return
-          }
+      const member = await getActiveMembership(data.user.id)
+      if (!member) {
+        setError('No se pudo cargar el usuario')
+        return
+      }
 
-          setUser({ id: data.user!.id, company_id: member.company_id, role: member.role })
-        })
-    })
+      // Cobradores, supervisores, contadores y admins pueden acceder a CobraCheck
+      if (!['collector', 'supervisor', 'admin', 'owner', 'superadmin', 'accountant'].includes(member.role)) {
+        setError(`Acceso denegado: Tu rol no tiene acceso a CobraCheck (tienes rol: ${member.role})`)
+        return
+      }
+
+      setUser({ id: data.user.id, company_id: member.company_id, role: member.role })
+    })()
   }, [])
 
   return { user, error }

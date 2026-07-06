@@ -386,6 +386,9 @@ export default function GastoCheckHome() {
               <NavCard icon="✈️" title="Viáticos"
                 sub="Gastos de viaje: renta, comidas, hospedaje"
                 onPress={() => router.push('/viaticos' as any)} />
+              <NavCard icon="💸" title="Mis Solicitudes de Anticipo"
+                sub="Pide un anticipo o revisa el estado de tus solicitudes"
+                onPress={() => router.push('/advance-request' as any)} />
             </ScrollView>
           )}
 

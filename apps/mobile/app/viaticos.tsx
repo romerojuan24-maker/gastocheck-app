@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 import DatePickerField from '../components/DatePickerField';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -107,13 +108,7 @@ export default function ViaticosScreen() {
       setUserId(uid);
       setUserEmail(session.user.email ?? null);
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', uid)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle();
+      const member = await getActiveMembership(uid);
 
       if (!member) return;
       setCompanyId(member.company_id);

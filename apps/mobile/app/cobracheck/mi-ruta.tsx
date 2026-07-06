@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { BRAND, type CobraClient, type CobraInvoice } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
+import { getActiveMembership } from '../../lib/membership';
 import {
   requestLocationPermission, hasLocationPermission,
   captureCurrentPosition, addPointToday, loadTodayPoints,
@@ -105,9 +106,7 @@ export default function MiRutaCobraScreen() {
       if (!user) return;
       setUserId(user.id);
 
-      const { data: m } = await supabase
-        .from('company_members').select('company_id')
-        .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (m) setCompanyId(m.company_id);
 
       const pts = await loadTodayPoints(user.id);

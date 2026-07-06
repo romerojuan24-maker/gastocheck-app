@@ -11,6 +11,7 @@ import type { ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import { useOfflineStatus } from '../hooks/useOfflineStatus';
 import { fetchReceiptsNeedingOcr, runOcrBatch, type BatchOcrProgress } from '../lib/ocr-batch';
+import { getActiveMembership } from '../lib/membership';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -72,8 +73,7 @@ export default function ReceiptsScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) return;
-    const { data: member } = await supabase.from('company_members')
-      .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    const member = await getActiveMembership(user.id);
     if (!member) { Alert.alert('Error', 'No tienes asignada una empresa.'); return; }
 
     const candidates = await fetchReceiptsNeedingOcr(member.company_id, user.id);
@@ -111,8 +111,7 @@ export default function ReceiptsScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) return;
-    const { data: member } = await supabase.from('company_members')
-      .select('company_id').eq('user_id', user.id).eq('status', 'active').maybeSingle();
+    const member = await getActiveMembership(user.id);
     if (!member) { Alert.alert('Error', 'No tienes asignada una empresa.'); return; }
     setPendingCompanyId(member.company_id);
     setReembolsoName('');
@@ -196,12 +195,7 @@ export default function ReceiptsScreen() {
       if (!user || !mountedRef.current) return;
 
       // Obtener rol del usuario
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       const role = member?.role ?? 'spender';
       setUserRole(role);

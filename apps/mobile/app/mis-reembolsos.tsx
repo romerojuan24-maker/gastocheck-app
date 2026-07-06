@@ -8,6 +8,8 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
+import { runOcrBatch, type BatchOcrReceipt } from '../lib/ocr-batch';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -44,12 +46,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 interface PendingReceipt {
-  id:            string;
-  gc_folio:      string | null;
-  provider_name: string | null;
-  total_amount:  number | null;
-  receipt_date:  string | null;
-  source_type:   string;
+  id:                string;
+  gc_folio:          string | null;
+  provider_name:     string | null;
+  total_amount:      number | null;
+  receipt_date:      string | null;
+  source_type:       string;
+  file_storage_path: string | null;
 }
 
 export default function MisReembolsosScreen() {
@@ -62,6 +65,8 @@ export default function MisReembolsosScreen() {
   const [statusFilter,    setStatusFilter]    = useState<StatusFilter>('all');
   const [showCreate,      setShowCreate]      = useState(false);
   const [newName,         setNewName]         = useState('');
+  const [ocrRunning,      setOcrRunning]      = useState(false);
+  const [ocrProgress,     setOcrProgress]     = useState<{ done: number; total: number } | null>(null);
   const [creating,        setCreating]        = useState(false);
 
   const load = useCallback(async () => {
@@ -70,8 +75,7 @@ export default function MisReembolsosScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setUserId(user.id);
-      const { data: m } = await supabase.from('company_members')
-        .select('company_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle();
+      const m = await getActiveMembership(user.id);
       if (!m) return;
       setCompanyId(m.company_id);
 
@@ -87,7 +91,7 @@ export default function MisReembolsosScreen() {
       // Comprobantes capturados que aún NO están en ningún reembolso
       const { data: receiptsData } = await supabase
         .from('receipts')
-        .select('id, gc_folio, provider_name, total_amount, receipt_date, source_type')
+        .select('id, gc_folio, provider_name, total_amount, receipt_date, source_type, file_storage_path')
         .eq('company_id', m.company_id)
         .eq('uploaded_by', user.id)
         .eq('status', 'captured')
@@ -114,6 +118,24 @@ export default function MisReembolsosScreen() {
 
   useEffect(() => { load(); }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  async function analizarPendientes() {
+    if (!companyId) return;
+    const candidates: BatchOcrReceipt[] = pendingReceipts
+      .filter(r => !r.provider_name && r.file_storage_path && r.source_type === 'photo')
+      .map(r => ({ id: r.id, file_storage_path: r.file_storage_path, source_type: r.source_type }));
+    if (candidates.length === 0) return;
+
+    setOcrRunning(true);
+    setOcrProgress({ done: 0, total: candidates.length });
+    try {
+      await runOcrBatch(candidates, companyId, (p) => setOcrProgress({ done: p.done, total: p.total }));
+      await load();
+    } finally {
+      setOcrRunning(false);
+      setOcrProgress(null);
+    }
+  }
 
   // ── Crear nuevo reembolso ────────────────────────────────────────────────────
 
@@ -211,6 +233,26 @@ export default function MisReembolsosScreen() {
               <Text style={styles.newBtnText}>+ Crear reembolso</Text>
             </TouchableOpacity>
           </View>
+          {pendingReceipts.some(r => !r.provider_name) && (
+            <TouchableOpacity
+              style={styles.ocrBtn}
+              onPress={analizarPendientes}
+              disabled={ocrRunning}
+            >
+              {ocrRunning ? (
+                <>
+                  <ActivityIndicator size="small" color={BRAND.blue} />
+                  <Text style={styles.ocrBtnText}>
+                    Analizando… {ocrProgress ? `${ocrProgress.done}/${ocrProgress.total}` : ''}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.ocrBtnText}>
+                  🔍 Analizar con OCR ({pendingReceipts.filter(r => !r.provider_name).length})
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
           {pendingReceipts.slice(0, 3).map(r => (
             <View key={r.id} style={styles.pendingCard}>
               <Text style={styles.pendingProvider} numberOfLines={1}>
@@ -335,6 +377,11 @@ const styles = StyleSheet.create({
   headerSub:   { fontSize: 12, color: BRAND.orange, marginTop: 2, fontWeight: '600' },
   newBtn:     { backgroundColor: BRAND.green, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   newBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  ocrBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#EEF2FF', borderRadius: 12, paddingVertical: 10, marginBottom: 10,
+  },
+  ocrBtnText: { color: BRAND.blue, fontWeight: '700', fontSize: 13 },
 
   pendingSection: { backgroundColor: '#FFF8E1', borderBottomWidth: 1, borderBottomColor: '#FFE082', padding: 12 },
   pendingHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
