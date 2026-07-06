@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -17,6 +16,7 @@ import { useFacturaDocuments } from './hooks'
 // Componentes
 import { DocumentList, DistributionTab, ReportsTab, SettingsTab } from './components'
 import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
+import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode'
 
 // Tipos
 import type { CfdiDocument } from './types'
@@ -106,9 +106,9 @@ export default function FacturaCheckHome() {
   useFocusEffect(useCallback(() => {
     loadUser()
     setActiveTab(0)
-    AsyncStorage.getItem('facturacheck_viewMode').then((saved) => {
-      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
-    })
+    // Vista del panel global (se elige en el home de CHECK SUITE) —
+    // FacturaCheck solo tiene 2 niveles, "operativo" se ve como contador.
+    getGlobalViewMode().then((g) => setViewMode(g === 'admin' ? 'admin' : 'contador'))
   }, [loadUser]))
 
   if (loading) {
@@ -142,7 +142,7 @@ export default function FacturaCheckHome() {
 
   const handleSelectMode = (mode: PanelViewMode) => {
     setViewMode(mode)
-    AsyncStorage.setItem('facturacheck_viewMode', mode)
+    setGlobalViewMode(mode)
     setActiveTab(0)
   }
 

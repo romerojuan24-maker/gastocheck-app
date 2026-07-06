@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION, formatCurrency } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -17,6 +16,7 @@ import { useBancoAccounts, useBancoTransactions, useBancoClassify, useBancoKPIs 
 // Componentes
 import { AccountSelector, TransactionList, ClassifyModal, KpiCard, ReconciliationTab, ImportTab } from './components'
 import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
+import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode'
 
 // Tipos
 import type { BankTransaction, TransactionTab } from './types'
@@ -112,9 +112,9 @@ export default function BancoCheckHome() {
   useFocusEffect(useCallback(() => {
     loadUser()
     setActiveTab(0)
-    AsyncStorage.getItem('bancocheck_viewMode').then((saved) => {
-      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
-    })
+    // Vista del panel global (se elige en el home de CHECK SUITE) —
+    // BancoCheck solo tiene 2 niveles, "operativo" se ve como contador.
+    getGlobalViewMode().then((g) => setViewMode(g === 'admin' ? 'admin' : 'contador'))
   }, [loadUser]))
 
   // Load data
@@ -160,7 +160,7 @@ export default function BancoCheckHome() {
 
   const handleSelectMode = (mode: PanelViewMode) => {
     setViewMode(mode)
-    AsyncStorage.setItem('bancocheck_viewMode', mode)
+    setGlobalViewMode(mode)
     setActiveTab(0)
   }
 

@@ -11,10 +11,10 @@ import {
   computeBalance, BRAND, APP_VERSION,
   type Expense, type Policy, type Advance,
 } from '@gastocheck/shared';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
+import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -190,15 +190,14 @@ export default function GastoCheckHome() {
     setAdminTab(0);
     setContTab(0);
     setCompTab(0);
-    AsyncStorage.getItem('gastocheck_viewMode').then((saved) => {
-      if (saved === 'admin' || saved === 'comprador' || saved === 'contador') {
-        setViewMode(saved);
-      }
-    });
+    // La vista del panel ahora se elige UNA vez en el home de CHECK SUITE
+    // y aplica igual en todos los módulos — se lee de ahí, no de una llave
+    // propia de GastoCheck.
+    getGlobalViewMode().then((g) => setViewMode(g === 'operational' ? 'comprador' : g));
   }, [loadData]));
 
   useEffect(() => {
-    AsyncStorage.setItem('gastocheck_viewMode', viewMode);
+    setGlobalViewMode(viewMode === 'comprador' ? 'operational' : viewMode);
   }, [viewMode]);
 
   if (loading) {
@@ -446,7 +445,7 @@ export default function GastoCheckHome() {
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
-          onSelect={(m) => { setViewMode(m); AsyncStorage.setItem('gastocheck_viewMode', m); setShowSwitcher(false); }}
+          onSelect={(m) => { setViewMode(m); setGlobalViewMode(m === 'comprador' ? 'operational' : m); setShowSwitcher(false); }}
           onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={COMP_TABS} active={compTab} onSelect={setCompTab} color={BRAND.green} />
       </View>
@@ -561,7 +560,7 @@ export default function GastoCheckHome() {
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
-          onSelect={(m) => { setViewMode(m); AsyncStorage.setItem('gastocheck_viewMode', m); setShowSwitcher(false); }}
+          onSelect={(m) => { setViewMode(m); setGlobalViewMode(m === 'comprador' ? 'operational' : m); setShowSwitcher(false); }}
           onClose={() => setShowSwitcher(false)} />
         <BottomBar tabs={CONT_TABS} active={contTab} onSelect={setContTab} color={BRAND.blue} />
       </View>
@@ -671,7 +670,7 @@ export default function GastoCheckHome() {
                 <TouchableOpacity
                   key={mode}
                   style={[s.viewModeChip, viewMode === mode && { backgroundColor: color, borderColor: color }]}
-                  onPress={() => { setViewMode(mode); AsyncStorage.setItem('gastocheck_viewMode', mode); }}
+                  onPress={() => { setViewMode(mode); setGlobalViewMode(mode === 'comprador' ? 'operational' : mode); }}
                 >
                   <Text style={[s.viewModeChipText, viewMode === mode && { color: '#fff' }]}>{icon}</Text>
                   <Text style={[s.viewModeChipText, viewMode === mode && { color: '#fff' }]}>{label}</Text>

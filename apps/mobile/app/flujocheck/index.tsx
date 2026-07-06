@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BRAND, APP_VERSION } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 
@@ -17,6 +16,7 @@ import { useFlujoBalance, useFlujoItems, useFlujoMutations } from './hooks'
 // Componentes
 import { CashFlowList, EditModal, KpiCards, CreditsTab, ProjectionTab, SettingsTab } from './components'
 import { EmpresaTab, type PanelViewMode } from '../shared/components/EmpresaTab'
+import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode'
 
 // Tipos
 import type { CashFlowItem } from './types'
@@ -117,9 +117,9 @@ export default function FlujoCheckHome() {
   useFocusEffect(useCallback(() => {
     loadUser()
     setActiveTab(0)
-    AsyncStorage.getItem('flujocheck_viewMode').then((saved) => {
-      if (saved === 'admin' || saved === 'contador') setViewMode(saved)
-    })
+    // Vista del panel global (se elige en el home de CHECK SUITE) —
+    // FlujoCheck solo tiene 2 niveles, "operativo" se ve como contador.
+    getGlobalViewMode().then((g) => setViewMode(g === 'admin' ? 'admin' : 'contador'))
     // Refresca ítems con el saldo conocido (captura nuevos cobros/
     // reembolsos aunque el saldo no cambie) y el saldo real (puede
     // haber cambiado en BancoCheck; si cambia, el efecto que observa
@@ -159,7 +159,7 @@ export default function FlujoCheckHome() {
 
   const handleSelectMode = (mode: PanelViewMode) => {
     setViewMode(mode)
-    AsyncStorage.setItem('flujocheck_viewMode', mode)
+    setGlobalViewMode(mode)
     setActiveTab(0)
   }
 

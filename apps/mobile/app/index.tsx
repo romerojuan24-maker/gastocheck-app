@@ -9,21 +9,38 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import TrialBanner from '../components/TrialBanner';
+import { getGlobalViewMode, setGlobalViewMode, type GlobalViewMode } from '../lib/viewMode';
 
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
+
+const VIEW_MODE_OPTIONS: { mode: GlobalViewMode; label: string }[] = [
+  { mode: 'admin',       label: '👑 Admin' },
+  { mode: 'contador',    label: '📊 Contador' },
+  { mode: 'operational', label: '🛠 Operativo' },
+];
 
 export default function CheckSuiteHome() {
   const router      = useRouter();
   const navigation  = useNavigation();
   const [loading,     setLoading]     = useState(true);
   const [userRole,    setUserRole]    = useState<string | null>(null);
+  const [viewMode,    setViewMode]    = useState<GlobalViewMode>('admin');
   const [userEmail,   setUserEmail]   = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
+
+  useEffect(() => {
+    getGlobalViewMode().then(setViewMode);
+  }, []);
+
+  async function handleSelectViewMode(mode: GlobalViewMode) {
+    setViewMode(mode);
+    await setGlobalViewMode(mode);
+  }
 
   useEffect(() => {
     (async () => {
@@ -120,6 +137,26 @@ export default function CheckSuiteHome() {
             <Text style={styles.companyPillText}>🏢 {companyName}</Text>
             <Text style={styles.companyPillSwitch}>Cambiar</Text>
           </TouchableOpacity>
+        )}
+
+        {userRole && MANAGER_ROLES.includes(userRole) && (
+          <View style={styles.viewSwitcherCard}>
+            <Text style={styles.viewSwitcherTitle}>Vista del panel</Text>
+            <Text style={styles.viewSwitcherSub}>
+              Se aplica igual en todos los módulos (GastoCheck, CobraCheck, FlujoCheck, BancoCheck, FacturaCheck)
+            </Text>
+            <View style={styles.viewSwitcherRow}>
+              {VIEW_MODE_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.mode}
+                  style={[styles.viewChip, viewMode === o.mode && styles.viewChipActive]}
+                  onPress={() => handleSelectViewMode(o.mode)}
+                >
+                  <Text style={[styles.viewChipText, viewMode === o.mode && { color: '#fff' }]}>{o.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         )}
 
         <TrialBanner onUpgrade={() => router.push('/settings')} />
@@ -238,6 +275,20 @@ const styles = StyleSheet.create({
   },
   companyPillText:   { fontSize: 13, fontWeight: '700', color: BRAND.navy },
   companyPillSwitch: { fontSize: 12, fontWeight: '700', color: BRAND.csblue },
+
+  viewSwitcherCard: {
+    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: '#E8EAF6',
+  },
+  viewSwitcherTitle: { fontSize: 14, fontWeight: '700', color: BRAND.navy, marginBottom: 2 },
+  viewSwitcherSub:   { fontSize: 11, color: '#78909C', marginBottom: 12, lineHeight: 15 },
+  viewSwitcherRow:   { flexDirection: 'row', gap: 8 },
+  viewChip: {
+    flex: 1, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#CFD8DC', backgroundColor: '#F5F7FA',
+  },
+  viewChipActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
+  viewChipText:   { fontSize: 11, fontWeight: '700', color: BRAND.navy },
 
   sectionLabel: {
     fontSize: 11, fontWeight: '800', color: '#90A4AE',
