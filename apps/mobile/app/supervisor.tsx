@@ -54,10 +54,32 @@ interface Policy {
   holder_id: string;
 }
 
+interface AdvanceRecord {
+  id:         string;
+  holder_id:  string;
+  amount:     number;
+  concept:    string | null;
+  created_at: string;
+}
+
+interface ViaticoRecord {
+  id:             string;
+  employee_id:    string;
+  destination:    string;
+  purpose:        string | null;
+  departure_date: string | null;
+  advance_amount: number;
+  status:         string;
+  created_at:     string;
+}
+
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
-type Tab          = 'reembolsos' | 'expenses' | 'requests' | 'employees';
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+
+type Tab          = 'reembolsos' | 'expenses' | 'requests' | 'registros' | 'employees';
 type ExpenseFilter = 'pending' | 'all';
 
 // Roles que pueden acceder al panel supervisor
@@ -73,6 +95,8 @@ export default function SupervisorScreen() {
   const [expenses,    setExpenses]    = useState<PendingExpense[]>([]);
   const [employees,   setEmployees]   = useState<Employee[]>([]);
   const [advRequests, setAdvRequests] = useState<AdvanceRequest[]>([]);
+  const [advancesList,  setAdvancesList]  = useState<AdvanceRecord[]>([]);
+  const [viaticosList,  setViaticosList]  = useState<ViaticoRecord[]>([]);
   const [policies,    setPolicies]    = useState<Policy[]>([]);
   const [tab,         setTab]         = useState<Tab>('expenses');
   const [expFilter,   setExpFilter]   = useState<ExpenseFilter>('pending');
@@ -190,18 +214,18 @@ export default function SupervisorScreen() {
           .eq('active', true)
           .order('code', { ascending: true }),
 
-        // Saldo de anticipos activos por comprador — para reflejar en la pestaña Equipo
-        // los anticipos recien registrados (antes no se mostraban en ningun lado aqui).
+        // Anticipos activos (para saldo en Equipo + lista en pestaña Registros).
         supabase
           .from('advances')
-          .select('amount, policies!inner(holder_id, status, company_id)')
+          .select('id, amount, concept, created_at, policies!inner(holder_id, status, company_id)')
           .eq('policies.company_id', member.company_id)
-          .eq('policies.status', 'open'),
+          .eq('policies.status', 'open')
+          .order('created_at', { ascending: false }),
 
-        // Viáticos activos (no cerrados/rechazados) por comprador — mismo motivo.
+        // Viáticos activos (para saldo en Equipo + lista en pestaña Registros).
         supabase
           .from('viaticos')
-          .select('employee_id, destination, status, created_at')
+          .select('id, employee_id, destination, purpose, departure_date, advance_amount, status, created_at')
           .eq('company_id', member.company_id)
           .not('status', 'in', '(closed,rejected)')
           .order('created_at', { ascending: false }),
@@ -214,6 +238,14 @@ export default function SupervisorScreen() {
         const holderId = a.policies?.holder_id;
         if (holderId) advBalanceMap[holderId] = (advBalanceMap[holderId] ?? 0) + (a.amount ?? 0);
       });
+      setAdvancesList((advRes.data ?? []).map((a: any) => ({
+        id:         a.id,
+        holder_id:  a.policies?.holder_id ?? '',
+        amount:     a.amount ?? 0,
+        concept:    a.concept ?? null,
+        created_at: a.created_at,
+      })));
+      setViaticosList((viatRes.data ?? []) as ViaticoRecord[]);
       // viatRes ya viene ordenado por created_at desc — el primero que encontremos por
       // empleado es su viático activo más reciente.
       const viaticoMap: Record<string, string> = {};
@@ -464,6 +496,7 @@ export default function SupervisorScreen() {
     { key: 'reembolsos', label: 'Reembolsos' },
     { key: 'expenses',   label: 'Gastos',      badge: pendingExpenses.length },
     { key: 'requests',   label: 'Anticipos',   badge: pendingRequests.length },
+    { key: 'registros',  label: 'Registros',   badge: advancesList.length + viaticosList.length },
     { key: 'employees',  label: 'Equipo',       badge: employees.length },
   ];
 
@@ -708,6 +741,45 @@ export default function SupervisorScreen() {
             );
           }}
         />
+      )}
+
+      {/* ── Tab: REGISTROS — anticipos y viáticos registrados directo por el contador ── */}
+      {tab === 'registros' && (
+        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
+          <Text style={styles.registrosSectionTitle}>💰 Anticipos ({advancesList.length})</Text>
+          {advancesList.length === 0 ? (
+            <Text style={styles.registrosEmpty}>Sin anticipos registrados</Text>
+          ) : (
+            advancesList.map(a => (
+              <View key={a.id} style={styles.registroCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.registroName}>{employeeMap[a.holder_id] ?? '—'}</Text>
+                  <Text style={styles.registroSub} numberOfLines={1}>
+                    {a.concept ?? 'Sin concepto'} · {fmtDate(a.created_at)}
+                  </Text>
+                </View>
+                <Text style={styles.registroAmount}>{money(a.amount)}</Text>
+              </View>
+            ))
+          )}
+
+          <Text style={[styles.registrosSectionTitle, { marginTop: 20 }]}>✈️ Viáticos ({viaticosList.length})</Text>
+          {viaticosList.length === 0 ? (
+            <Text style={styles.registrosEmpty}>Sin viáticos registrados</Text>
+          ) : (
+            viaticosList.map(v => (
+              <View key={v.id} style={styles.registroCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.registroName}>{employeeMap[v.employee_id] ?? '—'}</Text>
+                  <Text style={styles.registroSub} numberOfLines={1}>
+                    {v.destination}{v.departure_date ? ` · ${fmtDate(v.departure_date)}` : ''} · {v.status}
+                  </Text>
+                </View>
+                <Text style={styles.registroAmount}>{money(v.advance_amount)}</Text>
+              </View>
+            ))
+          )}
+        </ScrollView>
       )}
 
       {/* ── Tab: EMPLEADOS ──────────────────────────────────────────────── */}
@@ -1173,6 +1245,13 @@ const styles = StyleSheet.create({
   empName:          { fontSize: 14, color: BRAND.navy, fontWeight: '700' },
   empRole:          { fontSize: 11, color: '#90A4AE', marginTop: 2 },
   empAdvBalance:    { fontSize: 11, color: BRAND.orange, fontWeight: '700', marginTop: 2 },
+
+  registrosSectionTitle: { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginBottom: 8 },
+  registrosEmpty:   { fontSize: 13, color: '#90A4AE', fontStyle: 'italic', marginBottom: 8 },
+  registroCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8 },
+  registroName:     { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  registroSub:      { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  registroAmount:   { fontSize: 14, fontWeight: '800', color: BRAND.navy, marginLeft: 8 },
   miniAdvBtn:       { backgroundColor: BRAND.green + '20', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
   miniAdvBtnText:   { fontSize: 11, fontWeight: '700', color: BRAND.green },
 
