@@ -1,5 +1,5 @@
 // Pantalla de aprobación de viáticos para supervisor/contador/admin
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, Alert, Modal, TextInput, ScrollView,
@@ -7,6 +7,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
+import { getActiveMembership } from '../../lib/membership';
 
 const SUPERVISOR_ROLES = ['owner', 'admin', 'accountant', 'supervisor', 'contador_general'];
 
@@ -41,12 +42,7 @@ export default function ViaticosAprobacionScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id, role')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member || !SUPERVISOR_ROLES.includes(member.role)) {
         Alert.alert('Acceso denegado', 'Solo supervisores y contadores pueden aprobar viáticos.');
@@ -88,7 +84,6 @@ export default function ViaticosAprobacionScreen() {
     }
   }, []);
 
-  useEffect(() => { loadViajes(); }, [loadViajes]);
   useFocusEffect(useCallback(() => { loadViajes(); }, [loadViajes]));
 
   async function handleApprove(viaje: ViajeSubmitted) {

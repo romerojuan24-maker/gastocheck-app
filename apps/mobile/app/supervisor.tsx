@@ -34,6 +34,8 @@ interface Employee {
   user_id:   string;
   full_name: string | null;
   role:      string;
+  advanceBalance: number;
+  activeViatico: string | null;
 }
 
 interface AdvanceRequest {
@@ -84,6 +86,16 @@ export default function SupervisorScreen() {
   const [advPurpose,    setAdvPurpose]    = useState('');
   const [savingAdv,     setSavingAdv]     = useState(false);
   const [spenderPolicies, setSpenderPolicies] = useState<Policy[]>([]);
+
+  // Modal viático manual — el contador registra el viaje directo, ya aprobado
+  const [showViatico,      setShowViatico]      = useState(false);
+  const [viatSpender,      setViatSpender]      = useState<Employee | null>(null);
+  const [viatDestination,  setViatDestination]  = useState('');
+  const [viatPurpose,      setViatPurpose]      = useState('');
+  const [viatDeparture,    setViatDeparture]    = useState('');
+  const [viatReturn,       setViatReturn]       = useState('');
+  const [viatAmount,       setViatAmount]       = useState('');
+  const [savingViatico,    setSavingViatico]    = useState(false);
 
   // Expandir solicitud
   const [expandedReq, setExpandedReq] = useState<string | null>(null);
@@ -143,7 +155,7 @@ export default function SupervisorScreen() {
         ? ['captured', 'pending_auth', 'submitted']
         : ['captured', 'pending_auth', 'submitted', 'authorized', 'rejected'];
 
-      const [expRes, empRes, polRes, reqRes, acctRes] = await Promise.all([
+      const [expRes, empRes, polRes, reqRes, acctRes, advRes, viatRes] = await Promise.all([
         supabase
           .from('expenses')
           .select('id, provider_name, total, expense_date, status, spender_id, accounting_account_id, accounting_account_code')
@@ -177,14 +189,43 @@ export default function SupervisorScreen() {
           .eq('company_id', member.company_id)
           .eq('active', true)
           .order('code', { ascending: true }),
+
+        // Saldo de anticipos activos por comprador — para reflejar en la pestaña Equipo
+        // los anticipos recien registrados (antes no se mostraban en ningun lado aqui).
+        supabase
+          .from('advances')
+          .select('amount, policies!inner(holder_id, status, company_id)')
+          .eq('policies.company_id', member.company_id)
+          .eq('policies.status', 'open'),
+
+        // Viáticos activos (no cerrados/rechazados) por comprador — mismo motivo.
+        supabase
+          .from('viaticos')
+          .select('employee_id, destination, status, created_at')
+          .eq('company_id', member.company_id)
+          .not('status', 'in', '(closed,rejected)')
+          .order('created_at', { ascending: false }),
       ]);
 
       setExpenses((expRes.data ?? []) as PendingExpense[]);
       setAccounts((acctRes.data ?? []) as AccountingAccount[]);
+      const advBalanceMap: Record<string, number> = {};
+      (advRes.data ?? []).forEach((a: any) => {
+        const holderId = a.policies?.holder_id;
+        if (holderId) advBalanceMap[holderId] = (advBalanceMap[holderId] ?? 0) + (a.amount ?? 0);
+      });
+      // viatRes ya viene ordenado por created_at desc — el primero que encontremos por
+      // empleado es su viático activo más reciente.
+      const viaticoMap: Record<string, string> = {};
+      (viatRes.data ?? []).forEach((v: any) => {
+        if (!viaticoMap[v.employee_id]) viaticoMap[v.employee_id] = v.destination;
+      });
       const emps = (empRes.data ?? []).map((e: any) => ({
         user_id:   e.user_id,
         role:      e.role,
         full_name: (e.profiles as any)?.full_name ?? null,
+        advanceBalance: advBalanceMap[e.user_id] ?? 0,
+        activeViatico: viaticoMap[e.user_id] ?? null,
       }));
       setEmployees(emps);
       setPolicies(polRes.data ?? []);
@@ -357,6 +398,51 @@ export default function SupervisorScreen() {
       Alert.alert('Error', e.message ?? 'No se pudo registrar.');
     } finally {
       setSavingAdv(false);
+    }
+  }
+
+  // ── Viático manual — el contador lo registra directo, ya aprobado ──────────
+
+  async function createViatico() {
+    if (!viatSpender || !viatDestination.trim() || !viatDeparture.trim() || !companyId) {
+      Alert.alert('Faltan datos', 'Selecciona el comprador, el destino y la fecha de salida.');
+      return;
+    }
+    setSavingViatico(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user;
+      if (!u) { setSavingViatico(false); return; }
+
+      const amount = parseFloat(viatAmount) || 0;
+      const { error } = await supabase.from('viaticos').insert({
+        company_id:     companyId,
+        employee_id:    viatSpender.user_id,
+        created_by:     u.id,
+        person_id:      viatSpender.user_id,
+        destination:    viatDestination.trim(),
+        purpose:        viatPurpose.trim() || null,
+        departure_date: viatDeparture.trim(),
+        return_date:    viatReturn.trim() || null,
+        advance_amount: amount,
+        amount,
+        category:       'otro',
+        trip_date:      viatDeparture.trim(),
+        status:         'approved',
+        approved_by:    u.id,
+        approved_at:    new Date().toISOString(),
+      });
+      if (error) throw error;
+
+      setShowViatico(false);
+      setViatSpender(null); setViatDestination(''); setViatPurpose('');
+      setViatDeparture(''); setViatReturn(''); setViatAmount('');
+      Alert.alert('✓ Viático registrado', `${viatDestination.trim()} para ${viatSpender.full_name ?? 'el comprador'}.`);
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo registrar.');
+    } finally {
+      setSavingViatico(false);
     }
   }
 
@@ -650,14 +736,28 @@ export default function SupervisorScreen() {
                   : e.role === 'operator'  ? 'Operador'
                   : e.role}
                 </Text>
+                {e.advanceBalance > 0 && (
+                  <Text style={styles.empAdvBalance}>Anticipo activo: {money(e.advanceBalance)}</Text>
+                )}
+                {e.activeViatico && (
+                  <Text style={styles.empAdvBalance}>Viático activo: {e.activeViatico}</Text>
+                )}
               </View>
               {e.role === 'spender' && (
-                <TouchableOpacity
-                  style={styles.miniAdvBtn}
-                  onPress={async () => { await onSelectSpender(e); setShowAdvance(true); }}
-                >
-                  <Text style={styles.miniAdvBtnText}>+ Anticipo</Text>
-                </TouchableOpacity>
+                <View style={{ gap: 6 }}>
+                  <TouchableOpacity
+                    style={styles.miniAdvBtn}
+                    onPress={async () => { await onSelectSpender(e); setShowAdvance(true); }}
+                  >
+                    <Text style={styles.miniAdvBtnText}>+ Anticipo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.miniAdvBtn, { backgroundColor: BRAND.blue + '20' }]}
+                    onPress={() => { setViatSpender(e); setShowViatico(true); }}
+                  >
+                    <Text style={[styles.miniAdvBtnText, { color: BRAND.blue }]}>+ Viático</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           )}
@@ -776,6 +876,101 @@ export default function SupervisorScreen() {
               setShowAdvance(false);
               setAdvSpender(null); setAdvPolicy(''); setAdvAmount('');
               setAdvNote(''); setAdvPurpose(''); setSpenderPolicies([]);
+            }}>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Modal: viático manual ─────────────────────────────────────── */}
+      <Modal visible={showViatico} animationType="slide" transparent onRequestClose={() => setShowViatico(false)}>
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
+            <Text style={styles.sheetTitle}>Registrar Viático</Text>
+            <Text style={{ fontSize: 12, color: '#90A4AE', marginBottom: 12 }}>
+              Se registra directo como aprobado — sin pasar por el flujo de solicitud del comprador.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Comprador *</Text>
+            {spenders.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                {spenders.map(s => (
+                  <TouchableOpacity
+                    key={s.user_id}
+                    style={[styles.chip, viatSpender?.user_id === s.user_id && styles.chipActive]}
+                    onPress={() => setViatSpender(s)}
+                  >
+                    <Text style={[styles.chipText, viatSpender?.user_id === s.user_id && { color: '#fff' }]}>
+                      {s.full_name ?? s.user_id.slice(0, 8)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={{ color: '#90A4AE', fontSize: 13, marginBottom: 8 }}>Sin compradores activos</Text>
+            )}
+
+            <Text style={styles.fieldLabel}>Destino *</Text>
+            <TextInput
+              style={styles.input}
+              value={viatDestination}
+              onChangeText={setViatDestination}
+              placeholder="Ej: Guadalajara, Monterrey"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Propósito</Text>
+            <TextInput
+              style={styles.input}
+              value={viatPurpose}
+              onChangeText={setViatPurpose}
+              placeholder="Ej: Visita a cliente, capacitación"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Fecha de salida * (AAAA-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              value={viatDeparture}
+              onChangeText={setViatDeparture}
+              placeholder="2026-07-15"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Fecha de regreso (AAAA-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              value={viatReturn}
+              onChangeText={setViatReturn}
+              placeholder="2026-07-18"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Anticipo del viático (MXN)</Text>
+            <TextInput
+              style={styles.input}
+              value={viatAmount}
+              onChangeText={setViatAmount}
+              placeholder="0.00"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="decimal-pad"
+            />
+
+            <TouchableOpacity
+              style={[styles.createBtn, (!viatSpender || !viatDestination || !viatDeparture || savingViatico) && { opacity: 0.5 }]}
+              onPress={createViatico}
+              disabled={!viatSpender || !viatDestination || !viatDeparture || savingViatico}
+            >
+              {savingViatico
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.createBtnText}>Registrar Viático</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+              setShowViatico(false);
+              setViatSpender(null); setViatDestination(''); setViatPurpose('');
+              setViatDeparture(''); setViatReturn(''); setViatAmount('');
             }}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
@@ -977,6 +1172,7 @@ const styles = StyleSheet.create({
   empIcon:          { fontSize: 22 },
   empName:          { fontSize: 14, color: BRAND.navy, fontWeight: '700' },
   empRole:          { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  empAdvBalance:    { fontSize: 11, color: BRAND.orange, fontWeight: '700', marginTop: 2 },
   miniAdvBtn:       { backgroundColor: BRAND.green + '20', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
   miniAdvBtnText:   { fontSize: 11, fontWeight: '700', color: BRAND.green },
 
