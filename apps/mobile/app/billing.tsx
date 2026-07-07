@@ -7,6 +7,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 const PLANS = [
   {
@@ -67,12 +68,7 @@ export default function BillingScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member?.company_id) return null;
 

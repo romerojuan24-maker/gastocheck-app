@@ -16,6 +16,7 @@ import TrialBanner from '../../components/TrialBanner';
 import { checkMonthEndReminder } from '../../lib/notifications';
 import { getGlobalViewMode, setGlobalViewMode } from '../../lib/viewMode';
 import { CompanySwitcher } from '../shared/components/CompanySwitcher';
+import { getActiveMembership } from '../../lib/membership';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -80,12 +81,7 @@ export default function GastoCheckHome() {
       setUserEmail(user.email ?? null);
       setUserId(user.id);
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('role, company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member) { setLoading(false); return; }
       setUserRole(member.role);

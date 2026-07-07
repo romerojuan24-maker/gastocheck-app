@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getActiveMembership } from '../lib/membership';
 
 interface Budget {
   id: string;
@@ -48,12 +49,7 @@ export default function BudgetsScreen() {
       if (!user) return;
 
       // Obtener company_id
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member) return;
 
@@ -154,12 +150,7 @@ export default function BudgetsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No autenticado');
 
-      const { data: member } = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      const member = await getActiveMembership(user.id);
 
       if (!member) throw new Error('No tienes empresa');
 
