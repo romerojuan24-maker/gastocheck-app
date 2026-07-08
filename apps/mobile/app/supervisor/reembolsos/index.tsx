@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../../lib/supabase';
 import { getActiveMembership } from '../../../lib/membership';
+import { logError } from '../../../lib/logger';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -27,7 +28,6 @@ interface Reembolso {
   total:          number;
   notes:          string | null;
   created_at:     string;
-  tipo_fiscal:    boolean; // true = con comprobantes CFDI
 }
 
 interface ReceiptLine {
@@ -105,13 +105,14 @@ export default function ReembolsosContadorScreen() {
       setCompanyId(m.company_id);
 
       let q = supabase.from('reembolsos')
-        .select('id, employee_id, employee_email, status, total, notes, created_at, tipo_fiscal')
+        .select('id, employee_id, employee_email, status, total, notes, created_at')
         .eq('company_id', m.company_id)
         .order('created_at', { ascending: false });
 
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
 
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) logError('REEMBOLSOS-CONTADOR', `loadReembolsos error: ${error.message}`, { statusFilter });
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
@@ -359,9 +360,6 @@ ${movs}
                     {r.notes ? <Text style={styles.cardNotes} numberOfLines={1}>{r.notes}</Text> : null}
                     <View style={[styles.statusPill, { backgroundColor: sc + '20' }]}>
                       <Text style={[styles.statusText, { color: sc }]}>{STATUS_LABEL[r.status]}</Text>
-                    </View>
-                    <View style={[styles.typePill, r.tipo_fiscal ? styles.typeFiscal : styles.typeNonFiscal]}>
-                      <Text style={styles.typeText}>{r.tipo_fiscal ? '📄 Con CFDI' : '🧾 No deducible'}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -630,10 +628,6 @@ const styles = StyleSheet.create({
   cardNotes:  { fontSize: 12, color: '#607D8B', marginTop: 2, fontStyle: 'italic' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  typePill:   { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 },
-  typeFiscal:    { backgroundColor: '#E3F2FD' },
-  typeNonFiscal: { backgroundColor: '#F3E5F5' },
-  typeText:   { fontSize: 10, fontWeight: '700', color: '#455A64' },
 
   detailHeader: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
   backBtn:     { padding: 4 },
