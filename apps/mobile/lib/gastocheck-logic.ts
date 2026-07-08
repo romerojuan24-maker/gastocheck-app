@@ -1,270 +1,121 @@
 /**
- * GastoCheck — Lógica de Negocio COMPLETA
- * - Captura de gastos
- * - Aprobación y flujo de autorización
- * - Integración contable
- * - Dashboard con análisis
+ * GastoCheck — Lógica SIMPLE
+ * Contador: ve reembolsos + viáticos pendientes → aprueba
  */
 
-import type {
-  Expense,
-  Viatic,
-  GastoCheckDashboard,
-  GastoCheckAlert,
-  ExpenseCategory,
-} from '@gastocheck/shared'
 import { supabase } from './supabase'
+import type { GastoCheckDashboard, ReembolsoPendiente, ViaticoPendiente } from '@gastocheck/shared'
 
 /**
  * ============================================================================
- * 1. REGISTRAR GASTO
- * ============================================================================
- */
-
-export async function submitExpense(data: {
-  company_id: string
-  category: ExpenseCategory
-  description: string
-  amount: number
-  expense_date: string
-  iva?: number
-  ieps?: number
-  receipt_reference?: string
-  notes?: string
-  submitted_by: string
-}): Promise<{ expense_id: string; status: string }> {
-  const expense_id = crypto.randomUUID()
-  const total = data.amount + (data.iva || 0) + (data.ieps || 0)
-
-  const { error } = await supabase.from('expenses').insert({
-    id: expense_id,
-    company_id: data.company_id,
-    category: data.category,
-    description: data.description,
-    amount: data.amount,
-    iva: data.iva || null,
-    ieps: data.ieps || null,
-    total,
-    expense_date: data.expense_date,
-    period_month: new Date(data.expense_date).getMonth() + 1,
-    period_year: new Date(data.expense_date).getFullYear(),
-    receipt_reference: data.receipt_reference || null,
-    receipt_status: 'pending',
-    notes: data.notes || null,
-    status: 'draft',
-    submitted_by: data.submitted_by,
-    submitted_at: new Date().toISOString(),
-  })
-
-  if (error) throw error
-
-  return { expense_id, status: 'draft' }
-}
-
-/**
- * ============================================================================
- * 2. APROBAR GASTO
- * ============================================================================
- */
-
-export async function approveExpense(
-  expense_id: string,
-  approved_by: string,
-  notes?: string,
-): Promise<void> {
-  const { error } = await supabase
-    .from('expenses')
-    .update({
-      status: 'approved',
-      approved_by,
-      approved_at: new Date().toISOString(),
-    })
-    .eq('id', expense_id)
-
-  if (error) throw error
-}
-
-/**
- * ============================================================================
- * 3. RECHAZAR GASTO
- * ============================================================================
- */
-
-export async function rejectExpense(
-  expense_id: string,
-  rejected_by: string,
-  reason: string,
-): Promise<void> {
-  const { error } = await supabase
-    .from('expenses')
-    .update({
-      status: 'rejected',
-      rejection_reason: reason,
-      approved_by: rejected_by,
-      approved_at: new Date().toISOString(),
-    })
-    .eq('id', expense_id)
-
-  if (error) throw error
-}
-
-/**
- * ============================================================================
- * 4. CREAR VIÁTICO
- * ============================================================================
- */
-
-export async function submitViatic(data: {
-  company_id: string
-  employee_id: string
-  amount: number
-  category: 'meals' | 'transport' | 'accommodation' | 'other'
-  trip_date: string
-  city: string
-  description?: string
-  created_by: string
-}): Promise<{ viatic_id: string }> {
-  const viatic_id = crypto.randomUUID()
-
-  const { error } = await supabase.from('viaticos').insert({
-    id: viatic_id,
-    company_id: data.company_id,
-    person_id: data.employee_id,
-    category: data.category,
-    amount: data.amount,
-    trip_date: data.trip_date,
-    city: data.city,
-    description: data.description || null,
-    status: 'pending',
-    created_by: data.created_by,
-  })
-
-  if (error) throw error
-
-  return { viatic_id }
-}
-
-/**
- * ============================================================================
- * 5. CARGAR DASHBOARD
+ * CONTADOR: CARGAR PENDIENTES (reembolsos + viáticos)
  * ============================================================================
  */
 
 export async function loadGastoCheckDashboard(company_id: string): Promise<GastoCheckDashboard> {
-  const now = new Date()
-  const period_month = now.getMonth() + 1
-  const period_year = now.getFullYear()
-
-  // A. Gastos del mes
-  const monthStart = new Date(period_year, period_month - 1, 1)
-    .toISOString()
-    .split('T')[0]
-  const monthEnd = new Date(period_year, period_month, 0)
-    .toISOString()
-    .split('T')[0]
-
-  const { data: expensesMonth } = await supabase
-    .from('expenses')
-    .select('*')
+  // REEMBOLSOS PENDIENTES
+  const { data: reembolsos } = await supabase
+    .from('reembolsos')
+    .select('id, company_id, employee_id, employee_email, total, status, created_at')
     .eq('company_id', company_id)
-    .gte('expense_date', monthStart)
-    .lte('expense_date', monthEnd)
+    .in('status', ['pending_auth', 'closed'])
+    .order('created_at', { ascending: false })
 
-  const total_expenses_month = expensesMonth?.length || 0
-  const total_amount_month = (expensesMonth || []).reduce((sum, e) => sum + e.total, 0)
-  const approved_amount = (expensesMonth || [])
-    .filter((e) => e.status === 'approved')
-    .reduce((sum, e) => sum + e.total, 0)
-  const pending_amount = (expensesMonth || [])
-    .filter((e) => e.status === 'draft' || e.status === 'submitted')
-    .reduce((sum, e) => sum + e.total, 0)
+  const reembolsos_with_count: ReembolsoPendiente[] = await Promise.all(
+    (reembolsos || []).map(async (r: any) => {
+      const { count } = await supabase
+        .from('receipt_reembolsos')
+        .select('*', { count: 'exact', head: true })
+        .eq('reembolso_id', r.id)
 
-  // B. Por categoría
-  const expensesByCategory = (expensesMonth || [])
-    .reduce(
-      (acc, e) => {
-        const existing = acc.find((c) => c.category === e.category)
-        if (existing) {
-          existing.count++
-          existing.total += e.total
-        } else {
-          acc.push({ category: e.category, count: 1, total: e.total })
-        }
-        return acc
-      },
-      [] as Array<{ category: ExpenseCategory; count: number; total: number }>,
-    )
-    .map((c) => ({
-      ...c,
-      percentage: total_amount_month > 0 ? (c.total / total_amount_month) * 100 : 0,
-    }))
+      return {
+        id: r.id,
+        employee_email: r.employee_email || 'unknown',
+        total: r.total,
+        receipts_count: count || 0,
+        created_at: r.created_at,
+        status: r.status,
+      }
+    }),
+  )
 
-  // C. Gastos recientes
-  const recent_expenses = (expensesMonth || [])
-    .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime())
-    .slice(0, 5)
+  const reembolsos_pendientes_total = reembolsos_with_count.reduce((sum: number, r: any) => sum + r.total, 0)
 
-  // D. Viáticos activos
-  const { data: viatics } = await supabase
+  // VIÁTICOS PENDIENTES
+  const { data: viaticos } = await supabase
     .from('viaticos')
-    .select('*')
+    .select('id, person_id, amount, trip_date, city, category, created_at, status')
     .eq('company_id', company_id)
-    .neq('status', 'rejected')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
 
-  const active_viatics = (viatics || []).filter((v) => v.status === 'pending')
-  const total_viatics = viatics?.length || 0
-  const pending_viatics_amount = (active_viatics || []).reduce((sum, v) => sum + v.amount, 0)
+  const viaticos_with_email: ViaticoPendiente[] = await Promise.all(
+    (viaticos || []).map(async (v: any) => {
+      const { data: user } = await supabase.auth.admin.getUserById(v.person_id)
 
-  // E. Aprobaciones pendientes
-  const pending_approvals = (expensesMonth || [])
-    .filter((e) => e.status === 'submitted')
-    .sort((a, b) => new Date(a.expense_date).getTime() - new Date(b.expense_date).getTime())
-  const pending_approvals_count = pending_approvals.length
-  const pending_approvals_amount = pending_approvals.reduce((sum, e) => sum + e.total, 0)
+      return {
+        id: v.id,
+        person_id: v.person_id,
+        person_email: user?.user?.email || 'unknown',
+        amount: v.amount,
+        trip_date: v.trip_date,
+        city: v.city,
+        category: v.category,
+        created_at: v.created_at,
+        status: v.status,
+      }
+    }),
+  )
 
-  // F. Alertas
-  const alerts: GastoCheckAlert[] = []
-  if (pending_approvals_count > 5) {
-    alerts.push({
-      id: crypto.randomUUID(),
-      severity: 'warning',
-      title: `${pending_approvals_count} gastos pendientes de aprobación`,
-      message: `$${pending_approvals_amount.toFixed(0)} en espera de revisión`,
-    })
-  }
+  const viaticos_pendientes_total = viaticos_with_email.reduce((sum: number, v: any) => sum + v.amount, 0)
 
-  if (pending_viatics_amount > total_amount_month * 0.2) {
-    alerts.push({
-      id: crypto.randomUUID(),
-      severity: 'info',
-      title: 'Viáticos pendientes altos',
-      message: `$${pending_viatics_amount.toFixed(0)} en anticipos sin rendir`,
-    })
-  }
-
-  // G. Recomendaciones
-  const recommendations: string[] = []
-  if (pending_approvals_count > 0) recommendations.push(`Aprueba ${pending_approvals_count} gastos pendientes`)
-  if (pending_viatics_amount > 0) recommendations.push(`Sigue viáticos de $${pending_viatics_amount.toFixed(0)}`)
-  if (total_amount_month > 0)
-    recommendations.push(`Costo promedio: $${(total_amount_month / total_expenses_month).toFixed(0)} por gasto`)
+  const total_pendiente = reembolsos_pendientes_total + viaticos_pendientes_total
 
   return {
-    period_month,
-    period_year,
-    total_expenses_month,
-    total_amount_month,
-    pending_amount,
-    approved_amount,
-    expenses_by_category: expensesByCategory,
-    recent_expenses,
-    active_viatics,
-    total_viatics,
-    pending_viatics_amount,
-    pending_approvals,
-    pending_approvals_count,
-    pending_approvals_amount,
-    alerts,
-    recommendations,
+    reembolsos_pendientes: reembolsos_with_count,
+    reembolsos_pendientes_count: reembolsos_with_count.length,
+    reembolsos_pendientes_total,
+    viaticos_pendientes: viaticos_with_email,
+    viaticos_pendientes_count: viaticos_with_email.length,
+    viaticos_pendientes_total,
+    total_pendiente,
   }
+}
+
+/**
+ * ============================================================================
+ * CONTADOR: APROBAR REEMBOLSO
+ * ============================================================================
+ */
+
+export async function approveReembolso(reembolso_id: string, contador_id: string): Promise<void> {
+  const { error } = await supabase
+    .from('reembolsos')
+    .update({
+      status: 'closed',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reembolso_id)
+
+  if (error) throw error
+}
+
+/**
+ * ============================================================================
+ * CONTADOR: APROBAR VIÁTICO
+ * ============================================================================
+ */
+
+export async function approveViatico(viatico_id: string, contador_id: string): Promise<void> {
+  const { error } = await supabase
+    .from('viaticos')
+    .update({
+      status: 'approved',
+      approved_by: contador_id,
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', viatico_id)
+
+  if (error) throw error
 }
