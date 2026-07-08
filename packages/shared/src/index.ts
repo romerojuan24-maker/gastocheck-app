@@ -24,6 +24,7 @@ export const BRAND = {
   purple:  '#7B1FA2',
   csblue:  '#003DA5',  // CHECK SUITE (azul corporativo)
   cobra:   '#FF7A1A',  // CobraCheck (naranja)
+  flujo:   '#0066CC',  // FlujoCheck (azul)
 } as const;
 
 export * from './cobra';
