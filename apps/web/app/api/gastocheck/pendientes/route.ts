@@ -52,12 +52,12 @@ export async function GET(req: NextRequest) {
 
     const reembolsos_pendientes_total = reembolsos_with_count.reduce((sum: number, r: any) => sum + r.total, 0)
 
-    // VIÁTICOS PENDIENTES (status = 'pending' = listos para contador)
+    // VIÁTICOS PENDIENTES (status = 'closed' = empleado rinde, listo para contador)
     const { data: viaticos } = await supabase
       .from('viaticos')
       .select('id, person_id, amount, trip_date, city, category, created_at, status')
       .eq('company_id', company_id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'closed'])  // pending_auth similar a reembolsos
       .order('created_at', { ascending: false })
 
     // Obtener emails de personas
