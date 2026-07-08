@@ -132,15 +132,16 @@ export default function ReembolsosContadorScreen() {
   async function openReembolso(r: Reembolso) {
     setSelected(r);
     setLoadingLines(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('receipt_reembolsos')
-      .select('receipts(id, provider_name, total_amount, fiscal_uuid, sat_validation_status, accounting_account_id, accounting_account_code, is_deductible)')
+      .select('receipts(id, provider_name, total_amount, fiscal_uuid, sat_validation_status, accounting_account_id, accounting_account_code)')
       .eq('reembolso_id', r.id);
+    if (error) logError('REEMBOLSOS-CONTADOR', `openReembolso error: ${error.message}`, { reembolso_id: r.id });
 
     const lines: ReceiptLine[] = (data ?? [])
       .map((item: any) => item.receipts)
       .filter(Boolean)
-      .map((rec: any) => ({ ...rec, is_deductible: rec.is_deductible ?? !!rec.fiscal_uuid, accepted: true }));
+      .map((rec: any) => ({ ...rec, is_deductible: !!rec.fiscal_uuid, accepted: true }));
     setReceipts(lines);
     setLoadingLines(false);
   }
