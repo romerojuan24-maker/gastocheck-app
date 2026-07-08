@@ -5,6 +5,8 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, ScrollView, Share,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../../lib/supabase';
 import { getActiveMembership } from '../../../lib/membership';
@@ -278,13 +280,28 @@ ${movs}
   }
 
   async function sharePoliza() {
-    const content = buildExportContent(exportFormat);
-    const formatLabel = exportFormat === 'contpaq' ? 'CONTPAQi XML'
-      : exportFormat === 'csv' ? 'CSV' : 'TXT';
-    await Share.share({
-      message: `📋 Póliza de Reembolso — ${selected?.employee_email ?? ''}\nFormato: ${formatLabel}\n\n${content}`,
-      title:   `Póliza_Reembolso_${exportFormat.toUpperCase()}`,
-    });
+    if (!selected) return;
+    try {
+      const content = buildExportContent(exportFormat);
+      const fileExt = exportFormat === 'contpaq' ? 'xml' : exportFormat === 'csv' ? 'csv' : 'txt';
+      const fileName = `Poliza_Reembolso_${selected.employee_email.split('@')[0]}_${Date.now()}.${fileExt}`;
+      const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+      // Escribir archivo
+      await FileSystem.writeAsStringAsync(filePath, content, { encoding: FileSystem.EncodingType.UTF8 });
+
+      // Compartir archivo
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: exportFormat === 'contpaq' ? 'application/xml' : exportFormat === 'csv' ? 'text/csv' : 'text/plain',
+          dialogTitle: `Póliza de Reembolso — ${selected.employee_email}`,
+        });
+      } else {
+        Alert.alert('Compartir no disponible', 'Tu dispositivo no soporta compartir archivos.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', `No se pudo generar el archivo: ${e.message}`);
+    }
   }
 
   // ── Filtro cuentas por prefijo ─────────────────────────────────────────────
