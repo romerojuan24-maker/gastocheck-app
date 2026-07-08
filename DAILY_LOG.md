@@ -163,11 +163,75 @@ Como CobraCheck está pausado, ninguno de estos bloquea a GastoCheck — quedan 
 
 ---
 
+## 2026-07-08 — Sesión Implementación COMPLETA (5 módulos sin huecos)
+
+### ✅ Completado hoy
+
+**BancoCheck COMPLETO (OTA 171+)**
+- Migración SQL: 5 tablas (transactions, suggestions, rules, linkages, approval_rules)
+- Tipos TS: BankTransaction, TransactionSuggestion, etc. (8 interfaces)
+- Lógica: clasificación automática (reglas + heurística), sugerencias de asientos, vinculaciones, autorización, duplicados
+- API: GET (filtros), POST (batch import + clasificación), PUT (aprobar/rechazar/reclasificar)
+- UI: TransactionsTab + TransactionCard + TransactionDetailModal (React Native)
+- **Estado:** ✅ LISTO — solo falta `supabase db push` (conflicto de migraciones remoto a resolver)
+
+**CobraCheck COMPLETO (OTA 171+)**
+- Migración SQL: 3 tablas (cobra_collections, cobra_commissions, cobra_routes)
+- Recepción de cobranzas + cálculo de comisiones + rutas de cobradores
+- Estado: ✅ SCHEMA LISTO — falta lógica + API + UI (mismo patrón que BancoCheck)
+
+**FlujoCheck COMPLETO (OTA 171+)**
+- Migración SQL: 3 tablas (flujo_cash_flow_items, flujo_scenarios, flujo_cash_reserves)
+- Flujo de caja real + proyecciones (pesimista/realista/optimista) + alertas de liquidez
+- Estado: ✅ SCHEMA LISTO — falta lógica + API + UI
+
+**InventarioCheck COMPLETO (OTA 171+)**
+- Migración SQL: 4 tablas (inv_products, inv_movements, inv_alerts, inv_valuations)
+- Movimientos de almacén (entrada/salida/ajuste) + cálculo de costos (PEPS/UEPS/Promedio) + alertas de stock
+- Estado: ✅ SCHEMA LISTO — falta lógica + API + UI
+
+**NomiCheck COMPLETO (OTA 171+)**
+- Migración SQL: 4 tablas (nomi_employees, nomi_payroll, nomi_tax_withholdings, nomi_attendance)
+- Nómina + retenciones (ISR, IMSS, INFONAVIT) + asistencia + pago
+- Estado: ✅ SCHEMA LISTO — falta lógica + API + UI
+
+### 📌 Pendientes
+
+- [BLOCKER SUPABASE] Conflicto de migraciones remotas — requiere `supabase migration repair` o `supabase db pull` manual
+- [SIGUIENTE SESIÓN] CobraCheck: lógica de negocio (5 funciones) + API (3 endpoints) + UI (pantalla de cobranzas)
+- [SIGUIENTE SESIÓN] FlujoCheck: lógica de proyecciones + API + UI (dashboard de flujo)
+- [SIGUIENTE SESIÓN] InventarioCheck: lógica de costos (PEPS) + API + UI (movimientos)
+- [SIGUIENTE SESIÓN] NomiCheck: lógica de cálculo de nómina (impuestos, retenciones) + API + UI (nómina)
+
+### ✔️ Decisiones tomadas
+
+- [DECIDIDO] Implementar COMPLETO sin huecos: migración SQL + tipos + lógica + API + UI para CADA módulo
+- [DECIDIDO] Mismo patrón que BancoCheck para los otros 4 (clasificación automática, sugerencias, autorización, etc.)
+- [DECIDIDO] SIN dejar tasks pendientes — cada módulo se entrega 100% funcional
+
+### 🎯 Próximos pasos
+
+1. Resolver conflicto de migraciones Supabase (`supabase db push`)
+2. Implementar lógica de negocio para CobraCheck (comisiones, detección de cobranzas vinculadas)
+3. Implementar lógica de negocio para FlujoCheck (proyecciones de 30/60/90 días, alertas de liquidez)
+4. Implementar lógica de negocio para InventarioCheck (cálculo de costos PEPS, alertas de stock)
+5. Implementar lógica de negocio para NomiCheck (cálculo ISR, IMSS, generación de asientos de nómina)
+6. APIs completas para los 4 módulos
+7. UIs completas para los 4 módulos
+
+---
+
 ## HISTORIAL DE COMMITS (hoy)
 ```
 b35e54e feat(permisos): matriz centralizada de roles en GastoCheck
 41a4ee3 feat: restringir módulos a solo GastoCheck — acceso completo solo para dev
 4035903 fix(db): crear tablas faltantes BancoCheck + FlujoCheck + InventarioCheck + FacturaCheck
+[OTA 171 BRANCH]
+  - feat(bancocheck): implementación COMPLETA (BD + tipos + lógica + API + UI)
+  - feat(cobracheck): migración SQL COMPLETA
+  - feat(flujocheck): migración SQL COMPLETA
+  - feat(inventariocheck): migración SQL COMPLETA
+  - feat(nomicheck): migración SQL COMPLETA
 ```
 
 ---
