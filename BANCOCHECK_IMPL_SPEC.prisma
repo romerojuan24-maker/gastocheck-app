@@ -1,0 +1,183 @@
+// BancoCheck Prisma Schema
+// Control operativo: importar, clasificar, relacionar movimientos históricos
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// BANK ACCOUNTS
+// ============================================================================
+
+model BankAccount {
+  id                String @id @default(cuid())
+  tenantId          String
+  name              String // "Cuenta BBVA Nóminas"
+  bankName          String // "BBVA", "Banorte", "Santander"
+  accountNumberLast4 String // "1234"
+  currency          String @default("MXN") // MXN, USD, EUR
+  type              String // "corriente", "ahorros", "ahorro_plazo"
+  importedBalance   Decimal @db.Numeric(19, 2) // último saldo conocido
+  isActive          Boolean @default(true)
+
+  // Relations
+  transactions      BankTransaction[]
+  importBatches     BankImportBatch[]
+  matchSuggestions  BankMatchSuggestion[]
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdById       String
+
+  @@unique([tenantId, bankName, accountNumberLast4])
+  @@index([tenantId])
+}
+
+// ============================================================================
+// BANK TRANSACTIONS
+// ============================================================================
+
+model BankTransaction {
+  id                String @id @default(cuid())
+  tenantId          String
+  bankAccountId     String
+
+  // Transaction details
+  date              DateTime // Fecha del movimiento
+  description       String // "PAGO CON TARJETA EN ACME SAC"
+  reference         String? // "REF123", "FOLIO456"
+  debit             Decimal @db.Numeric(19, 2) // Cargo (0 si es depósito)
+  credit            Decimal @db.Numeric(19, 2) // Abono (0 si es cargo)
+  balanceAfter      Decimal @db.Numeric(19, 2) // Saldo después del movimiento
+  currency          String @default("MXN")
+
+  // Import tracking
+  importBatchId     String
+  uniqueHash        String // tenantId + bankAccountId + fecha + desc + debit + credit + ref
+  rawData           Json? // CSV line original
+
+  // Status & classification
+  status            String // NEW, SUGGESTED_MATCH, EXPLAINED, NEEDS_RECEIPT, NEEDS_INVOICE, NEEDS_PAYMENT_COMPLEMENT, UNIDENTIFIED, PERSONAL, IGNORED
+  category          String? // gasto_negocio, proveedor, anticipo, reembolso, etc.
+
+  // Matching
+  matchedEntityType String? // "invoice", "receipt", "expense", "advance", "collection", "payment"
+  matchedEntityId   String? // ID en GastoCheck, CobraCheck, FacturaCheck
+  confidence        Int? // 0-100
+
+  // Flags
+  isPersonal        Boolean @default(false)
+  notes             String?
+
+  // Relations
+  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  importBatch       BankImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  suggestions       BankMatchSuggestion[]
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, importBatchId, uniqueHash])
+  @@index([tenantId])
+  @@index([bankAccountId])
+  @@index([status])
+  @@index([matchedEntityType, matchedEntityId])
+}
+
+// ============================================================================
+// IMPORT BATCHES
+// ============================================================================
+
+model BankImportBatch {
+  id                String @id @default(cuid())
+  tenantId          String
+  bankAccountId     String
+
+  // File info
+  fileName          String // "extracto_bbva_mayo_2026.csv"
+  fileHash          String // SHA256 del contenido
+
+  // Statistics
+  totalRows         Int
+  importedRows      Int
+  duplicateRows     Int
+  errorRows         Int
+
+  status            String // "pending", "processing", "completed", "failed"
+  errorMessage      String?
+
+  // Relations
+  bankAccount       BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions      BankTransaction[]
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdById       String
+
+  @@index([tenantId])
+  @@index([bankAccountId])
+  @@unique([tenantId, bankAccountId, fileHash])
+}
+
+// ============================================================================
+// MATCH SUGGESTIONS
+// ============================================================================
+
+model BankMatchSuggestion {
+  id                String @id @default(cuid())
+  tenantId          String
+  bankTransactionId String
+
+  // What to match with
+  entityType        String // "invoice", "receipt", "expense", "advance", "collection"
+  entityId          String // ID en otro módulo
+
+  // Quality
+  confidence        Int // 0-100
+  reason            String // "same_amount_and_date", "amount_matches", "supplier_in_description"
+
+  // User action
+  accepted          Boolean @default(false)
+  dismissed         Boolean @default(false)
+
+  // Relations
+  transaction       BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([bankTransactionId])
+  @@index([entityType, entityId])
+}
+
+// ============================================================================
+// AUDIT LOG (optional but recommended)
+// ============================================================================
+
+model BankAuditLog {
+  id                String @id @default(cuid())
+  tenantId          String
+  bankTransactionId String?
+
+  action            String // "classify", "match", "mark_personal", "ignore"
+  oldValue          Json?
+  newValue          Json?
+
+  userId            String
+  reason            String?
+
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([bankTransactionId])
+}
