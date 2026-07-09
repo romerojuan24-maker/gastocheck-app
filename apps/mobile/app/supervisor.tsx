@@ -2,9 +2,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, Alert, Modal, TextInput, ScrollView,
+  ActivityIndicator, Alert, Modal, TextInput, ScrollView, Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { BRAND } from '@gastocheck/shared';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -56,6 +58,7 @@ interface Policy {
 
 interface AdvanceRecord {
   id:         string;
+  policy_id:  string;
   holder_id:  string;
   amount:     number;
   concept:    string | null;
@@ -68,9 +71,26 @@ interface ViaticoRecord {
   destination:    string;
   purpose:        string | null;
   departure_date: string | null;
+  return_date:    string | null;
   advance_amount: number;
   status:         string;
   created_at:     string;
+}
+
+interface ExpenseComprobante {
+  id:            string;
+  provider_name: string | null;
+  total:         number;
+  expense_date:  string;
+  receipt_id:    string | null;
+}
+
+interface ViaticoComprobante {
+  id:                string;
+  provider_name:     string | null;
+  total_amount:      number;
+  receipt_date:      string | null;
+  file_storage_path: string | null;
 }
 
 const money = (n: number) =>
@@ -120,6 +140,30 @@ export default function SupervisorScreen() {
   const [viatReturn,       setViatReturn]       = useState('');
   const [viatAmount,       setViatAmount]       = useState('');
   const [savingViatico,    setSavingViatico]    = useState(false);
+
+  // Detalle/edición de un anticipo (Registros)
+  const [selAdvance,       setSelAdvance]       = useState<AdvanceRecord | null>(null);
+  const [selAdvConcept,    setSelAdvConcept]    = useState('');
+  const [selAdvAmount,     setSelAdvAmount]     = useState('');
+  const [savingAdvDetail,  setSavingAdvDetail]  = useState(false);
+  const [advExpenses,      setAdvExpenses]      = useState<ExpenseComprobante[]>([]);
+  const [loadingAdvExp,    setLoadingAdvExp]    = useState(false);
+  const [newExpPhoto,      setNewExpPhoto]      = useState<{ uri: string; base64: string } | null>(null);
+  const [newExpProvider,   setNewExpProvider]   = useState('');
+  const [newExpAmount,     setNewExpAmount]     = useState('');
+  const [newExpDate,       setNewExpDate]       = useState('');
+  const [savingExpense,    setSavingExpense]    = useState(false);
+
+  // Detalle/edición de un viático (Registros)
+  const [selViatico,       setSelViatico]       = useState<ViaticoRecord | null>(null);
+  const [selViatDest,      setSelViatDest]      = useState('');
+  const [selViatPurpose,   setSelViatPurpose]   = useState('');
+  const [selViatDeparture, setSelViatDeparture] = useState('');
+  const [selViatReturn,    setSelViatReturn]    = useState('');
+  const [selViatAmount,    setSelViatAmount]    = useState('');
+  const [savingViatDetail, setSavingViatDetail] = useState(false);
+  const [viatReceipts,     setViatReceipts]     = useState<ViaticoComprobante[]>([]);
+  const [loadingViatRec,   setLoadingViatRec]   = useState(false);
 
   // Expandir solicitud
   const [expandedReq, setExpandedReq] = useState<string | null>(null);
@@ -217,7 +261,7 @@ export default function SupervisorScreen() {
         // Anticipos activos (para saldo en Equipo + lista en pestaña Registros).
         supabase
           .from('advances')
-          .select('id, amount, concept, created_at, policies!inner(holder_id, status, company_id)')
+          .select('id, policy_id, amount, concept, created_at, policies!inner(holder_id, status, company_id)')
           .eq('policies.company_id', member.company_id)
           .eq('policies.status', 'open')
           .order('created_at', { ascending: false }),
@@ -225,7 +269,7 @@ export default function SupervisorScreen() {
         // Viáticos activos (para saldo en Equipo + lista en pestaña Registros).
         supabase
           .from('viaticos')
-          .select('id, employee_id, destination, purpose, departure_date, advance_amount, status, created_at')
+          .select('id, employee_id, destination, purpose, departure_date, return_date, advance_amount, status, created_at')
           .eq('company_id', member.company_id)
           .not('status', 'in', '(closed,rejected)')
           .order('created_at', { ascending: false }),
@@ -240,6 +284,7 @@ export default function SupervisorScreen() {
       });
       setAdvancesList((advRes.data ?? []).map((a: any) => ({
         id:         a.id,
+        policy_id:  a.policy_id,
         holder_id:  a.policies?.holder_id ?? '',
         amount:     a.amount ?? 0,
         concept:    a.concept ?? null,
@@ -475,6 +520,204 @@ export default function SupervisorScreen() {
       Alert.alert('Error', e.message ?? 'No se pudo registrar.');
     } finally {
       setSavingViatico(false);
+    }
+  }
+
+  // ── Detalle de anticipo (editar + comprobantes) ────────────────────────────
+
+  async function openAdvanceDetail(a: AdvanceRecord) {
+    setSelAdvance(a);
+    setSelAdvConcept(a.concept ?? '');
+    setSelAdvAmount(String(a.amount));
+    setNewExpPhoto(null); setNewExpProvider(''); setNewExpAmount(''); setNewExpDate('');
+    setLoadingAdvExp(true);
+    const { data } = await supabase
+      .from('expenses')
+      .select('id, provider_name, total, expense_date, receipt_id')
+      .eq('policy_id', a.policy_id)
+      .order('expense_date', { ascending: false });
+    setAdvExpenses((data ?? []) as ExpenseComprobante[]);
+    setLoadingAdvExp(false);
+  }
+
+  async function saveAdvanceDetail() {
+    if (!selAdvance) return;
+    const amount = parseFloat(selAdvAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Monto inválido', 'Ingresa un monto positivo.');
+      return;
+    }
+    setSavingAdvDetail(true);
+    try {
+      const { error } = await supabase.from('advances').update({
+        concept: selAdvConcept.trim() || null,
+        amount,
+      }).eq('id', selAdvance.id);
+      if (error) throw error;
+      setSelAdvance(null);
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar.');
+    } finally {
+      setSavingAdvDetail(false);
+    }
+  }
+
+  async function takeExpensePhoto() {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
+    if (!res.canceled && res.assets[0]?.base64) {
+      setNewExpPhoto({ uri: res.assets[0].uri, base64: res.assets[0].base64 });
+    }
+  }
+
+  async function saveNewExpense() {
+    if (!selAdvance || !companyId) return;
+    const amount = parseFloat(newExpAmount);
+    if (!newExpPhoto || isNaN(amount) || amount <= 0) {
+      Alert.alert('Faltan datos', 'Toma la foto y escribe un monto válido.');
+      return;
+    }
+    setSavingExpense(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user;
+      if (!u) return;
+
+      const path = `${companyId}/${selAdvance.holder_id}/${Date.now()}-anticipo.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from('expense-attachments')
+        .upload(path, decode(newExpPhoto.base64), { contentType: 'image/jpeg', upsert: false });
+      if (upErr) throw upErr;
+
+      const expenseDate = newExpDate.trim() || new Date().toISOString().slice(0, 10);
+
+      const { data: receipt, error: recErr } = await supabase.from('receipts').insert({
+        company_id:        companyId,
+        employee_id:       selAdvance.holder_id,
+        uploaded_by:       u.id,
+        source_type:       'photo',
+        file_storage_path: path,
+        provider_name:     newExpProvider.trim() || null,
+        total_amount:      amount,
+        receipt_date:      expenseDate,
+        status:            'captured',
+      }).select('id').single();
+      if (recErr) throw recErr;
+
+      const { error: expErr } = await supabase.from('expenses').insert({
+        company_id:    companyId,
+        policy_id:     selAdvance.policy_id,
+        spender_id:    selAdvance.holder_id,
+        receipt_id:    receipt.id,
+        provider_name: newExpProvider.trim() || null,
+        total:         amount,
+        expense_date:  expenseDate,
+        status:        'authorized',
+        authorized_by: u.id,
+        authorized_at: new Date().toISOString(),
+      });
+      if (expErr) throw expErr;
+
+      setNewExpPhoto(null); setNewExpProvider(''); setNewExpAmount(''); setNewExpDate('');
+      await openAdvanceDetail(selAdvance);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar el comprobante.');
+    } finally {
+      setSavingExpense(false);
+    }
+  }
+
+  // ── Detalle de viático (editar + comprobantes) ─────────────────────────────
+
+  async function openViaticoDetail(v: ViaticoRecord) {
+    setSelViatico(v);
+    setSelViatDest(v.destination);
+    setSelViatPurpose(v.purpose ?? '');
+    setSelViatDeparture(v.departure_date ?? '');
+    setSelViatReturn(v.return_date ?? '');
+    setSelViatAmount(String(v.advance_amount));
+    setLoadingViatRec(true);
+    const { data } = await supabase
+      .from('receipts')
+      .select('id, provider_name, total_amount, receipt_date, file_storage_path')
+      .eq('viatico_id', v.id)
+      .neq('status', 'cancelled')
+      .order('receipt_date', { ascending: false });
+    setViatReceipts((data ?? []) as ViaticoComprobante[]);
+    setLoadingViatRec(false);
+  }
+
+  async function saveViaticoDetail() {
+    if (!selViatico) return;
+    if (!selViatDest.trim() || !selViatDeparture.trim()) {
+      Alert.alert('Faltan datos', 'El destino y la fecha de salida son obligatorios.');
+      return;
+    }
+    setSavingViatDetail(true);
+    try {
+      const amount = parseFloat(selViatAmount) || 0;
+      const { error } = await supabase.from('viaticos').update({
+        destination:    selViatDest.trim(),
+        purpose:        selViatPurpose.trim() || null,
+        departure_date: selViatDeparture.trim(),
+        return_date:    selViatReturn.trim() || null,
+        advance_amount: amount,
+        amount,
+      }).eq('id', selViatico.id);
+      if (error) throw error;
+      setSelViatico(null);
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar.');
+    } finally {
+      setSavingViatDetail(false);
+    }
+  }
+
+  async function takeViaticoPhoto() {
+    if (!selViatico || !companyId) return;
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
+    if (res.canceled || !res.assets[0]?.base64) return;
+
+    setLoadingViatRec(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user;
+      if (!u) return;
+
+      const path = `${companyId}/${selViatico.employee_id}/${Date.now()}-viatico.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from('expense-attachments')
+        .upload(path, decode(res.assets[0].base64), { contentType: 'image/jpeg', upsert: false });
+      if (upErr) throw upErr;
+
+      const { error: recErr } = await supabase.from('receipts').insert({
+        company_id:        companyId,
+        employee_id:       selViatico.employee_id,
+        uploaded_by:       u.id,
+        source_type:       'photo',
+        file_storage_path: path,
+        receipt_date:      new Date().toISOString().slice(0, 10),
+        status:            'captured',
+        viatico_id:        selViatico.id,
+      });
+      if (recErr) throw recErr;
+
+      await openViaticoDetail(selViatico);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo guardar el comprobante.');
+    } finally {
+      setLoadingViatRec(false);
     }
   }
 
@@ -751,7 +994,7 @@ export default function SupervisorScreen() {
             <Text style={styles.registrosEmpty}>Sin anticipos registrados</Text>
           ) : (
             advancesList.map(a => (
-              <View key={a.id} style={styles.registroCard}>
+              <TouchableOpacity key={a.id} style={styles.registroCard} onPress={() => openAdvanceDetail(a)} activeOpacity={0.7}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.registroName}>{employeeMap[a.holder_id] ?? '—'}</Text>
                   <Text style={styles.registroSub} numberOfLines={1}>
@@ -759,7 +1002,7 @@ export default function SupervisorScreen() {
                   </Text>
                 </View>
                 <Text style={styles.registroAmount}>{money(a.amount)}</Text>
-              </View>
+              </TouchableOpacity>
             ))
           )}
 
@@ -768,7 +1011,7 @@ export default function SupervisorScreen() {
             <Text style={styles.registrosEmpty}>Sin viáticos registrados</Text>
           ) : (
             viaticosList.map(v => (
-              <View key={v.id} style={styles.registroCard}>
+              <TouchableOpacity key={v.id} style={styles.registroCard} onPress={() => openViaticoDetail(v)} activeOpacity={0.7}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.registroName}>{employeeMap[v.employee_id] ?? '—'}</Text>
                   <Text style={styles.registroSub} numberOfLines={1}>
@@ -776,7 +1019,7 @@ export default function SupervisorScreen() {
                   </Text>
                 </View>
                 <Text style={styles.registroAmount}>{money(v.advance_amount)}</Text>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </ScrollView>
@@ -1045,6 +1288,159 @@ export default function SupervisorScreen() {
               setViatDeparture(''); setViatReturn(''); setViatAmount('');
             }}>
               <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Modal: detalle de anticipo (editar + comprobantes) ──────────── */}
+      <Modal visible={!!selAdvance} animationType="slide" transparent onRequestClose={() => setSelAdvance(null)}>
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
+            <Text style={styles.sheetTitle}>
+              Anticipo — {selAdvance ? (employeeMap[selAdvance.holder_id] ?? '—') : ''}
+            </Text>
+
+            <Text style={styles.fieldLabel}>Concepto</Text>
+            <TextInput
+              style={styles.input}
+              value={selAdvConcept}
+              onChangeText={setSelAdvConcept}
+              placeholder="Ej: Viaje a Guadalajara"
+              placeholderTextColor="#B0BEC5"
+            />
+
+            <Text style={styles.fieldLabel}>Monto (MXN) *</Text>
+            <TextInput
+              style={styles.input}
+              value={selAdvAmount}
+              onChangeText={setSelAdvAmount}
+              placeholder="0.00"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="decimal-pad"
+            />
+
+            <TouchableOpacity
+              style={[styles.createBtn, savingAdvDetail && { opacity: 0.5 }]}
+              onPress={saveAdvanceDetail}
+              disabled={savingAdvDetail}
+            >
+              {savingAdvDetail
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.createBtnText}>Guardar cambios</Text>
+              }
+            </TouchableOpacity>
+
+            <Text style={[styles.fieldLabel, { marginTop: 20 }]}>Comprobantes</Text>
+            {loadingAdvExp ? (
+              <ActivityIndicator color={BRAND.blue} style={{ marginVertical: 12 }} />
+            ) : advExpenses.length === 0 ? (
+              <Text style={styles.registrosEmpty}>Sin comprobantes todavía</Text>
+            ) : (
+              advExpenses.map(e => (
+                <View key={e.id} style={styles.registroCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.registroName}>{e.provider_name ?? '(sin proveedor)'}</Text>
+                    <Text style={styles.registroSub}>{fmtDate(e.expense_date)}{e.receipt_id ? ' · 📷 foto' : ''}</Text>
+                  </View>
+                  <Text style={styles.registroAmount}>{money(e.total)}</Text>
+                </View>
+              ))
+            )}
+
+            {newExpPhoto ? (
+              <View style={{ marginTop: 8 }}>
+                <Image source={{ uri: newExpPhoto.uri }} style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 8 }} resizeMode="cover" />
+                <Text style={styles.fieldLabel}>Proveedor</Text>
+                <TextInput style={styles.input} value={newExpProvider} onChangeText={setNewExpProvider} placeholder="Ej: Gasolinera, Hotel" placeholderTextColor="#B0BEC5" />
+                <Text style={styles.fieldLabel}>Monto (MXN) *</Text>
+                <TextInput style={styles.input} value={newExpAmount} onChangeText={setNewExpAmount} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+                <Text style={styles.fieldLabel}>Fecha (AAAA-MM-DD)</Text>
+                <TextInput style={styles.input} value={newExpDate} onChangeText={setNewExpDate} placeholder={new Date().toISOString().slice(0, 10)} placeholderTextColor="#B0BEC5" />
+                <TouchableOpacity
+                  style={[styles.createBtn, savingExpense && { opacity: 0.5 }]}
+                  onPress={saveNewExpense}
+                  disabled={savingExpense}
+                >
+                  {savingExpense
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.createBtnText}>Guardar comprobante</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setNewExpPhoto(null)}>
+                  <Text style={styles.cancelText}>Descartar foto</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={[styles.miniAdvBtn, { alignSelf: 'flex-start', marginTop: 8 }]} onPress={takeExpensePhoto}>
+                <Text style={styles.miniAdvBtnText}>📷 Tomar foto de comprobante</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={[styles.cancelBtn, { marginTop: 16 }]} onPress={() => setSelAdvance(null)}>
+              <Text style={styles.cancelText}>Cerrar</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Modal: detalle de viático (editar + comprobantes) ───────────── */}
+      <Modal visible={!!selViatico} animationType="slide" transparent onRequestClose={() => setSelViatico(null)}>
+        <View style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
+            <Text style={styles.sheetTitle}>
+              Viático — {selViatico ? (employeeMap[selViatico.employee_id] ?? '—') : ''}
+            </Text>
+
+            <Text style={styles.fieldLabel}>Destino *</Text>
+            <TextInput style={styles.input} value={selViatDest} onChangeText={setSelViatDest} placeholder="Destino" placeholderTextColor="#B0BEC5" />
+
+            <Text style={styles.fieldLabel}>Propósito</Text>
+            <TextInput style={styles.input} value={selViatPurpose} onChangeText={setSelViatPurpose} placeholder="Propósito" placeholderTextColor="#B0BEC5" />
+
+            <Text style={styles.fieldLabel}>Fecha de salida * (AAAA-MM-DD)</Text>
+            <TextInput style={styles.input} value={selViatDeparture} onChangeText={setSelViatDeparture} placeholder="2026-07-15" placeholderTextColor="#B0BEC5" />
+
+            <Text style={styles.fieldLabel}>Fecha de regreso (AAAA-MM-DD)</Text>
+            <TextInput style={styles.input} value={selViatReturn} onChangeText={setSelViatReturn} placeholder="2026-07-18" placeholderTextColor="#B0BEC5" />
+
+            <Text style={styles.fieldLabel}>Anticipo del viático (MXN)</Text>
+            <TextInput style={styles.input} value={selViatAmount} onChangeText={setSelViatAmount} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+
+            <TouchableOpacity
+              style={[styles.createBtn, savingViatDetail && { opacity: 0.5 }]}
+              onPress={saveViaticoDetail}
+              disabled={savingViatDetail}
+            >
+              {savingViatDetail
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.createBtnText}>Guardar cambios</Text>
+              }
+            </TouchableOpacity>
+
+            <Text style={[styles.fieldLabel, { marginTop: 20 }]}>Comprobantes</Text>
+            {loadingViatRec ? (
+              <ActivityIndicator color={BRAND.blue} style={{ marginVertical: 12 }} />
+            ) : viatReceipts.length === 0 ? (
+              <Text style={styles.registrosEmpty}>Sin comprobantes todavía</Text>
+            ) : (
+              viatReceipts.map(r => (
+                <View key={r.id} style={styles.registroCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.registroName}>{r.provider_name ?? '(sin proveedor)'}</Text>
+                    <Text style={styles.registroSub}>{r.receipt_date ? fmtDate(r.receipt_date) : '—'}</Text>
+                  </View>
+                  <Text style={styles.registroAmount}>{money(r.total_amount)}</Text>
+                </View>
+              ))
+            )}
+
+            <TouchableOpacity style={[styles.miniAdvBtn, { alignSelf: 'flex-start', marginTop: 8 }]} onPress={takeViaticoPhoto}>
+              <Text style={styles.miniAdvBtnText}>📷 Tomar foto de comprobante</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.cancelBtn, { marginTop: 16 }]} onPress={() => setSelViatico(null)}>
+              <Text style={styles.cancelText}>Cerrar</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
