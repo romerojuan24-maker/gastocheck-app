@@ -3,8 +3,8 @@
     "name": "CHECK SUITE",
     "slug": "gastocheck",
     "scheme": "gastocheck",
-    "version": "0.1.76",
-    "runtimeVersion": "0.1.76",
+    "version": "0.1.77",
+    "runtimeVersion": "0.1.77",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.gastocheck.app",
-      "versionCode": 72,
+      "versionCode": 173,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
