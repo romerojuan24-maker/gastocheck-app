@@ -80,23 +80,8 @@ export default function Layout() {
     const inLogin = segments[0] === 'login';
 
     if (!session && !inLogin) {
-      // Delay generoso para que autoRefreshToken renueve antes de redirigir
-      const timer = setTimeout(async () => {
-        const { data: { session: fresh } } = await supabase.auth.getSession();
-        if (!fresh) {
-          if (!sessionAlertShown.current) {
-            sessionAlertShown.current = true;
-            Alert.alert(
-              'Sesión expirada',
-              'Tu sesión ha terminado. Vuelve a iniciar sesión para continuar.',
-              [{ text: 'Iniciar sesión', onPress: () => router.replace('/login') }],
-            );
-          } else {
-            router.replace('/login');
-          }
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
+      // Redirigir inmediatamente a login sin delay
+      router.replace('/login');
     } else if (session && inLogin) {
       router.replace('/');
     }
