@@ -177,3 +177,4 @@ function Kpi({ label, value, color }: { label: string; value: string | number; c
     </div>
   )
 }
+// Build timestamp: Thu Jul  9 18:46:30     2026
