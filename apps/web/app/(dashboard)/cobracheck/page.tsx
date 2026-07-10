@@ -157,8 +157,51 @@ export default function CobraCheckPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-slate-200">
+      {/* 4 Botones Principales */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className="bg-green-50 border-2 border-green-600 rounded-lg p-6 text-center hover:bg-green-100 transition"
+        >
+          <div className="text-4xl mb-2">💰</div>
+          <p className="font-bold text-sm text-slate-900">CARTERA TOTAL</p>
+          <p className="text-2xl font-black text-green-600 mt-2">${(kpis.totalCartera / 1000).toFixed(1)}k</p>
+          <p className="text-xs text-slate-600 mt-1">{clientes.length} clientes</p>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('clientes')}
+          className="bg-red-50 border-2 border-red-600 rounded-lg p-6 text-center hover:bg-red-100 transition"
+        >
+          <div className="text-4xl mb-2">📄</div>
+          <p className="font-bold text-sm text-slate-900">COMPROBANTES</p>
+          <p className="text-2xl font-black text-red-600 mt-2">{kpis.vencidos}</p>
+          <p className="text-xs text-slate-600 mt-1">facturas vencidas</p>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('rutas')}
+          className="bg-blue-50 border-2 border-blue-600 rounded-lg p-6 text-center hover:bg-blue-100 transition"
+        >
+          <div className="text-4xl mb-2">📋</div>
+          <p className="font-bold text-sm text-slate-900">TAREAS DE HOY</p>
+          <p className="text-2xl font-black text-blue-600 mt-2">Mi Ruta</p>
+          <p className="text-xs text-slate-600 mt-1">cobranza de hoy</p>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('movimientos')}
+          className="bg-pink-50 border-2 border-pink-600 rounded-lg p-6 text-center hover:bg-pink-100 transition"
+        >
+          <div className="text-4xl mb-2">💳</div>
+          <p className="font-bold text-sm text-slate-900">PAGOS</p>
+          <p className="text-2xl font-black text-pink-600 mt-2">Registrar</p>
+          <p className="text-xs text-slate-600 mt-1">movimientos</p>
+        </button>
+      </div>
+
+      {/* Tabs (hidden, but keep for tab switching) */}
+      <div className="flex gap-2 mb-6 border-b border-slate-200 hidden">
         {(['dashboard', 'clientes', 'rutas', 'movimientos'] as const).map(t => (
           <button
             key={t}
@@ -177,6 +220,30 @@ export default function CobraCheckPage() {
       {/* Dashboard */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
+          {/* Clientes en Riesgo */}
+          {clientes.filter(c => c.risk_score >= 70).length > 0 && (
+            <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-6">
+              <h2 className="text-lg font-bold text-red-900 mb-3">
+                🔴 {clientes.filter(c => c.risk_score >= 70).length} Clientes en Riesgo Alto
+              </h2>
+              <div className="space-y-2">
+                {clientes
+                  .filter(c => c.risk_score >= 70)
+                  .sort((a, b) => b.risk_score - a.risk_score)
+                  .slice(0, 5)
+                  .map(c => (
+                    <div key={c.id} className="bg-white rounded-lg border border-red-200 p-4 flex justify-between items-center hover:border-red-300 transition">
+                      <div>
+                        <p className="font-bold text-slate-900">{c.name}</p>
+                        <p className="text-sm text-red-600 font-bold">Riesgo: {c.risk_score}%</p>
+                      </div>
+                      <p className="font-black text-red-600">${(c.total_overdue || 0).toLocaleString('es-MX')}</p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <h2 className="text-lg font-bold text-slate-900 mb-3">Reportes Recientes</h2>
             <div className="space-y-2">
@@ -193,6 +260,12 @@ export default function CobraCheckPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Integración con Contador y Flujo Check */}
+          <div className="bg-green-50 border-l-4 border-green-600 rounded-lg p-6">
+            <p className="text-green-900 font-bold">📊 Integración activa</p>
+            <p className="text-sm text-green-800 mt-2">Todos los movimientos se reflejan automáticamente en Contador y Flujo Check</p>
           </div>
         </div>
       )}
