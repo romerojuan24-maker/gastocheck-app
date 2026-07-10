@@ -153,7 +153,12 @@ export default function SettingsScreen() {
           text: 'Cerrar sesión',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut();
+            try {
+              await supabase.auth.signOut();
+              router.replace('/(auth)/login');
+            } catch (err: any) {
+              Alert.alert('Error', 'No se pudo cerrar sesión: ' + err.message);
+            }
           },
         },
       ],
