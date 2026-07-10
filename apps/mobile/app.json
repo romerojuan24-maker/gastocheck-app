@@ -4,7 +4,7 @@
     "slug": "gastocheck",
     "scheme": "gastocheck",
     "version": "0.1.78",
-    "runtimeVersion": "0.1.78",
+    "runtimeVersion": "1.1.72",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
