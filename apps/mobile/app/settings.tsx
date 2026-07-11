@@ -155,7 +155,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await supabase.auth.signOut();
-              router.replace('/(auth)/login');
+              router.replace('/login');
             } catch (err: any) {
               Alert.alert('Error', 'No se pudo cerrar sesión: ' + err.message);
             }
