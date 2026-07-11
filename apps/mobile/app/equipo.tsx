@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +67,20 @@ export default function EquipoScreen() {
   const [invitePhone, setInvitePhone] = useState('');
   const [inviting, setInviting] = useState(false);
 
+  // Onboarding extra — solo para Cobrador (company_members.address/ine_photo_url/
+  // address_proof_url/license_photo_url/vehicle_id/vehicle_assignment_url/commission_rate,
+  // por relación empresa-usuario ya que el mismo cobrador puede trabajar para
+  // varias empresas con datos distintos en cada una).
+  const [inviteAddress,     setInviteAddress]     = useState('');
+  const [inviteCommission,  setInviteCommission]  = useState('');
+  const [inePhoto,          setInePhoto]          = useState<string | null>(null);
+  const [addressProofPhoto, setAddressProofPhoto] = useState<string | null>(null);
+  const [licensePhoto,      setLicensePhoto]      = useState<string | null>(null);
+  const [hasVehicle,        setHasVehicle]        = useState(false);
+  const [vehicles,          setVehicles]          = useState<{ id: string; label: string }[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [vehicleDocPhoto,   setVehicleDocPhoto]   = useState<string | null>(null);
+
   const invitableRoles = invitableRolesFor(userRole, hasGastoCheck, hasCobraCheck);
 
   const load = useCallback(async () => {
@@ -98,6 +113,12 @@ export default function EquipoScreen() {
         .in('module_id', ['gastocheck', 'cobracheck']);
       setHasGastoCheck((mods ?? []).some((m: any) => m.module_id === 'gastocheck' && m.is_active));
       setHasCobraCheck((mods ?? []).some((m: any) => m.module_id === 'cobracheck' && m.is_active));
+
+      const { data: veh } = await supabase.from('vehicles')
+        .select('id, economic_number, brand, model').eq('company_id', selectedId).eq('status', 'active');
+      setVehicles((veh ?? []).map((v: any) => ({
+        id: v.id, label: [v.economic_number, v.brand, v.model].filter(Boolean).join(' — ') || 'Vehículo',
+      })));
 
       const { data: mlist } = await supabase
         .from('company_members')
@@ -172,6 +193,48 @@ export default function EquipoScreen() {
     );
   }
 
+  async function pickPhoto(setter: (uri: string) => void) {
+    Alert.alert('Foto', '¿Cómo quieres agregarla?', [
+      {
+        text: 'Cámara', onPress: async () => {
+          const r = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+          if (!r.canceled && r.assets[0]) setter(r.assets[0].uri);
+        },
+      },
+      {
+        text: 'Galería', onPress: async () => {
+          const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.6 });
+          if (!r.canceled && r.assets[0]) setter(r.assets[0].uri);
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }
+
+  async function uploadDoc(uri: string, uid: string, kind: string): Promise<string | null> {
+    try {
+      const fileName = `cobrador_docs/${uid}/${kind}_${Date.now()}.jpg`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { data, error } = await supabase.storage.from('documents').upload(fileName, blob, { upsert: true });
+      if (error) return null;
+      return data?.path ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function resetInviteOnboarding() {
+    setInviteAddress('');
+    setInviteCommission('');
+    setInePhoto(null);
+    setAddressProofPhoto(null);
+    setLicensePhoto(null);
+    setHasVehicle(false);
+    setSelectedVehicleId(null);
+    setVehicleDocPhoto(null);
+  }
+
   async function handleInvite() {
     if (!companyId) return;
     if (!inviteName.trim() || !inviteEmail.trim()) {
@@ -194,6 +257,27 @@ export default function EquipoScreen() {
         Alert.alert('Error', data?.error ?? error?.message ?? 'No se pudo invitar.');
         return;
       }
+
+      // Onboarding extra del Cobrador — se guarda en su relación con ESTA
+      // empresa (company_members), no en su perfil global.
+      if (inviteRole === 'collector' && data?.user_id) {
+        const [inePath, addrPath, licPath, vehDocPath] = await Promise.all([
+          inePhoto ? uploadDoc(inePhoto, data.user_id, 'ine') : Promise.resolve(null),
+          addressProofPhoto ? uploadDoc(addressProofPhoto, data.user_id, 'domicilio') : Promise.resolve(null),
+          licensePhoto ? uploadDoc(licensePhoto, data.user_id, 'licencia') : Promise.resolve(null),
+          hasVehicle && vehicleDocPhoto ? uploadDoc(vehicleDocPhoto, data.user_id, 'vehiculo') : Promise.resolve(null),
+        ]);
+        await supabase.from('company_members').update({
+          address:                inviteAddress.trim() || null,
+          ine_photo_url:          inePath,
+          address_proof_url:      addrPath,
+          license_photo_url:      licPath,
+          vehicle_id:             hasVehicle ? selectedVehicleId : null,
+          vehicle_assignment_url: hasVehicle ? vehDocPath : null,
+          commission_rate:        inviteCommission ? parseFloat(inviteCommission) : null,
+        }).eq('user_id', data.user_id).eq('company_id', companyId);
+      }
+
       setShowInvite(false);
       const name = inviteName.trim();
       const phone = invitePhone.trim();
@@ -202,6 +286,7 @@ export default function EquipoScreen() {
       setInviteName('');
       setInviteEmail('');
       setInvitePhone('');
+      resetInviteOnboarding();
       load();
 
       if (phone) {
@@ -335,6 +420,51 @@ export default function EquipoScreen() {
                   );
                 })}
               </View>
+
+              {inviteRole === 'collector' && (
+                <View style={styles.onboardingBox}>
+                  <Text style={styles.onboardingTitle}>Datos del Cobrador</Text>
+                  <Text style={styles.fieldSubHint}>Se guardan solo para esta empresa — el mismo cobrador puede trabajar para otras con datos distintos.</Text>
+
+                  <Text style={styles.fieldLabel}>Domicilio</Text>
+                  <TextInput style={styles.input} value={inviteAddress} onChangeText={setInviteAddress}
+                    placeholder="Calle, número, colonia, ciudad" placeholderTextColor="#B0BEC5" />
+
+                  <Text style={styles.fieldLabel}>Comisión (%)</Text>
+                  <TextInput style={styles.input} value={inviteCommission} onChangeText={setInviteCommission}
+                    placeholder="Ej: 3" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+
+                  <DocRow label="Foto de INE" uri={inePhoto} onPick={() => pickPhoto(setInePhoto)} />
+                  <DocRow label="Comprobante de domicilio" uri={addressProofPhoto} onPick={() => pickPhoto(setAddressProofPhoto)} />
+                  <DocRow label="Licencia de conducir" uri={licensePhoto} onPick={() => pickPhoto(setLicensePhoto)} />
+
+                  <TouchableOpacity style={styles.vehicleToggle} onPress={() => setHasVehicle(v => !v)}>
+                    <Text style={{ fontSize: 16 }}>{hasVehicle ? '☑' : '☐'}</Text>
+                    <Text style={styles.vehicleToggleText}>¿Se le asigna vehículo para cobranza?</Text>
+                  </TouchableOpacity>
+
+                  {hasVehicle && (
+                    <>
+                      <Text style={styles.fieldLabel}>Vehículo (Flotilla)</Text>
+                      {vehicles.length === 0 ? (
+                        <Text style={styles.fieldSubHint}>Sin vehículos dados de alta en Flotilla.</Text>
+                      ) : (
+                        <View style={{ gap: 6, marginBottom: 4 }}>
+                          {vehicles.map(v => (
+                            <TouchableOpacity key={v.id}
+                              style={[styles.vehicleOption, selectedVehicleId === v.id && styles.vehicleOptionActive]}
+                              onPress={() => setSelectedVehicleId(v.id)}>
+                              <Text style={[styles.vehicleOptionText, selectedVehicleId === v.id && { color: BRAND.cobra }]}>{v.label}</Text>
+                              {selectedVehicleId === v.id && <Text style={{ color: BRAND.cobra }}>✓</Text>}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                      <DocRow label="Documento de asignación" uri={vehicleDocPhoto} onPick={() => pickPhoto(setVehicleDocPhoto)} />
+                    </>
+                  )}
+                </View>
+              )}
             </ScrollView>
 
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
@@ -351,6 +481,24 @@ export default function EquipoScreen() {
     </View>
   );
 }
+
+function DocRow({ label, uri, onPick }: { label: string; uri: string | null; onPick: () => void }) {
+  return (
+    <TouchableOpacity style={docRowStyles.row} onPress={onPick}>
+      <Text style={{ fontSize: 16 }}>{uri ? '✅' : '📷'}</Text>
+      <View style={{ flex: 1, marginLeft: 10 }}>
+        <Text style={docRowStyles.label}>{label}</Text>
+        <Text style={docRowStyles.status}>{uri ? 'Foto agregada — toca para cambiar' : 'Toca para agregar foto'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const docRowStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0' },
+  label: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  status: { fontSize: 11, color: '#90A4AE', marginTop: 1 },
+});
 
 const styles = StyleSheet.create({
   header: {
@@ -395,6 +543,14 @@ const styles = StyleSheet.create({
   },
   roleOptionTitle: { fontSize: 14, fontWeight: '700', color: BRAND.navy },
   roleOptionDesc: { fontSize: 11, color: '#90A4AE', marginTop: 1 },
+
+  onboardingBox: { marginTop: 16, padding: 12, backgroundColor: '#FBFBFD', borderRadius: 12, borderWidth: 1, borderColor: '#E8EAF6' },
+  onboardingTitle: { fontSize: 13, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  vehicleToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 4 },
+  vehicleToggleText: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  vehicleOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 11, borderWidth: 1.5, borderColor: '#E0E0E0' },
+  vehicleOptionActive: { borderColor: BRAND.cobra, backgroundColor: BRAND.cobra + '10' },
+  vehicleOptionText: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
 
   modalCancelBtn: { borderRadius: 12, paddingVertical: 13, backgroundColor: '#F5F5F5', alignItems: 'center' },
   modalCancelText: { fontSize: 15, fontWeight: '600', color: '#90A4AE' },

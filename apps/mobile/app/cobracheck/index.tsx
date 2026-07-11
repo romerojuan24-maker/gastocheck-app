@@ -300,6 +300,13 @@ export default function CobraCheckHome() {
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Cobranza</Text>
 
+              <BigCard icon="🗺️" title="Generar Ruta del Día"
+                sub="Asigna clientes a un cobrador para hoy"
+                bg={BRAND.navy} onPress={() => router.push('/cobracheck/generar-ruta' as any)} />
+              <NavCard icon="🏢" title="Alta de Clientes"
+                sub="Nuevo cliente con dirección y GPS"
+                onPress={() => router.push('/cobracheck/alta-cliente' as any)} />
+
               <BigCard icon="🧾" title="Alta de Facturas"
                 sub="Por FacturaCheck (CFDI) o captura manual"
                 bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
@@ -432,20 +439,21 @@ export default function CobraCheckHome() {
         {adminTab === 3 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Cobranza</Text>
-            <BigCard icon="🧾" title="Alta de Facturas"
+            <BigCard icon="🗺️" title="Generar Ruta del Día"
+              sub="Asigna clientes a un cobrador para hoy"
+              bg={BRAND.navy} onPress={() => router.push('/cobracheck/generar-ruta' as any)} />
+            <NavCard icon="🏢" title="Alta de Clientes"
+              sub="Nuevo cliente con dirección y GPS"
+              onPress={() => router.push('/cobracheck/alta-cliente' as any)} />
+            <NavCard icon="🧾" title="Alta de Facturas"
               sub="Por FacturaCheck (CFDI) o captura manual"
-              bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
+              onPress={() => router.push('/cobracheck/factura-manual' as any)} />
             <NavCard icon="🧾" title="Generar en FacturaCheck"
               sub="Factura con CFDI timbrado"
               onPress={() => router.push('/facturacheck' as any)} />
             <NavCard icon="👥" title="Clientes"
               sub="Directorio, saldos y condiciones de crédito"
               onPress={() => router.push('/cobracheck/clientes' as any)} />
-            <EmptyComingSoon
-              icon="🗺️"
-              title="Rutas Optimizadas con IA"
-              sub="Próximamente: genera rutas por zona, horario y distancia — con GPS en tiempo real de cada cobrador"
-            />
           </ScrollView>
         )}
 
