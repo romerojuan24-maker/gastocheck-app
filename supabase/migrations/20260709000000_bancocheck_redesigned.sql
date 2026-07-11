@@ -2,6 +2,14 @@
 -- BANCOCHECK REDESIGNED: Control operativo de movimientos
 -- No es banco digital, es clasificación y reconciliación
 -- ============================================================================
+--
+-- [BLOQUEADO 2026-07-11] No aplicada — CREATE TABLE bank_accounts (sin
+-- IF NOT EXISTS) choca con la tabla real ya creada por
+-- 20260708000000_bancocheck_complete_impl.sql, que YA está en producción y
+-- en uso (bancocheck/transactions-tab.tsx, reactivado en OTA190). Este
+-- archivo es redundante — el esquema que busca crear ya existe. Revisar si
+-- aporta algo nuevo (que no esté ya en 20260708000000) antes de aplicar;
+-- si no, se puede borrar. Marcado 'reverted' en el tracker.
 
 -- BankAccount: Cuentas bancarias importadas
 CREATE TABLE bank_accounts (

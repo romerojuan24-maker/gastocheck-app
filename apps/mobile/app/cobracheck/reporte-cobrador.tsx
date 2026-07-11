@@ -49,9 +49,9 @@ export default function ReporteCobradorScreen() {
       const userIds = [...new Set((movs ?? []).map(mv => mv.user_id))];
       if (userIds.length > 0) {
         const { data: members } = await supabase.from('company_members')
-          .select('user_id, full_name').eq('company_id', m.company_id).in('user_id', userIds);
+          .select('user_id, profiles:user_id(full_name)').eq('company_id', m.company_id).in('user_id', userIds);
         const map: Record<string, string> = {};
-        (members ?? []).forEach((mem: any) => { map[mem.user_id] = mem.full_name ?? 'Cobrador'; });
+        (members ?? []).forEach((mem: any) => { map[mem.user_id] = mem.profiles?.full_name ?? 'Cobrador'; });
         setNames(map);
       }
       setLoading(false);
