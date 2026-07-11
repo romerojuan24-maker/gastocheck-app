@@ -50,13 +50,13 @@ export function TransactionDetailModal({ transaction, visible, onClose, onClassi
           </Text>
 
           <Text style={[styles.label, { marginTop: 12 }]}>Estado</Text>
-          <Text style={[styles.statusBadge, { backgroundColor: BRAND.PRIMARY }]}>
+          <Text style={[styles.statusBadge, { backgroundColor: BRAND.blue }]}>
             {transaction.status}
           </Text>
         </View>
 
         <View style={styles.buttonGrid}>
-          <TouchableOpacity style={[styles.button, { backgroundColor: BRAND.PRIMARY }]} onPress={() => setShowClassify(true)}>
+          <TouchableOpacity style={[styles.button, { backgroundColor: BRAND.blue }]} onPress={() => setShowClassify(true)}>
             <Text style={styles.buttonText}>📝 Clasificar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, { backgroundColor: '#10b981' }]} onPress={() => setShowMatch(true)}>
@@ -89,7 +89,7 @@ export function TransactionDetailModal({ transaction, visible, onClose, onClassi
               onChangeText={(text) => setClassifyForm({ ...classifyForm, notes: text })}
               multiline
             />
-            <TouchableOpacity style={[styles.button, { backgroundColor: BRAND.PRIMARY }]} onPress={handleClassify}>
+            <TouchableOpacity style={[styles.button, { backgroundColor: BRAND.blue }]} onPress={handleClassify}>
               <Text style={styles.buttonText}>Guardar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, { backgroundColor: '#999' }]} onPress={() => setShowClassify(false)}>

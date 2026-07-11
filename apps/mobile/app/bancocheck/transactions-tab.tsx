@@ -115,7 +115,7 @@ export default function TransactionsTab() {
       const txWithSuggestions: TransactionWithSuggestion[] = (txs || []).map((t) => ({
         ...t,
         suggestion: suggestionMap.get(t.id) || null,
-        account_name: t.bank_accounts?.name || 'Cuenta',
+        account_name: t.bank_accounts?.[0]?.name || 'Cuenta',
       }))
 
       setTransactions(txWithSuggestions)

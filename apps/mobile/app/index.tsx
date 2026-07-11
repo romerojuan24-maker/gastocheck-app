@@ -198,8 +198,7 @@ export default function CheckSuiteHome() {
           <>
             <Text style={styles.sectionLabel}>MÁS HERRAMIENTAS</Text>
             <View style={styles.miniGrid}>
-              {/* DISABLED 2026-07-09: BancoCheck lógica deficiente, requiere revisión arquitectónica */}
-              {/* <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} /> */}
+              <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} />
               <MiniCard icon="🧾" label="FacturaCheck"  onPress={() => router.push('/facturacheck' as any)} />
               <MiniCard icon="💧" label="FlujoCheck"    onPress={() => router.push('/flujocheck' as any)} />
               <MiniCard icon="📦" label="Inventario"    onPress={() => router.push('/inventariocheck' as any)} />
