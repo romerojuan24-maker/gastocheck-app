@@ -17,38 +17,13 @@ import {
   calcTotalKm, syncPendingRoutes, isOnWifi, todayStr,
   type RoutePoint,
 } from '../../lib/route-tracker';
+import {
+  addMovementToday, loadTodayMovements, syncPendingMovements,
+  type CobraMovement,
+} from '../../lib/cobra-movements-queue';
 import DatePickerField from '../../components/DatePickerField';
 
 const AUTO_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
-
-// ── Tipos locales ─────────────────────────────────────────────────────────
-
-interface CollectionMovement {
-  id:              string;
-  route_point_ts:  string;           // Vinculado al point de ruta
-  client_id:       string;
-  client_name:     string;
-  invoice_id?:     string;
-  folio?:          string;           // Folio de factura
-  amount_original: number;           // Monto original de la factura
-  movement_type:   'collected' | 'promise' | 'not_paid'; // Tipo de movimiento
-  collected_amount?: number;         // Si collected: monto cobrado
-  promise_date?:   string;           // Si promise: fecha comprometida
-  reason_not_paid?: string;          // Si not_paid: motivo (sin fondos, disputa, rechazó, otro)
-  photo_uri?:      string;           // Comprobante de pago (optional)
-  notes?:          string;
-  created_at:      string;
-}
-
-interface RutaDay {
-  points:    RoutePoint[];
-  movements: CollectionMovement[];
-  synced:    boolean;
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-}
 
 // ── Motivos de no pago predefinidos ───────────────────────────────────────
 const NO_PAY_REASONS = [
@@ -70,7 +45,7 @@ export default function MiRutaCobraScreen() {
   const [userId,     setUserId]     = useState<string | null>(null);
   const [companyId,  setCompanyId]  = useState<string | null>(null);
   const [points,     setPoints]     = useState<RoutePoint[]>([]);
-  const [movements,  setMovements]  = useState<CollectionMovement[]>([]);
+  const [movements,  setMovements]  = useState<CobraMovement[]>([]);
   const [tracking,   setTracking]   = useState(false);
   const [busy,       setBusy]       = useState(false);
   const [syncing,    setSyncing]    = useState(false);
@@ -87,7 +62,7 @@ export default function MiRutaCobraScreen() {
   // ── Formulario captura ──────────────────────────────────────────────────
   const [movementType,     setMovementType]     = useState<'collected' | 'promise' | 'not_paid'>('collected');
   const [collectedAmount,  setCollectedAmount]  = useState('');
-  const [promiseDate,      setPromiseDate]      = useState<Date | null>(null);
+  const [promiseDate,      setPromiseDate]      = useState('');
   const [reasonNotPaid,    setReasonNotPaid]    = useState('');
   const [movementNotes,    setMovementNotes]    = useState('');
   const [photoUri,         setPhotoUri]         = useState<string | null>(null);
@@ -111,6 +86,9 @@ export default function MiRutaCobraScreen() {
 
       const pts = await loadTodayPoints(user.id);
       setPoints(pts);
+
+      const movs = await loadTodayMovements(user.id);
+      setMovements(movs);
 
       const w = await isOnWifi();
       setWifi(w);
@@ -262,59 +240,41 @@ export default function MiRutaCobraScreen() {
       return;
     }
 
+    if (!userId || !companyId) {
+      Alert.alert('Error', 'No se pudo identificar tu empresa. Vuelve a intentar.');
+      return;
+    }
+
     setSaving(true);
     try {
       const invoice = selectedInvoices[0];
       const currentPoint = points[points.length - 1];
 
-      const movement: CollectionMovement = {
-        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        route_point_ts: currentPoint?.ts || new Date().toISOString(),
-        client_id: selectedClient.id,
-        client_name: selectedClient.name,
-        invoice_id: invoice.id,
-        folio: invoice.folio,
-        amount_original: invoice.amount,
-        movement_type: movementType,
-        collected_amount: movementType === 'collected' ? parseFloat(collectedAmount) : undefined,
-        promise_date: movementType === 'promise' && promiseDate ? promiseDate.toISOString() : undefined,
-        reason_not_paid: movementType === 'not_paid' ? reasonNotPaid : undefined,
-        photo_uri: photoUri || undefined,
-        notes: movementNotes || undefined,
-        created_at: new Date().toISOString(),
-      };
-
-      // Guardar movimiento (offline first)
-      setMovements([...movements, movement]);
-
-      // Intentar sincronizar inmediatamente si hay WiFi
-      if (wifi && userId && companyId) {
-        const { error } = await supabase
-          .from('cobra_movements')
-          .insert([{
-            route_point_ts: movement.route_point_ts,
-            client_id: movement.client_id,
-            invoice_id: movement.invoice_id,
-            amount_original: movement.amount_original,
-            movement_type: movement.movement_type,
-            collected_amount: movement.collected_amount,
-            promise_date: movement.promise_date,
-            reason_not_paid: movement.reason_not_paid,
-            photo_uri: movement.photo_uri,
-            notes: movement.notes,
-            user_id: userId,
-            company_id: companyId,
-          }]);
-
-        if (error) {
-          console.error('Error sincronizando movimiento:', error.message);
-        }
-      }
+      // addMovementToday guarda en el teléfono de inmediato (nunca se
+      // pierde) y sube a Supabase al toque si hay conexión — antes esto
+      // solo vivía en memoria de React y se perdía sin conexión.
+      const updated = await addMovementToday(userId, {
+        company_id:        companyId,
+        user_id:           userId,
+        client_id:         selectedClient.id,
+        client_name:       selectedClient.name,
+        invoice_id:        invoice.id,
+        folio:             invoice.folio,
+        route_point_ts:    currentPoint?.ts || new Date().toISOString(),
+        amount_original:   invoice.amount,
+        movement_type:     movementType,
+        collected_amount:  movementType === 'collected' ? parseFloat(collectedAmount) : undefined,
+        promise_date:      movementType === 'promise' && promiseDate ? promiseDate : undefined,
+        reason_not_paid:   movementType === 'not_paid' ? reasonNotPaid : undefined,
+        photo_uri:         photoUri || undefined,
+        notes:             movementNotes || undefined,
+      });
+      setMovements(updated);
 
       // Resetear formulario y cerrar
       setShowCaptureModal(false);
       setCollectedAmount('');
-      setPromiseDate(null);
+      setPromiseDate('');
       setReasonNotPaid('');
       setMovementNotes('');
       setPhotoUri(null);
@@ -336,12 +296,20 @@ export default function MiRutaCobraScreen() {
     if (!userId || !companyId) return;
     setSyncing(true);
     try {
-      const result = await syncPendingRoutes(userId, companyId);
+      const [routeResult, movResult] = await Promise.all([
+        syncPendingRoutes(userId, companyId),
+        syncPendingMovements(userId),
+      ]);
+      const movs = await loadTodayMovements(userId);
+      setMovements(movs);
       setSyncing(false);
-      if (!result.wifiAvailable) {
-        setSyncMsg('Sin WiFi — los datos se subirán automáticamente al conectarte.');
-      } else if (result.synced > 0) {
-        setSyncMsg(`✅ ${result.synced} día(s) sincronizados correctamente.`);
+
+      if (!routeResult.wifiAvailable && !movResult.online) {
+        setSyncMsg('Sin conexión — los datos se subirán automáticamente al conectarte.');
+      } else if (routeResult.synced > 0 || movResult.synced > 0) {
+        setSyncMsg(`✅ Sincronizado: ${routeResult.synced} día(s) de ruta, ${movResult.synced} movimiento(s) de cobranza.`);
+      } else if (movResult.pending > 0) {
+        setSyncMsg(`${movResult.pending} movimiento(s) pendientes por sincronizar.`);
       } else {
         setSyncMsg('Todo está al día, no hay pendientes.');
       }
@@ -491,17 +459,24 @@ export default function MiRutaCobraScreen() {
                   mov.movement_type === 'promise' ? '#FF9800' :
                   BRAND.red;
                 return (
-                  <View key={mov.id} style={styles.timelineItem}>
+                  <View key={mov.local_id} style={styles.timelineItem}>
                     <View style={styles.timelineLeft}>
                       <View style={[styles.dot, { backgroundColor: color }]} />
                       {!isLast && <View style={styles.line} />}
                     </View>
                     <View style={styles.timelineContent}>
-                      <Text style={[styles.timelineTime, { color }]}>
-                        {mov.movement_type === 'collected' ? '✓ Cobrado' :
-                         mov.movement_type === 'promise' ? '⏰ Promesa' :
-                         '✗ No pagó'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.timelineTime, { color }]}>
+                          {mov.movement_type === 'collected' ? '✓ Cobrado' :
+                           mov.movement_type === 'promise' ? '⏰ Promesa' :
+                           '✗ No pagó'}
+                        </Text>
+                        {!mov.synced && (
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingBadgeText}>sin subir</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.timelineNote}>{mov.client_name}</Text>
                       <Text style={styles.timelineCoords}>
                         Factura: {mov.folio} • $ {mov.amount_original.toLocaleString('es-MX')}
@@ -647,7 +622,7 @@ export default function MiRutaCobraScreen() {
                         onPress={() => {
                           setMovementType(type);
                           setCollectedAmount('');
-                          setPromiseDate(null);
+                          setPromiseDate('');
                           setReasonNotPaid('');
                         }}
                       >
@@ -680,9 +655,9 @@ export default function MiRutaCobraScreen() {
                     <>
                       <Text style={styles.fieldLabel}>Fecha de promesa</Text>
                       <DatePickerField
+                        label="Fecha de promesa"
                         value={promiseDate}
                         onChange={setPromiseDate}
-                        minimumDate={new Date()}
                       />
                     </>
                   )}
@@ -827,6 +802,8 @@ const styles = StyleSheet.create({
   line:         { flex: 1, width: 2, backgroundColor: '#E0E0E0', marginTop: 4 },
   timelineContent:  { flex: 1, paddingBottom: 16 },
   timelineTime:     { fontSize: 13, fontWeight: '700', color: '#182535' },
+  pendingBadge:     { backgroundColor: '#FFF3E0', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  pendingBadgeText: { fontSize: 9, fontWeight: '700', color: '#FF9800' },
   timelineNote:     { fontSize: 13, color: '#607D8B', marginTop: 2 },
   timelineCoords:   { fontSize: 10, color: '#B0BEC5', marginTop: 2 },
 

@@ -106,9 +106,6 @@ export default function CarteraTotalPage() {
                 <Text style={[styles.status, { color: getStatusColor(f.status) }]}>
                   {f.status === 'overdue' ? `🔴 Vencida ${f.days_overdue}d` : f.status === 'partial' ? '🔵 Parcial' : '🟡 Pendiente'}
                 </Text>
-                <TouchableOpacity style={styles.cfdiBtn}>
-                  <Text style={styles.cfdiBtnText}>📄 CFDI Check</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -138,6 +135,4 @@ const styles = StyleSheet.create({
   amount: { fontWeight: 'bold', fontSize: 15 },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   status: { fontSize: 11, fontWeight: '600' },
-  cfdiBtn: { backgroundColor: '#334155', padding: 6, borderRadius: 4 },
-  cfdiBtnText: { color: '#f1f5f9', fontSize: 10, fontWeight: 'bold' },
 })

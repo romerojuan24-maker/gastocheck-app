@@ -5,6 +5,7 @@ import { formatCurrency } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
 import { useEffect, useState } from 'react'
 import * as ImagePicker from 'expo-image-picker'
+import { addMovementToday, isOnline } from '../../lib/cobra-movements-queue'
 
 interface ClientePago {
   id: string
@@ -139,40 +140,45 @@ export default function PagosPage() {
     setRegistering(true)
 
     try {
-      let photoUrl = null
+      let photoUrl = movimiento.photo_uri || null
+      const online = await isOnline()
 
-      // Subir foto si existe
-      if (movimiento.photo_uri) {
-        const fileName = `cobra_payments/${user.id}/${Date.now()}.jpg`
-        const response = await fetch(movimiento.photo_uri)
-        const blob = await response.blob()
+      // Subir foto si existe y hay conexión — si no hay red, se guarda el
+      // URI local y el movimiento igual se encola (nunca se pierde).
+      if (movimiento.photo_uri && online) {
+        try {
+          const fileName = `cobra_payments/${user.id}/${Date.now()}.jpg`
+          const response = await fetch(movimiento.photo_uri)
+          const blob = await response.blob()
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(fileName, blob, { upsert: true })
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(fileName, blob, { upsert: true })
 
-        if (uploadError) throw uploadError
-        photoUrl = uploadData?.path
+          if (!uploadError) photoUrl = uploadData?.path ?? photoUrl
+        } catch {
+          // Sin conexión o falló la subida — se queda con el URI local.
+        }
       }
 
-      // Registrar movimiento
-      const { error: movError } = await supabase.from('cobra_movements').insert({
-        company_id: user.company_id,
-        user_id: user.id,
-        client_id: selectedClient.id,
-        route_point_ts: new Date().toISOString(),
-        movement_type: 'collected',
+      // Registrar movimiento — encolado offline-first, nunca se pierde
+      // aunque no haya conexión en el momento de guardar.
+      await addMovementToday(user.id, {
+        company_id:       user.company_id,
+        user_id:          user.id,
+        client_id:        selectedClient.id,
+        client_name:      selectedClient.name,
+        route_point_ts:   new Date().toISOString(),
+        movement_type:    'collected',
         collected_amount: movimiento.amount,
-        amount_original: selectedClient.current_balance,
-        method: movimiento.method,
-        notes: movimiento.notes,
-        photo_uri: photoUrl,
+        amount_original:  selectedClient.current_balance,
+        method:           movimiento.method,
+        notes:            movimiento.notes,
+        photo_uri:        photoUrl ?? undefined,
       })
 
-      if (movError) throw movError
-
       // Actualizar cliente en Contador si la cantidad pagada es diferente
-      if (movimiento.require_photo) {
+      if (movimiento.require_photo && online) {
         await supabase.from('contador_movements').insert({
           company_id: user.company_id,
           source_module: 'cobracheck',
@@ -186,7 +192,12 @@ export default function PagosPage() {
         })
       }
 
-      Alert.alert('✓ Pago registrado', 'El movimiento se ha registrado exitosamente')
+      Alert.alert(
+        online ? '✓ Pago registrado' : '✓ Guardado en tu teléfono',
+        online
+          ? 'El movimiento se ha registrado exitosamente'
+          : 'Sin conexión — se subirá automáticamente cuando te conectes',
+      )
       setSelectedClient(null)
       setMovimiento({
         client_id: '',
