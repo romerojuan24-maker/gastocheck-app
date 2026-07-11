@@ -160,10 +160,10 @@ export default function Layout() {
       <Stack.Screen name="reportes"          options={{ title: 'Reportes' }} />
       <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
-      <Stack.Screen name="bancocheck"        options={{ title: 'BancoCheck' }} />
-      <Stack.Screen name="facturacheck"      options={{ title: 'FacturaCheck' }} />
-      <Stack.Screen name="flujocheck"        options={{ title: 'FlujoCheck' }} />
-      <Stack.Screen name="inventariocheck"   options={{ title: 'Inventario' }} />
+      <Stack.Screen name="bancocheck/index"        options={{ title: 'BancoCheck' }} />
+      <Stack.Screen name="facturacheck/index"      options={{ title: 'FacturaCheck' }} />
+      <Stack.Screen name="flujocheck/index"        options={{ title: 'FlujoCheck' }} />
+      <Stack.Screen name="inventariocheck/index"   options={{ title: 'Inventario' }} />
       <Stack.Screen name="polizas"           options={{ title: 'Mis Pólizas' }} />
       <Stack.Screen name="depositos"         options={{ title: 'Mis Depósitos' }} />
       <Stack.Screen name="reembolso"         options={{ title: 'Reembolso' }} />
@@ -171,7 +171,6 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/tareas-diarias" options={{ title: 'Tareas Diarias' }} />
       <Stack.Screen name="cobracheck/clientes"       options={{ title: 'Clientes' }} />
       <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
-      <Stack.Screen name="cobracheck/page"           options={{ title: 'CobraCheck' }} />
     </Stack>
     </ErrorBoundary>
   );
