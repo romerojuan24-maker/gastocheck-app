@@ -236,6 +236,29 @@ b35e54e feat(permisos): matriz centralizada de roles en GastoCheck
 
 ---
 
+## 🔖 CHECKPOINT SEGURO — OTA 189 (2026-07-11)
+
+**Si una OTA vuelve a romper la entrega y el teléfono se queda atorado sin recibir actualizaciones, NO hay que repetir todo el diagnóstico de hoy (nos tomó horas). Usar esto:**
+
+- Git tag: `safe-ota189` (commit `62f7f3b`)
+- Update group ID: `31857a41-8849-44ff-aede-34c25a50707f`
+- Branch EAS: `preview` — **runtimeVersion confirmado: `0.1.72`**
+- Confirmado funcionando en el dispositivo real de Juan (APK instalado bajado manualmente vía Edge, versión nativa 0.1.72 — NO es el build más reciente en `eas build:list`, ojo con asumir eso).
+
+**Para volver a este punto exacto sin rebuild ni esperar (segundos):**
+```bash
+cd apps/mobile
+npx eas update:republish --group 31857a41-8849-44ff-aede-34c25a50707f --branch preview --non-interactive
+```
+
+**Causa raíz de la ruptura de hoy** (para no repetirla): `app.json`'s `runtimeVersion` se estuvo bumpeando manualmente en cada "fix" (0.1.0 → 0.1.72 → 0.1.73...0.1.76, con variantes inconsistentes tipo `1.1.72`) sin nunca completar un build nativo nuevo que respaldara ese runtime — los intentos de `eas build` fallaban en bundling. Resultado: cada `eas update` publicado quedaba huérfano (invisible para el teléfono real). **Regla: NUNCA cambiar `runtimeVersion` en `app.json` a menos que se vaya a correr `eas build` inmediatamente después Y se vaya a reinstalar el APK nuevo en el dispositivo.** Si solo es un cambio de JS (la gran mayoría de los fixes), `runtimeVersion` se queda igual — eso es precisamente lo que permite usar `eas update` sin rebuild.
+
+También se encontraron y corrigieron dos bugs reales que contribuían a los builds fallidos:
+1. `apps/mobile/lib/shared/` (copia vendorizada de `packages/shared/src/`, la que Metro realmente resuelve — ver `metro.config.js`) llevaba días desincronizada, con archivos completos faltantes. **Si se edita algo en `packages/shared/src/`, hay que copiarlo también a `apps/mobile/lib/shared/` en el mismo commit — Metro no lee el paquete canónico directamente.**
+2. `expo-file-system` se usaba en 8 archivos vía `expo-file-system/legacy` pero nunca se declaró como dependencia directa de `apps/mobile/package.json` — agregado.
+
+---
+
 <!-- TEMPLATE PARA PRÓXIMAS SESIONES:
 
 ## YYYY-MM-DD — Sesión [Juan/Daniel]
