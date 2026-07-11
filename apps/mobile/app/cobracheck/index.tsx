@@ -299,21 +299,29 @@ export default function CobraCheckHome() {
           {contTab === 0 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Cobranza</Text>
-              <BigCard icon="📋" title="Plan de Cobranza"
-                sub="Facturas vencidas y por vencer hoy"
-                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
-              <NavCard icon="💰" title="Cartera Total"
-                sub="Cuentas por cobrar, vencidas y al día"
+
+              <BigCard icon="🧾" title="Alta de Facturas"
+                sub="Por FacturaCheck (CFDI) o captura manual"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
+              <NavCard icon="🧾" title="Generar en FacturaCheck"
+                sub="Factura con CFDI timbrado"
+                onPress={() => router.push('/facturacheck' as any)} />
+
+              <NavCard icon="📇" title="Relación CxC"
+                sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
                 onPress={() => router.push('/cobracheck/cartera-total' as any)} />
+
+              <NavCard icon="📑" title="Pólizas"
+                sub="Reporte cobrador, cobranza directa o transferencia"
+                onPress={() => router.push('/cobracheck/polizas' as any)} />
+
+              <NavCard icon="📈" title="Reportes"
+                sub="Cobranza del día/mes, por cliente y comisiones"
+                onPress={() => router.push('/cobracheck/reportes' as any)} />
+
               <NavCard icon="👥" title="Directorio de Clientes"
                 sub="Saldos, historial y condiciones de crédito"
                 onPress={() => router.push('/cobracheck/clientes' as any)} />
-              <NavCard icon="📋" title="Movimientos del Día"
-                sub="Cobros, promesas y no pagos de todos los cobradores"
-                onPress={() => router.push('/cobracheck/historial' as any)} />
-              <NavCard icon="💳" title="Registrar Pago"
-                sub="Captura un cobro manual con foto de comprobante"
-                onPress={() => router.push('/cobracheck/pagos' as any)} />
             </ScrollView>
           )}
           {contTab === 1 && (
@@ -342,17 +350,15 @@ export default function CobraCheckHome() {
           {contTab === 3 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Reportes</Text>
+              <BigCard icon="📈" title="Reportes de Cobranza"
+                sub="Cobranza del día/mes, por cliente y comisiones"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/reportes' as any)} />
               <NavCard icon="📄" title="Relación de Facturas"
                 sub="Todas las facturas, filtrables por estado, con evidencia de pago"
                 onPress={() => router.push('/cobracheck/comprobantes' as any)} />
-              <NavCard icon="💰" title="Cartera Total"
-                sub="Cuentas por cobrar, vencidas y al día"
+              <NavCard icon="📇" title="Relación CxC"
+                sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
                 onPress={() => router.push('/cobracheck/cartera-total' as any)} />
-              <EmptyComingSoon
-                icon="📈"
-                title="Eficiencia y Comisiones"
-                sub="Próximamente: eficiencia por cobrador y cálculo de comisiones"
-              />
             </ScrollView>
           )}
           {contTab === 4 && <ProfileTab />}
@@ -407,20 +413,18 @@ export default function CobraCheckHome() {
         {adminTab === 2 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Finanzas</Text>
-            <BigCard icon="💰" title="Cartera Total"
-              sub="Cuentas por cobrar, vencidas y al día"
+            <BigCard icon="📇" title="Relación CxC"
+              sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
               bg={BRAND.navy} onPress={() => router.push('/cobracheck/cartera-total' as any)} />
             <NavCard icon="📄" title="Relación de Facturas"
               sub="Todas las facturas, filtrables por estado, con evidencia de pago"
               onPress={() => router.push('/cobracheck/comprobantes' as any)} />
-            <NavCard icon="📊" title="Movimientos del Equipo"
-              sub="Cobros, promesas y no pagos de todos los cobradores"
-              onPress={() => router.push('/cobracheck/historial' as any)} />
-            <EmptyComingSoon
-              icon="📈"
-              title="Reportes Financieros"
-              sub="Próximamente: eficiencia por cobrador y comisiones"
-            />
+            <NavCard icon="📑" title="Pólizas"
+              sub="Reporte cobrador, cobranza directa o transferencia"
+              onPress={() => router.push('/cobracheck/polizas' as any)} />
+            <NavCard icon="📈" title="Reportes de Cobranza"
+              sub="Día/mes, por cliente y comisiones"
+              onPress={() => router.push('/cobracheck/reportes' as any)} />
           </ScrollView>
         )}
 
@@ -428,18 +432,15 @@ export default function CobraCheckHome() {
         {adminTab === 3 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Cobranza</Text>
-            <BigCard icon="🎯" title="Plan de Cobranza"
-              sub="Facturas vencidas, rutas activas y cobradores en campo"
-              bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
+            <BigCard icon="🧾" title="Alta de Facturas"
+              sub="Por FacturaCheck (CFDI) o captura manual"
+              bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
+            <NavCard icon="🧾" title="Generar en FacturaCheck"
+              sub="Factura con CFDI timbrado"
+              onPress={() => router.push('/facturacheck' as any)} />
             <NavCard icon="👥" title="Clientes"
               sub="Directorio, saldos y condiciones de crédito"
               onPress={() => router.push('/cobracheck/clientes' as any)} />
-            <NavCard icon="📋" title="Movimientos del Día"
-              sub="Cobros, promesas y no pagos de hoy"
-              onPress={() => router.push('/cobracheck/historial' as any)} />
-            <NavCard icon="💳" title="Registrar Pago"
-              sub="Captura un cobro manual con foto de comprobante"
-              onPress={() => router.push('/cobracheck/pagos' as any)} />
             <EmptyComingSoon
               icon="🗺️"
               title="Rutas Optimizadas con IA"

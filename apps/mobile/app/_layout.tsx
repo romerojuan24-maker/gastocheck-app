@@ -171,6 +171,14 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/tareas-diarias" options={{ title: 'Tareas Diarias' }} />
       <Stack.Screen name="cobracheck/clientes"       options={{ title: 'Clientes' }} />
       <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
+      <Stack.Screen name="cobracheck/cartera-total"    options={{ title: 'Relación CxC' }} />
+      <Stack.Screen name="cobracheck/comprobantes"     options={{ title: 'Relación de Facturas' }} />
+      <Stack.Screen name="cobracheck/pagos"            options={{ title: 'Registrar Pago' }} />
+      <Stack.Screen name="cobracheck/factura-manual"   options={{ title: 'Alta de Factura' }} />
+      <Stack.Screen name="cobracheck/polizas"          options={{ title: 'Pólizas' }} />
+      <Stack.Screen name="cobracheck/reporte-cobrador" options={{ title: 'Reporte Cobrador' }} />
+      <Stack.Screen name="cobracheck/transferencia"    options={{ title: 'Transferencia Bancaria' }} />
+      <Stack.Screen name="cobracheck/reportes"         options={{ title: 'Reportes de Cobranza' }} />
     </Stack>
     </ErrorBoundary>
   );
