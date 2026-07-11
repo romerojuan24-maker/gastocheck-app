@@ -16,7 +16,7 @@ export * from './ocr';
 export const BRAND = {
   navy:    '#0F172A',
   blue:    '#1565C0',
-  green:   '#00A650',  // GastoCheck
+  green:   '#00A650',  // GastoCheck (verde)
   white:   '#FFFFFF',
   gray:    '#F5F7FA',
   orange:  '#FF9800',
@@ -24,6 +24,8 @@ export const BRAND = {
   purple:  '#7B1FA2',
   csblue:  '#003DA5',  // CHECK SUITE (azul corporativo)
   cobra:   '#FF7A1A',  // CobraCheck (naranja)
+  flujo:   '#0066CC',  // FlujoCheck (azul)
+  factura: '#FF6B35',  // FacturaCheck (rojo-naranja)
 } as const;
 
 export * from './cobra';
@@ -34,4 +36,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 172 · v1.1.72';
+export const APP_VERSION = 'OTA 187 · v0.1.0';
