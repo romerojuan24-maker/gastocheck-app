@@ -1,7 +1,7 @@
-// BankAccount y BankTransaction: esquema REAL de producción (ver
-// packages/shared/src/bancocheck.ts, ya vive en @gastocheck/shared).
-// Redefinidos aquí localmente para no depender del import — deben
-// mantenerse sincronizados con el paquete compartido.
+// Esquema REAL de producción (bank_accounts / bank_transactions). No usar
+// los tipos BankAccount/BankTransaction de '@gastocheck/shared' — ese
+// archivo describe un esquema aspiracional que nunca se conectó a la BD
+// real y no coincide con las columnas que existen hoy.
 
 export interface BankAccount {
   id: string
@@ -19,20 +19,12 @@ export interface BankAccount {
 }
 
 export type BankTransactionStatus =
-  | 'new'
-  | 'matched'
-  | 'explained'
-  | 'personal'
-  | 'ignored'
-  | 'pending_document'
-  | 'pending_invoice'
-  | 'unidentified'
+  | 'new' | 'matched' | 'explained' | 'personal' | 'ignored'
+  | 'pending_document' | 'pending_invoice' | 'unidentified'
 
-// Cargos (dinero que sale) — regla de negocio del módulo.
 export type ChargeCategory =
   | 'expense' | 'supplier' | 'advance' | 'refund' | 'tax' | 'bank_fee' | 'loan' | 'personal' | 'other'
 
-// Depósitos (dinero que entra).
 export type DepositCategory =
   | 'client_payment' | 'unbilled_income' | 'loan' | 'owner_contribution'
   | 'refund' | 'internal_transfer' | 'personal' | 'other'
@@ -62,32 +54,4 @@ export interface BankTransaction {
   import_batch_id: string | null
   created_at: string
   updated_at: string
-}
-
-export interface BankImportLog {
-  id: string
-  company_id: string
-  bank_account_id: string
-  filename: string
-  import_type: 'OFX' | 'MT940' | 'CSV' | 'SAT' | 'MANUAL'
-  file_size_bytes: number | null
-  file_hash: string | null
-  total_records: number | null
-  success_count: number | null
-  error_count: number | null
-  status: 'pending' | 'completed' | 'failed'
-  imported_at: string
-  imported_by: string
-}
-
-export interface BankMatchSuggestion {
-  id: string
-  company_id: string
-  transaction_id: string
-  match_type: 'receipt' | 'invoice' | 'advance' | 'client' | 'supplier'
-  match_id: string
-  confidence: number
-  reason: string | null
-  status: 'pending' | 'accepted' | 'rejected'
-  created_at: string
 }

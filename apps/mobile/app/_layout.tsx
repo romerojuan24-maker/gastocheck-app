@@ -161,6 +161,7 @@ export default function Layout() {
       <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
       <Stack.Screen name="bancocheck/index"        options={{ title: 'BancoCheck' }} />
+      <Stack.Screen name="bancocheck/movimientos"  options={{ title: 'Movimientos Bancarios' }} />
       <Stack.Screen name="facturacheck/index"      options={{ title: 'FacturaCheck' }} />
       <Stack.Screen name="flujocheck/index"        options={{ title: 'FlujoCheck' }} />
       <Stack.Screen name="inventariocheck/index"   options={{ title: 'Inventario' }} />

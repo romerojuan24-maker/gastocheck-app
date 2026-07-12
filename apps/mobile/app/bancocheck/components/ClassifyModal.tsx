@@ -1,16 +1,27 @@
 import React from 'react'
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
-import type { BankTransaction } from '../types'
-import { formatCurrency } from '@gastocheck/shared'
+import type { BankTransaction, ChargeCategory, DepositCategory } from '../types'
+import { formatCurrency, BRAND } from '@gastocheck/shared'
 
-const CATEGORIES = [
-  { key: 'collection', label: '💰 Cobranza (cliente)' },
-  { key: 'expense', label: '🧾 Gasto' },
-  { key: 'supplier', label: '🏭 Pago a proveedor' },
-  { key: 'advance', label: '📤 Anticipo' },
-  { key: 'transfer', label: '🔁 Traspaso' },
-  { key: 'personal', label: '👤 Personal' },
-  { key: 'ignore', label: '🚫 Ignorar' },
+const CHARGE_CATEGORIES: { key: ChargeCategory; label: string }[] = [
+  { key: 'expense',  label: '🧾 Gasto de negocio' },
+  { key: 'supplier', label: '🏭 Proveedor' },
+  { key: 'advance',  label: '📤 Anticipo' },
+  { key: 'refund',   label: '↩️ Reembolso' },
+  { key: 'tax',      label: '🏛️ Impuesto' },
+  { key: 'bank_fee', label: '🏦 Comisión bancaria' },
+  { key: 'loan',     label: '💳 Préstamo' },
+  { key: 'other',    label: '❓ Otro' },
+]
+
+const DEPOSIT_CATEGORIES: { key: DepositCategory; label: string }[] = [
+  { key: 'client_payment',    label: '💰 Pago de cliente' },
+  { key: 'unbilled_income',   label: '📥 Ingreso no facturado' },
+  { key: 'loan',              label: '💳 Préstamo' },
+  { key: 'owner_contribution', label: '🏢 Aportación del dueño' },
+  { key: 'refund',            label: '↩️ Devolución' },
+  { key: 'internal_transfer', label: '🔁 Transferencia interna' },
+  { key: 'other',             label: '❓ Otro' },
 ]
 
 interface Props {
@@ -24,42 +35,28 @@ export function ClassifyModal({ transaction, onClose, onClassify, saving }: Prop
   if (!transaction) return null
 
   const isDeposit = (transaction.amount ?? 0) >= 0
+  const categories = isDeposit ? DEPOSIT_CATEGORIES : CHARGE_CATEGORIES
 
   return (
     <Modal visible transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <Text style={styles.title}>Clasificar movimiento</Text>
-
-          <Text style={styles.description} numberOfLines={1}>
-            {transaction.description || 'Sin descripción'}
-          </Text>
-
-          <Text style={[
-            styles.amount,
-            isDeposit ? styles.amountPositive : styles.amountNegative
-          ]}>
+          <Text style={styles.title}>Explicar movimiento</Text>
+          <Text style={styles.description} numberOfLines={2}>{transaction.description || 'Sin descripción'}</Text>
+          <Text style={[styles.amount, { color: isDeposit ? BRAND.green : BRAND.red }]}>
             {isDeposit ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount ?? 0))}
           </Text>
+          <Text style={styles.hint}>{isDeposit ? '¿De dónde vino este depósito?' : '¿A qué corresponde este cargo?'}</Text>
 
           <ScrollView style={styles.categories}>
-            {CATEGORIES.map(cat => (
-              <TouchableOpacity
-                key={cat.key}
-                disabled={saving}
-                onPress={() => onClassify(cat.key)}
-                style={styles.categoryButton}
-              >
+            {categories.map(cat => (
+              <TouchableOpacity key={cat.key} disabled={saving} onPress={() => onClassify(cat.key)} style={styles.categoryButton}>
                 <Text style={styles.categoryLabel}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <TouchableOpacity
-            disabled={saving}
-            onPress={onClose}
-            style={styles.cancelButton}
-          >
+          <TouchableOpacity disabled={saving} onPress={onClose} style={styles.cancelButton}>
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
@@ -69,63 +66,15 @@ export function ClassifyModal({ transaction, onClose, onClassify, saving }: Prop
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modal: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  title: {
-    color: '#f1f5f9',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  description: {
-    color: '#94a3b8',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  amount: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  amountPositive: {
-    color: '#00a650',
-  },
-  amountNegative: {
-    color: '#ff4757',
-  },
-  categories: {
-    marginBottom: 12,
-    maxHeight: 300,
-  },
-  categoryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  categoryLabel: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  cancelButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  cancelText: {
-    color: '#94a3b8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'center', alignItems: 'center' },
+  modal: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '90%', maxHeight: '80%' },
+  title: { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 10 },
+  description: { color: '#607D8B', fontSize: 13, marginBottom: 6 },
+  amount: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+  hint: { color: '#90A4AE', fontSize: 12, marginBottom: 14 },
+  categories: { marginBottom: 12, maxHeight: 320 },
+  categoryButton: { paddingVertical: 13, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F0F4F8' },
+  categoryLabel: { color: BRAND.navy, fontSize: 14, fontWeight: '600' },
+  cancelButton: { paddingVertical: 12, alignItems: 'center' },
+  cancelText: { color: '#90A4AE', fontSize: 14, fontWeight: '700' },
 })
