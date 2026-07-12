@@ -113,6 +113,7 @@ export default function BancoCheckPage() {
           <h1 className="text-3xl font-black text-slate-900">🏦 BancoCheck</h1>
           <p className="text-slate-500 mt-1">Reconciliación bancaria inteligente</p>
           <div className="flex gap-3 mt-2">
+            <a href="/bancocheck/conciliacion" className="text-sm font-semibold text-purple-600 hover:text-purple-800">🔗 Conciliación cruzada →</a>
             <a href="/bancocheck/contador" className="text-sm font-semibold text-blue-600 hover:text-blue-800">📊 Vista contador →</a>
             <a href="/bancocheck/analisis" className="text-sm font-semibold text-emerald-600 hover:text-emerald-800">🤖 Análisis IA de convergencias →</a>
           </div>

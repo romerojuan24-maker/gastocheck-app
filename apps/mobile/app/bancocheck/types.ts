@@ -30,7 +30,8 @@ export type BankTransactionStatus =
 
 // Cargos (dinero que sale) — regla de negocio del módulo.
 export type ChargeCategory =
-  | 'expense' | 'supplier' | 'advance' | 'refund' | 'tax' | 'bank_fee' | 'loan' | 'personal' | 'other'
+  | 'expense' | 'supplier' | 'advance' | 'refund' | 'tax' | 'bank_fee' | 'loan'
+  | 'internal_transfer' | 'personal' | 'other'
 
 // Depósitos (dinero que entra).
 export type DepositCategory =
@@ -58,6 +59,7 @@ export interface BankTransaction {
   related_receipt_id: string | null
   related_invoice_id: string | null
   related_advance_id: string | null
+  linked_transaction_id: string | null
   imported_from: string
   import_batch_id: string | null
   created_at: string
@@ -84,7 +86,7 @@ export interface BankMatchSuggestion {
   id: string
   company_id: string
   transaction_id: string
-  match_type: 'receipt' | 'invoice' | 'advance' | 'client' | 'supplier'
+  match_type: 'receipt' | 'invoice' | 'advance' | 'transfer'
   match_id: string
   confidence: number
   reason: string | null
