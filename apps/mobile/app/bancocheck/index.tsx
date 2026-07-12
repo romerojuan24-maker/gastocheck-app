@@ -131,6 +131,10 @@ export default function BancoCheckHome() {
           </View>
         )}
 
+        <NavCard icon="🏦" title="Cuentas Bancarias" sub="Saldo y movimientos por cuenta, mes a mes"
+          onPress={() => router.push('/bancocheck/cuentas' as any)} />
+        <NavCard icon="🔗" title="Conciliación de cuenta" sub="Saldo según banco vs. saldo del sistema, por periodo"
+          onPress={() => router.push('/bancocheck/conciliacion' as any)} />
         <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
           onPress={() => router.push('/bancocheck/importar' as any)} />
         <NavCard icon="👤" title="Movimientos personales" sub="Excluidos de reportes de negocio"

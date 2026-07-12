@@ -152,6 +152,20 @@ const CATEGORY_ACCOUNT: Record<string, { code: string; name: string }> = {
 }
 
 const BANK_ACCOUNT_CODE = '1010' // cuenta contable genérica de bancos
+const IVA_ACREDITABLE_CODE = '1180'
+const IVA_RATE = 0.16
+
+/**
+ * Los cargos de banco (comisión por manejo de cuenta, SPEI, saldo
+ * insuficiente, etc.) llegan del banco como UN solo monto con IVA
+ * incluido — el banco no separa las líneas. Aquí sí se separan para la
+ * póliza: comisión neta + IVA acreditable, ambas suman el cargo total.
+ */
+function splitBankFeeIVA(abs: number) {
+  const neto = Math.round((abs / (1 + IVA_RATE)) * 100) / 100
+  const iva = Math.round((abs - neto) * 100) / 100
+  return { neto, iva }
+}
 
 /**
  * Genera una póliza de CONCILIACIÓN a partir de movimientos bancarios ya
@@ -206,6 +220,23 @@ export function generatePolizaFromBankMatches(
       haber: isDeposit ? 0 : abs,
       referencia: t.id.slice(0, 8),
     })
+
+    if (t.category === 'bank_fee' && !isDeposit) {
+      // Comisión bancaria: separar neto + IVA acreditable (regla del
+      // usuario: "IVA, cargos por SPEI, comisiones por saldo insuficiente").
+      const { neto, iva } = splitBankFeeIVA(abs)
+      poliza.lineas.push({
+        numero: n++, cuenta: counterpart.code, descripcion: `${counterpart.name} (neto) — ${t.description}`,
+        debe: neto, haber: 0, referencia: t.id.slice(0, 8),
+      })
+      if (iva > 0) {
+        poliza.lineas.push({
+          numero: n++, cuenta: IVA_ACREDITABLE_CODE, descripcion: `IVA acreditable — ${t.description}`,
+          debe: iva, haber: 0, referencia: t.id.slice(0, 8),
+        })
+      }
+      continue
+    }
 
     // Línea contraparte
     poliza.lineas.push({
