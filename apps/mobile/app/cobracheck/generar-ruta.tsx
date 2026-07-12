@@ -129,7 +129,16 @@ export default function GenerarRutaScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
       <Text style={styles.fieldLabel}>Cobrador</Text>
       {cobradores.length === 0 ? (
-        <Text style={styles.emptyHint}>Sin cobradores dados de alta — invítalos desde Equipo.</Text>
+        <View style={styles.noCobradorCard}>
+          <Text style={{ fontSize: 28, marginBottom: 6 }}>🎯</Text>
+          <Text style={styles.noCobradorTitle}>Aún no tienes cobradores</Text>
+          <Text style={styles.noCobradorSub}>
+            Para asignar esta ruta necesitas invitar al menos un cobrador a tu empresa.
+          </Text>
+          <TouchableOpacity style={styles.noCobradorBtn} onPress={() => router.push('/equipo' as any)}>
+            <Text style={styles.noCobradorBtnText}>+ Invitar Cobrador</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <View style={{ gap: 8, marginBottom: 8 }}>
           {cobradores.map(c => (
@@ -189,6 +198,12 @@ export default function GenerarRutaScreen() {
 const styles = StyleSheet.create({
   fieldLabel: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 14 },
   emptyHint: { fontSize: 13, color: '#90A4AE', paddingVertical: 8 },
+
+  noCobradorCard: { backgroundColor: '#fff', borderRadius: 16, padding: 22, alignItems: 'center', borderWidth: 1.5, borderColor: '#E0E0E0', borderStyle: 'dashed' },
+  noCobradorTitle: { fontSize: 15, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  noCobradorSub: { fontSize: 12, color: '#90A4AE', textAlign: 'center', lineHeight: 17, marginBottom: 14 },
+  noCobradorBtn: { backgroundColor: BRAND.cobra, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 20 },
+  noCobradorBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   optionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 13, borderWidth: 1.5, borderColor: '#E0E0E0' },
   optionRowActive: { borderColor: BRAND.cobra, backgroundColor: BRAND.cobra + '10' },
