@@ -206,9 +206,8 @@ export default function CobraCheckHome() {
 
   const COBR_TABS = [
     { icon: '🗺️', label: 'Mi Ruta',   badge: 0 },
-    { icon: '⏰',  label: 'Historial', badge: 0 },
-    { icon: '💰',  label: 'Depósitos', badge: 0 },
-    { icon: '👤',  label: 'Perfil',    badge: 0 },
+    { icon: '📊', label: 'Reportes',  badge: 0 },
+    { icon: '👤', label: 'Perfil',    badge: 0 },
   ];
 
   if (isCobrador && !isAdmin) {
@@ -219,12 +218,7 @@ export default function CobraCheckHome() {
         <View style={{ flex: 1 }}>
           {cobrTab === 0 && (
             <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Mi Ruta de Hoy</Text>
-
-              <View style={s.kpiCard}>
-                <Text style={s.kpiValue}>{formatCurrency(totalCartera)}</Text>
-                <Text style={s.kpiLabel}>por cobrar{clientesEnRiesgo > 0 ? ` · ${clientesEnRiesgo} en riesgo` : ''}</Text>
-              </View>
+              <Text style={s.tabTitle}>Asignación de Cobranza</Text>
 
               <TouchableOpacity
                 style={[s.heroBtn, { backgroundColor: COBRA_COLOR }]}
@@ -232,20 +226,9 @@ export default function CobraCheckHome() {
                 activeOpacity={0.88}
               >
                 <Text style={{ fontSize: 52 }}>🗺️</Text>
-                <Text style={s.heroBtnTitle}>Iniciar Mi Ruta</Text>
-                <Text style={s.heroBtnSub}>Registra recorrido y movimientos de cobranza</Text>
+                <Text style={s.heroBtnTitle}>Ver Mi Ruta de Hoy</Text>
+                <Text style={s.heroBtnSub}>Clientes asignados, dirección, GPS y captura de cobranza</Text>
               </TouchableOpacity>
-
-              <View style={s.quickGrid}>
-                <QuickBtn icon="💰" title="Cartera Total" value={formatCurrency(totalCartera)}
-                  onPress={() => router.push('/cobracheck/cartera-total' as any)} />
-                <QuickBtn icon="📄" title="Comprobantes" value={String(facturasVencidas)}
-                  onPress={() => router.push('/cobracheck/comprobantes' as any)} />
-                <QuickBtn icon="💳" title="Registrar Pago" value="Nuevo"
-                  onPress={() => router.push('/cobracheck/pagos' as any)} />
-                <QuickBtn icon="☎️" title="Prioritarios" value="Ver"
-                  onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
-              </View>
 
               <NavCard icon="👥" title="Directorio de Clientes"
                 sub="Consulta datos, horarios y saldos de clientes"
@@ -254,26 +237,19 @@ export default function CobraCheckHome() {
           )}
           {cobrTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Historial</Text>
-              <BigCard icon="📋" title="Movimientos de Hoy"
-                sub="Cobros, promesas y no pagos registrados"
-                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/historial' as any)} />
-              <NavCard icon="📅" title="Tareas del Día"
-                sub="Clientes prioritarios asignados"
-                onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
+              <Text style={s.tabTitle}>Reportes</Text>
+              <BigCard icon="💰" title="Cobranza Efectiva"
+                sub="Lo que has cobrado, hoy/semana/mes"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/mis-reportes' as any)} />
+              <NavCard icon="🔁" title="No Cobranza y Reasignación"
+                sub="Clientes que no pagaron — reprograma la visita"
+                onPress={() => router.push('/cobracheck/mis-reportes' as any)} />
+              <NavCard icon="🏦" title="Depósitos con Relación"
+                sub="Bancarios, efectivo o documentos — vs. lo cobrado"
+                onPress={() => router.push('/cobracheck/depositos' as any)} />
             </ScrollView>
           )}
-          {cobrTab === 2 && (
-            <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Mis Depósitos</Text>
-              <EmptyComingSoon
-                icon="💰"
-                title="Fichas de Depósito"
-                sub="Próximamente: registra depósitos de efectivo y documentos con foto del comprobante"
-              />
-            </ScrollView>
-          )}
-          {cobrTab === 3 && <ProfileTab />}
+          {cobrTab === 2 && <ProfileTab />}
         </View>
         <BottomBar tabs={COBR_TABS} active={cobrTab} onSelect={setCobrTab} color={COBRA_COLOR} />
       </View>

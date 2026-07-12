@@ -22,6 +22,8 @@ interface ClientCandidate {
   id: string;
   name: string;
   address: string | null;
+  payer_name: string | null;
+  visit_schedule: string | null;
   current_balance: number;
   risk_score: number;
 }
@@ -61,7 +63,7 @@ export default function GenerarRutaScreen() {
       })));
 
       const { data: cls } = await supabase.from('cobra_clients')
-        .select('id, name, address, current_balance, risk_score')
+        .select('id, name, address, payer_name, visit_schedule, current_balance, risk_score')
         .eq('company_id', m.company_id).eq('status', 'active')
         .order('risk_score', { ascending: false });
       setClients(cls ?? []);
@@ -165,6 +167,11 @@ export default function GenerarRutaScreen() {
               <Text style={styles.clientName}>{c.name}</Text>
               {c.address ? <Text style={styles.clientAddress} numberOfLines={1}>{c.address}</Text> : (
                 <Text style={styles.clientAddressMissing}>Sin dirección registrada</Text>
+              )}
+              {(c.payer_name || c.visit_schedule) && (
+                <Text style={styles.clientAddress} numberOfLines={1}>
+                  {[c.payer_name, c.visit_schedule].filter(Boolean).join(' · ')}
+                </Text>
               )}
             </View>
             <Text style={styles.clientBalance}>{formatCurrency(c.current_balance)}</Text>

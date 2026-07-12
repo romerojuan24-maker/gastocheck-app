@@ -14,6 +14,11 @@ export interface CobraClient {
   risk_score:        number          // 0-100
   status:            'active' | 'inactive' | 'blacklist'  // DB usa 'blacklist', no 'suspended'
   last_payment_date?: string
+  address?:          string
+  lat?:              number
+  lng?:              number
+  payer_name?:       string          // quién paga en sitio, si es distinto al cliente
+  visit_schedule?:   string          // horario preferido de visita (ej. "9:00-11:00")
   created_at:        string
   updated_at:        string
 }

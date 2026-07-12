@@ -9,9 +9,29 @@ import { getActiveMembership } from '../../lib/membership';
 interface Movement {
   id: string;
   client_id: string;
+  user_id: string;
   movement_type: 'collected' | 'promise' | 'not_paid';
   collected_amount: number | null;
   route_point_ts: string;
+}
+
+interface CobradorCommission {
+  user_id: string;
+  name: string;
+  rate: number | null;
+  total_collected: number;
+  commission: number;
+}
+
+interface RouteRow {
+  id: string;
+  actor_id: string;
+  actor_name: string;
+  assigned_date: string;
+  status: string;
+  clients_assigned: string[];
+  clients_visited: number;
+  payments_collected: number;
 }
 
 type Period = 'day' | 'month';
@@ -29,6 +49,10 @@ export default function ReportesCobranzaScreen() {
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [period, setPeriod]       = useState<Period>('day');
   const [showByClient, setShowByClient] = useState(false);
+  const [showCommissions, setShowCommissions] = useState(false);
+  const [showRoutes, setShowRoutes] = useState(false);
+  const [cobradores, setCobradores] = useState<CobradorCommission[]>([]);
+  const [routes, setRoutes] = useState<RouteRow[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -41,7 +65,7 @@ export default function ReportesCobranzaScreen() {
       since.setMonth(since.getMonth() - 2);
 
       const { data: movs } = await supabase.from('cobra_movements')
-        .select('id, client_id, movement_type, collected_amount, route_point_ts')
+        .select('id, client_id, user_id, movement_type, collected_amount, route_point_ts')
         .eq('company_id', m.company_id)
         .gte('route_point_ts', since.toISOString())
         .eq('movement_type', 'collected')
@@ -56,6 +80,45 @@ export default function ReportesCobranzaScreen() {
         (clients ?? []).forEach((c: any) => { map[c.id] = c.name; });
         setClientNames(map);
       }
+
+      // Comisiones — Admin define commission_rate por cobrador al invitar (Equipo)
+      const { data: members } = await supabase.from('company_members')
+        .select('user_id, commission_rate, profiles:user_id(full_name)')
+        .eq('company_id', m.company_id).eq('status', 'active').eq('role', 'collector');
+      const collectedByUser = new Map<string, number>();
+      (movs ?? []).forEach((mv: any) => {
+        collectedByUser.set(mv.user_id, (collectedByUser.get(mv.user_id) ?? 0) + (mv.collected_amount ?? 0));
+      });
+      setCobradores((members ?? []).map((mem: any) => {
+        const total = collectedByUser.get(mem.user_id) ?? 0;
+        const rate = mem.commission_rate != null ? Number(mem.commission_rate) : null;
+        return {
+          user_id: mem.user_id,
+          name: mem.profiles?.full_name ?? 'Cobrador',
+          rate,
+          total_collected: total,
+          commission: rate != null ? total * (rate / 100) : 0,
+        };
+      }));
+
+      // Reporte de Ruta
+      const { data: routeRows } = await supabase.from('cobra_routes')
+        .select('id, actor_id, assigned_date, status, clients_assigned, clients_visited, payments_collected')
+        .eq('company_id', m.company_id)
+        .gte('assigned_date', since.toISOString().slice(0, 10))
+        .order('assigned_date', { ascending: false })
+        .limit(50);
+      const actorIds = [...new Set((routeRows ?? []).map((r: any) => r.actor_id))];
+      let actorNames: Record<string, string> = {};
+      if (actorIds.length > 0) {
+        const { data: actors } = await supabase.from('company_members')
+          .select('user_id, profiles:user_id(full_name)').eq('company_id', m.company_id).in('user_id', actorIds);
+        actorNames = Object.fromEntries((actors ?? []).map((a: any) => [a.user_id, a.profiles?.full_name ?? 'Cobrador']));
+      }
+      setRoutes((routeRows ?? []).map((r: any) => ({
+        ...r, actor_name: actorNames[r.actor_id] ?? 'Cobrador',
+      })));
+
       setLoading(false);
     })();
   }, []);
@@ -127,14 +190,49 @@ export default function ReportesCobranzaScreen() {
           ))
       )}
 
-      {/* Comisiones — pendiente definir regla */}
-      <View style={styles.placeholderCard}>
-        <Text style={styles.placeholderIcon}>📊</Text>
-        <Text style={styles.placeholderTitle}>Comisiones Cobrador — Semana/Mes</Text>
-        <Text style={styles.placeholderSub}>
-          Próximamente — falta definir la regla de comisión (% sobre cobrado, monto fijo, u otra).
-        </Text>
-      </View>
+      {/* Comisiones Cobrador — % definido por Admin en Equipo */}
+      <TouchableOpacity style={styles.sectionToggle} onPress={() => setShowCommissions(v => !v)}>
+        <Text style={styles.sectionToggleText}>💰 Comisiones Cobrador (últimos 2 meses)</Text>
+        <Text style={styles.sectionToggleArrow}>{showCommissions ? '▾' : '▸'}</Text>
+      </TouchableOpacity>
+      {showCommissions && (
+        cobradores.length === 0
+          ? <Text style={styles.empty}>Sin cobradores dados de alta.</Text>
+          : cobradores.map(c => (
+            <View key={c.user_id} style={styles.clientRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clientName}>{c.name}</Text>
+                <Text style={styles.clientMeta}>
+                  {c.rate != null ? `${c.rate}% sobre ${formatCurrency(c.total_collected)}` : 'Sin % de comisión definido (Equipo)'}
+                </Text>
+              </View>
+              <Text style={styles.clientAmount}>{formatCurrency(c.commission)}</Text>
+            </View>
+          ))
+      )}
+
+      {/* Reporte de Ruta */}
+      <TouchableOpacity style={styles.sectionToggle} onPress={() => setShowRoutes(v => !v)}>
+        <Text style={styles.sectionToggleText}>🗺️ Reporte de Ruta</Text>
+        <Text style={styles.sectionToggleArrow}>{showRoutes ? '▾' : '▸'}</Text>
+      </TouchableOpacity>
+      {showRoutes && (
+        routes.length === 0
+          ? <Text style={styles.empty}>Sin rutas generadas.</Text>
+          : routes.map(r => (
+            <View key={r.id} style={styles.clientRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clientName}>{r.actor_name} — {r.assigned_date}</Text>
+                <Text style={styles.clientMeta}>
+                  {r.status} · {r.clients_visited}/{r.clients_assigned?.length ?? 0} visitados
+                </Text>
+              </View>
+              <Text style={styles.clientAmount}>{formatCurrency(r.payments_collected)}</Text>
+            </View>
+          ))
+      )}
+
+      {/* Comisiones Ventas — pendiente definir regla */}
       <View style={styles.placeholderCard}>
         <Text style={styles.placeholderIcon}>📈</Text>
         <Text style={styles.placeholderTitle}>Comisiones Ventas — Semana/Mes</Text>

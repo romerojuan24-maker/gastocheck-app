@@ -17,6 +17,8 @@ export default function AltaClienteScreen() {
   const [email,   setEmail]   = useState('');
   const [phone,   setPhone]   = useState('');
   const [address, setAddress] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [visitSchedule, setVisitSchedule] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
   const [coords,  setCoords]  = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
@@ -58,6 +60,8 @@ export default function AltaClienteScreen() {
         email:        email.trim() || null,
         phone:        phone.trim() || null,
         address:      address.trim() || null,
+        payer_name:   payerName.trim() || null,
+        visit_schedule: visitSchedule.trim() || null,
         lat:          coords?.lat ?? null,
         lng:          coords?.lng ?? null,
         credit_limit: creditLimit ? parseFloat(creditLimit) : null,
@@ -102,6 +106,12 @@ export default function AltaClienteScreen() {
           </Text>
         )}
       </TouchableOpacity>
+
+      <Text style={styles.fieldLabel}>Quién paga (si es distinto al cliente)</Text>
+      <TextInput style={styles.input} value={payerName} onChangeText={setPayerName} placeholder="Nombre de quien recibe al cobrador" placeholderTextColor="#B0BEC5" />
+
+      <Text style={styles.fieldLabel}>Horario preferido de visita</Text>
+      <TextInput style={styles.input} value={visitSchedule} onChangeText={setVisitSchedule} placeholder="Ej: 9:00–11:00" placeholderTextColor="#B0BEC5" />
 
       <Text style={styles.fieldLabel}>Límite de crédito (opcional)</Text>
       <TextInput style={styles.input} value={creditLimit} onChangeText={setCreditLimit} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />

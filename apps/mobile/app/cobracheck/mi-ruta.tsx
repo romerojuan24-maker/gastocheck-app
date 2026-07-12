@@ -3,12 +3,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, TextInput, Modal, FlatList,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { BRAND, type CobraClient, type CobraInvoice } from '@gastocheck/shared';
+import { BRAND, type CobraClient, type CobraInvoice, type CobraRoute } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
 import {
@@ -73,6 +73,11 @@ export default function MiRutaCobraScreen() {
   const [invoices, setInvoices] = useState<CobraInvoice[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
 
+  // ── Ruta asignada por el Contador (Operaciones > Generar Ruta) ──────────
+  const [assignedRoute,  setAssignedRoute]  = useState<CobraRoute | null>(null);
+  const [routeClients,   setRouteClients]   = useState<CobraClient[]>([]);
+  const [loadingRoute,   setLoadingRoute]   = useState(true);
+
   // ── Init ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -119,6 +124,41 @@ export default function MiRutaCobraScreen() {
       }
     })();
   }, [companyId]);
+
+  // ── Cargar ruta asignada del día (Contador > Operaciones > Generar Ruta) ──
+
+  useEffect(() => {
+    if (!companyId || !userId) return;
+    (async () => {
+      setLoadingRoute(true);
+      try {
+        const { data: route } = await supabase
+          .from('cobra_routes')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('actor_id', userId)
+          .eq('assigned_date', todayStr())
+          .maybeSingle();
+
+        if (route) {
+          setAssignedRoute(route as CobraRoute);
+          const ids: string[] = (route as any).clients_assigned ?? [];
+          if (ids.length > 0) {
+            const { data: cls } = await supabase.from('cobra_clients').select('*').in('id', ids);
+            const byId = new Map((cls ?? []).map((c: any) => [c.id, c]));
+            setRouteClients(ids.map(id => byId.get(id)).filter(Boolean) as CobraClient[]);
+          }
+        } else {
+          setAssignedRoute(null);
+          setRouteClients([]);
+        }
+      } catch (e) {
+        console.error('Error cargando ruta asignada:', e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoadingRoute(false);
+      }
+    })();
+  }, [companyId, userId]);
 
   // ── Cargar facturas de cliente ──────────────────────────────────────────
 
@@ -178,6 +218,11 @@ export default function MiRutaCobraScreen() {
     }
     setBusy(false);
     setTracking(true);
+
+    if (assignedRoute && assignedRoute.status === 'planned') {
+      await supabase.from('cobra_routes').update({ status: 'in_progress' }).eq('id', assignedRoute.id);
+      setAssignedRoute({ ...assignedRoute, status: 'in_progress' });
+    }
   }
 
   async function handleStopTracking() {
@@ -190,6 +235,13 @@ export default function MiRutaCobraScreen() {
     }
     setBusy(false);
     setTracking(false);
+
+    if (assignedRoute && assignedRoute.status === 'in_progress') {
+      await supabase.from('cobra_routes')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', assignedRoute.id);
+      setAssignedRoute({ ...assignedRoute, status: 'completed' });
+    }
   }
 
   // ── Flujo de captura de movimiento ──────────────────────────────────────
@@ -207,6 +259,18 @@ export default function MiRutaCobraScreen() {
     setSelectedClient(client);
     loadInvoicesForClient(client.id);
     setCaptureStep('invoice');
+  }
+
+  function visitRouteClient(client: CobraClient) {
+    if (!tracking) {
+      Alert.alert(
+        'Inicia tu ruta',
+        'Activa "Iniciar ruta" primero para que tu recorrido quede registrado.',
+      );
+      return;
+    }
+    handleSelectClient(client);
+    setShowCaptureModal(true);
   }
 
   function handleSelectInvoice(invoice: CobraInvoice) {
@@ -269,7 +333,22 @@ export default function MiRutaCobraScreen() {
         photo_uri:         photoUri || undefined,
         notes:             movementNotes || undefined,
       });
+      const isNewClientToday = !movements.some(m => m.client_id === selectedClient.id);
       setMovements(updated);
+
+      // Refleja el avance en la ruta asignada, para que el Reporte de Ruta
+      // del Contador tenga datos reales (no solo lo que el cobrador ve).
+      if (assignedRoute) {
+        const patch: Record<string, number> = {};
+        if (isNewClientToday) patch.clients_visited = assignedRoute.clients_visited + 1;
+        if (movementType === 'collected') patch.payments_collected = assignedRoute.payments_collected + (parseFloat(collectedAmount) || 0);
+        if (movementType === 'promise') patch.promises_made = assignedRoute.promises_made + 1;
+        if (movementType === 'not_paid') patch.rejections = assignedRoute.rejections + 1;
+        if (Object.keys(patch).length > 0) {
+          await supabase.from('cobra_routes').update(patch).eq('id', assignedRoute.id);
+          setAssignedRoute({ ...assignedRoute, ...patch });
+        }
+      }
 
       // Resetear formulario y cerrar
       setShowCaptureModal(false);
@@ -363,6 +442,50 @@ export default function MiRutaCobraScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+
+        {/* Ruta asignada por el Contador */}
+        {loadingRoute ? null : routeClients.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>
+              Ruta de hoy ({routeClients.length} cliente{routeClients.length !== 1 ? 's' : ''})
+              {assignedRoute?.route_priority ? ` · prioridad ${assignedRoute.route_priority}` : ''}
+            </Text>
+            {routeClients.map((c, i) => {
+              const visited = movements.some(m => m.client_id === c.id);
+              return (
+                <TouchableOpacity key={c.id} style={styles.routeClientRow} onPress={() => visitRouteClient(c)}>
+                  <View style={styles.routeClientNum}>
+                    <Text style={styles.routeClientNumText}>{visited ? '✓' : i + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.routeClientName}>{c.name}</Text>
+                    {c.address ? <Text style={styles.routeClientMeta} numberOfLines={1}>{c.address}</Text> : null}
+                    {(c.payer_name || c.visit_schedule) && (
+                      <Text style={styles.routeClientMeta} numberOfLines={1}>
+                        {[c.payer_name, c.visit_schedule].filter(Boolean).join(' · ')}
+                      </Text>
+                    )}
+                  </View>
+                  {c.lat != null && c.lng != null && (
+                    <TouchableOpacity
+                      style={styles.routeGpsBtn}
+                      onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`)}
+                    >
+                      <Text style={{ fontSize: 16 }}>📍</Text>
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Ruta de hoy</Text>
+            <Text style={styles.syncInfo}>
+              Sin ruta asignada — puedes seguir registrando cobros manualmente con "Registrar cobro" abajo.
+            </Text>
+          </View>
+        )}
 
         {/* Controles principales */}
         <View style={styles.card}>
@@ -529,13 +652,16 @@ export default function MiRutaCobraScreen() {
               {captureStep === 'client' && (
                 <>
                   <Text style={styles.modalTitle}>Selecciona cliente</Text>
+                  {routeClients.length > 0 && (
+                    <Text style={styles.modalSub}>Mostrando tu ruta asignada de hoy</Text>
+                  )}
                   {loadingClients ? (
                     <ActivityIndicator size="large" color={BRAND.navy} style={{ marginVertical: 20 }} />
-                  ) : clients.length === 0 ? (
+                  ) : (routeClients.length > 0 ? routeClients : clients).length === 0 ? (
                     <Text style={styles.modalSub}>No hay clientes disponibles</Text>
                   ) : (
                     <FlatList
-                      data={clients}
+                      data={routeClients.length > 0 ? routeClients : clients}
                       keyExtractor={c => c.id}
                       scrollEnabled={false}
                       renderItem={({ item }) => (
@@ -786,6 +912,12 @@ const styles = StyleSheet.create({
 
   // Sync
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
+  routeClientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', gap: 10 },
+  routeClientNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#182535', alignItems: 'center', justifyContent: 'center' },
+  routeClientNumText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  routeClientName: { fontSize: 13, fontWeight: '700', color: '#182535' },
+  routeClientMeta: { fontSize: 11, color: '#90A4AE', marginTop: 1 },
+  routeGpsBtn: { padding: 6 },
   syncInfo:     { fontSize: 13, color: '#607D8B', lineHeight: 18 },
   syncMsg:      { marginTop: 8, fontSize: 13, color: BRAND.green, fontWeight: '600' },
 

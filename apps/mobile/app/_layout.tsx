@@ -181,6 +181,8 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/reportes"         options={{ title: 'Reportes de Cobranza' }} />
       <Stack.Screen name="cobracheck/alta-cliente"     options={{ title: 'Alta de Cliente' }} />
       <Stack.Screen name="cobracheck/generar-ruta"     options={{ title: 'Generar Ruta del Día' }} />
+      <Stack.Screen name="cobracheck/mis-reportes"     options={{ title: 'Mis Reportes' }} />
+      <Stack.Screen name="cobracheck/depositos"        options={{ title: 'Depósitos' }} />
     </Stack>
     </ErrorBoundary>
   );
