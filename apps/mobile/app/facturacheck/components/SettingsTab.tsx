@@ -1,5 +1,6 @@
 import React from 'react'
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
+import { useRouter } from 'expo-router'
 import { formatCurrency } from '@gastocheck/shared'
 import { useCFDICredit, usePacProviderConfig } from '../hooks'
 
@@ -25,6 +26,7 @@ const PLAN_LABEL: Record<string, string> = {
 }
 
 export function SettingsTab({ companyId, color }: Props) {
+  const router = useRouter()
   const { credit, loading, refetch } = useCFDICredit(companyId)
   const { config: pacConfig, loading: pacLoading } = usePacProviderConfig(companyId)
 
@@ -97,7 +99,7 @@ export function SettingsTab({ companyId, color }: Props) {
         </View>
         <TouchableOpacity
           style={[styles.configButton, { backgroundColor: color }]}
-          onPress={() => comingSoon('La configuración de PAC')}
+          onPress={() => router.push('/facturacheck/pac-config' as any)}
         >
           <Text style={styles.configButtonText}>{pacConfig ? 'Actualizar PAC' : 'Configurar PAC'}</Text>
         </TouchableOpacity>

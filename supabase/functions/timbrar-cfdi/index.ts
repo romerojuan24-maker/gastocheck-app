@@ -164,7 +164,7 @@ Deno.serve(async (httpReq) => {
       .eq('user_id', caller.id)
       .eq('status', 'active')
       .maybeSingle()
-    if (!member || !['owner', 'admin', 'accountant'].includes(member.role)) {
+    if (!member || !['owner', 'admin', 'accountant', 'supervisor', 'contador_general'].includes(member.role)) {
       return Response.json({ error: 'Sin permisos para timbrar en esta empresa' }, { status: 403, headers: CORS })
     }
 

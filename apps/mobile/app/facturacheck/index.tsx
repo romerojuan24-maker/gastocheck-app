@@ -222,6 +222,14 @@ export default function FacturaCheckHome() {
   function CfdisTab() {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[s.newCfdiBtn, { backgroundColor: FACTURA_COLOR }]}
+          onPress={() => router.push('/facturacheck/emitir' as any)}
+          activeOpacity={0.88}
+        >
+          <Text style={s.newCfdiBtnText}>+ Nueva Factura (Timbrar CFDI)</Text>
+        </TouchableOpacity>
+
         {/* KPIs */}
         <View style={s.kpiRow}>
           <View style={s.kpi}>
@@ -353,6 +361,9 @@ const s = StyleSheet.create({
 
   pill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   pillText: { fontSize: 12, fontWeight: '600' },
+
+  newCfdiBtn:     { marginHorizontal: 16, marginTop: 16, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  newCfdiBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
   kpiRow:   { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 16, gap: 8, marginBottom: 8 },
   kpi:      { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2 },
