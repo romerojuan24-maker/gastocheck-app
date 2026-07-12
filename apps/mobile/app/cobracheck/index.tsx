@@ -286,9 +286,6 @@ export default function CobraCheckHome() {
               <BigCard icon="🧾" title="Alta de Facturas"
                 sub="Por FacturaCheck (CFDI) o captura manual"
                 bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
-              <NavCard icon="🧾" title="Generar en FacturaCheck"
-                sub="Factura con CFDI timbrado"
-                onPress={() => router.push('/facturacheck' as any)} />
 
               <NavCard icon="📇" title="Relación CxC"
                 sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
@@ -424,9 +421,6 @@ export default function CobraCheckHome() {
             <NavCard icon="🧾" title="Alta de Facturas"
               sub="Por FacturaCheck (CFDI) o captura manual"
               onPress={() => router.push('/cobracheck/factura-manual' as any)} />
-            <NavCard icon="🧾" title="Generar en FacturaCheck"
-              sub="Factura con CFDI timbrado"
-              onPress={() => router.push('/facturacheck' as any)} />
             <NavCard icon="👥" title="Clientes"
               sub="Directorio, saldos y condiciones de crédito"
               onPress={() => router.push('/cobracheck/clientes' as any)} />
