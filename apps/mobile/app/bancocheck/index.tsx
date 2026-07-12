@@ -1,25 +1,45 @@
 // BancoCheck — home. Control operativo de movimientos bancarios YA
 // ocurridos (no es banco digital, no mueve dinero). Responde: ¿qué
-// movimientos están explicados y cuáles no?
+// movimientos están explicados y cuáles no? Mismo shell (TopBar +
+// RolePill + tabs con barra inferior) que el resto de CHECK SUITE.
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
+import { CompanySwitcher } from '../shared/components/CompanySwitcher';
 import { useBancoAccounts, useBancoTransactions, useBancoKPIs } from './hooks';
+import BancoCheckCuentas from './cuentas';
+import BancoCheckConciliacion from './conciliacion';
 
 const ALLOWED_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
 const BANCO_COLOR = BRAND.blue;
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: '👑 Admin', admin: '🔑 Admin', accountant: '📊 Contador',
+  contador_general: '📊 Contador', supervisor: '📊 Supervisor',
+};
+
+const TABS = [
+  { icon: '📊', label: 'Resumen' },
+  { icon: '🏦', label: 'Cuentas' },
+  { icon: '🔗', label: 'Concilia' },
+  { icon: '🏢', label: 'Empresa' },
+  { icon: '👤', label: 'Perfil' },
+];
 
 export default function BancoCheckHome() {
   const router = useRouter();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [tab, setTab] = useState(0);
 
   useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -29,11 +49,15 @@ export default function BancoCheckHome() {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) { setLoading(false); return; }
+      setUserEmail(user.email ?? null);
 
       const member = await getActiveMembership(user.id);
       if (!member) { setLoading(false); return; }
       setUserRole(member.role);
       setCompanyId(member.company_id);
+
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+      setUserName((profile as any)?.full_name ?? null);
 
       const { data: co } = await supabase.from('companies').select('name').eq('id', member.company_id).maybeSingle();
       setCompanyName((co as any)?.name ?? null);
@@ -44,7 +68,7 @@ export default function BancoCheckHome() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); setTab(0); }, [load]));
 
   const { accounts, totalBalance, loading: loadingAccounts } = useBancoAccounts(companyId ?? '');
   const { transactions, loading: loadingTx } = useBancoTransactions(companyId ?? '');
@@ -71,6 +95,13 @@ export default function BancoCheckHome() {
     );
   }
 
+  async function signOut() {
+    Alert.alert('Cerrar sesión', '¿Estás seguro?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar sesión', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); router.replace('/login' as any); } },
+    ]);
+  }
+
   return (
     <View style={s.screen}>
       <View style={s.topBar}>
@@ -86,62 +117,117 @@ export default function BancoCheckHome() {
         </TouchableOpacity>
       </View>
 
-      {companyName && (
-        <View style={s.pillBar}>
+      <View style={s.pillBar}>
+        <View style={[s.pill, { backgroundColor: BANCO_COLOR + '18' }]}>
+          <Text style={[s.pillText, { color: BANCO_COLOR }]}>{ROLE_LABEL[userRole ?? ''] ?? userRole ?? 'Sin rol'}</Text>
+        </View>
+        {companyName && (
           <View style={[s.pill, { backgroundColor: '#F0F4F8' }]}>
             <Text style={[s.pillText, { color: BRAND.navy }]}>🏢 {companyName}</Text>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
-      <ScrollView contentContainerStyle={s.pad}>
-        <View style={s.balanceCard}>
-          <Text style={s.balanceLabel}>Saldo total en cuentas</Text>
-          <Text style={s.balanceValue}>
-            {(loadingAccounts ? '—' : totalBalance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }))}
-          </Text>
-          <Text style={s.balanceSub}>{accounts.length} cuenta{accounts.length === 1 ? '' : 's'} activa{accounts.length === 1 ? '' : 's'}</Text>
-        </View>
+      <View style={{ flex: 1 }}>
+        {tab === 0 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <View style={s.balanceCard}>
+              <Text style={s.balanceLabel}>Saldo total en cuentas</Text>
+              <Text style={s.balanceValue}>
+                {(loadingAccounts ? '—' : totalBalance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }))}
+              </Text>
+              <Text style={s.balanceSub}>{accounts.length} cuenta{accounts.length === 1 ? '' : 's'} activa{accounts.length === 1 ? '' : 's'}</Text>
+            </View>
 
-        <View style={s.statsRow}>
-          <StatCard title="Movimientos" value={loadingTx ? '—' : kpis.totalTransactions} />
-          <StatCard title="Sin explicar" value={loadingTx ? '—' : kpis.unexplainedCount} highlight />
-          <StatCard title="Explicado" value={loadingTx ? '—' : `${kpis.explainedPercentage}%`} />
-        </View>
+            <View style={s.statsRow}>
+              <StatCard title="Movimientos" value={loadingTx ? '—' : kpis.totalTransactions} />
+              <StatCard title="Sin explicar" value={loadingTx ? '—' : kpis.unexplainedCount} highlight />
+              <StatCard title="Explicado" value={loadingTx ? '—' : `${kpis.explainedPercentage}%`} />
+            </View>
 
-        <TouchableOpacity
-          style={[s.heroBtn, { backgroundColor: BANCO_COLOR }]}
-          onPress={() => router.push('/bancocheck/movimientos' as any)}
-          activeOpacity={0.88}
-        >
-          <Text style={{ fontSize: 44 }}>🏦</Text>
-          <Text style={s.heroBtnTitle}>Ver Movimientos</Text>
-          <Text style={s.heroBtnSub}>Explica, clasifica o marca como personal cada movimiento</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.heroBtn, { backgroundColor: BANCO_COLOR }]}
+              onPress={() => router.push('/bancocheck/movimientos' as any)}
+              activeOpacity={0.88}
+            >
+              <Text style={{ fontSize: 44 }}>🏦</Text>
+              <Text style={s.heroBtnTitle}>Ver Movimientos</Text>
+              <Text style={s.heroBtnSub}>Explica, clasifica o marca como personal cada movimiento</Text>
+            </TouchableOpacity>
 
-        {(kpis.needsReceiptCount > 0 || kpis.needsInvoiceCount > 0) && (
-          <View style={s.alertCard}>
-            <Text style={s.alertTitle}>⚠️ Requiere atención</Text>
-            {kpis.needsReceiptCount > 0 && (
-              <Text style={s.alertText}>{kpis.needsReceiptCount} movimiento{kpis.needsReceiptCount === 1 ? '' : 's'} sin comprobante</Text>
+            {(kpis.needsReceiptCount > 0 || kpis.needsInvoiceCount > 0) && (
+              <View style={s.alertCard}>
+                <Text style={s.alertTitle}>⚠️ Requiere atención</Text>
+                {kpis.needsReceiptCount > 0 && (
+                  <Text style={s.alertText}>{kpis.needsReceiptCount} movimiento{kpis.needsReceiptCount === 1 ? '' : 's'} sin comprobante</Text>
+                )}
+                {kpis.needsInvoiceCount > 0 && (
+                  <Text style={s.alertText}>{kpis.needsInvoiceCount} movimiento{kpis.needsInvoiceCount === 1 ? '' : 's'} sin factura</Text>
+                )}
+              </View>
             )}
-            {kpis.needsInvoiceCount > 0 && (
-              <Text style={s.alertText}>{kpis.needsInvoiceCount} movimiento{kpis.needsInvoiceCount === 1 ? '' : 's'} sin factura</Text>
-            )}
-          </View>
+
+            <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
+              onPress={() => router.push('/bancocheck/importar' as any)} />
+            <NavCard icon="👤" title="Movimientos personales" sub="Excluidos de reportes de negocio"
+              onPress={() => router.push({ pathname: '/bancocheck/movimientos', params: { filter: 'personal' } } as any)} />
+
+            <Text style={s.versionLabel}>{APP_VERSION}</Text>
+          </ScrollView>
         )}
 
-        <NavCard icon="🏦" title="Cuentas Bancarias" sub="Saldo y movimientos por cuenta, mes a mes"
-          onPress={() => router.push('/bancocheck/cuentas' as any)} />
-        <NavCard icon="🔗" title="Conciliación de cuenta" sub="Saldo según banco vs. saldo del sistema, por periodo"
-          onPress={() => router.push('/bancocheck/conciliacion' as any)} />
-        <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
-          onPress={() => router.push('/bancocheck/importar' as any)} />
-        <NavCard icon="👤" title="Movimientos personales" sub="Excluidos de reportes de negocio"
-          onPress={() => router.push({ pathname: '/bancocheck/movimientos', params: { filter: 'personal' } } as any)} />
+        {tab === 1 && <BancoCheckCuentas />}
+        {tab === 2 && <BancoCheckConciliacion />}
 
-        <Text style={s.versionLabel}>{APP_VERSION}</Text>
-      </ScrollView>
+        {tab === 3 && (
+          <ScrollView contentContainerStyle={s.pad}>
+            <Text style={s.tabTitle}>Empresa</Text>
+            <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
+              sub="Datos fiscales, usuarios y configuración"
+              bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
+            <NavCard icon="🏦" title="Cuentas Bancarias" sub="Alta, edición y saldo de cada cuenta"
+              onPress={() => setTab(1)} />
+            <CompanySwitcher color={BANCO_COLOR} />
+          </ScrollView>
+        )}
+
+        {tab === 4 && (
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+            <View style={s.profileCard}>
+              <View style={[s.avatar, { backgroundColor: BANCO_COLOR + '20' }]}>
+                <Text style={[s.avatarText, { color: BANCO_COLOR }]}>{(userName ?? userEmail ?? '?').charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={s.profileName}>{userName ?? '(sin nombre)'}</Text>
+              <Text style={s.profileEmail}>{userEmail ?? ''}</Text>
+              <View style={[s.pill, { backgroundColor: BANCO_COLOR + '15', marginTop: 8 }]}>
+                <Text style={[s.pillText, { color: BANCO_COLOR }]}>{ROLE_LABEL[userRole ?? ''] ?? userRole}</Text>
+              </View>
+            </View>
+            <NavCard icon="⚙️" title="Configuración" sub="Notificaciones, cuenta y preferencias"
+              onPress={() => router.push('/settings')} />
+            <TouchableOpacity style={s.navCard} onPress={signOut} activeOpacity={0.85}>
+              <Text style={{ fontSize: 26 }}>🚪</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[s.navCardTitle, { color: BRAND.red }]}>Cerrar sesión</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={s.versionLabel}>{APP_VERSION}</Text>
+          </ScrollView>
+        )}
+      </View>
+
+      <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
+        {TABS.map((t, i) => {
+          const isActive = tab === i;
+          return (
+            <TouchableOpacity key={i} style={s.bottomTab} onPress={() => setTab(i)} activeOpacity={0.7}>
+              {isActive && <View style={[s.activeStripe, { backgroundColor: BANCO_COLOR }]} />}
+              <Text style={[s.bottomIcon, isActive && s.bottomIconActive]}>{t.icon}</Text>
+              <Text style={[s.bottomLabel, isActive && { color: BANCO_COLOR, fontWeight: '700' }]}>{t.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -168,6 +254,19 @@ function NavCard({ icon, title, sub, onPress }: { icon: string; title: string; s
   );
 }
 
+function BigCard({ icon, title, sub, bg, onPress }: { icon: string; title: string; sub: string; bg: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={[s.bigCard, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.85}>
+      <Text style={{ fontSize: 36 }}>{icon}</Text>
+      <View style={{ flex: 1, marginLeft: 14 }}>
+        <Text style={s.bigCardTitle}>{title}</Text>
+        <Text style={s.bigCardSub}>{sub}</Text>
+      </View>
+      <Text style={{ fontSize: 24, color: 'rgba(255,255,255,0.75)' }}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
 const TOP_INSET = Platform.OS === 'ios' ? 54 : 32;
 
 const s = StyleSheet.create({
@@ -183,6 +282,7 @@ const s = StyleSheet.create({
   pill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   pillText: { fontSize: 11, fontWeight: '700' },
   pad: { padding: 20, paddingBottom: 44 },
+  tabTitle: { fontSize: 22, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
   balanceCard: { backgroundColor: BRAND.navy, borderRadius: 20, padding: 22, alignItems: 'center', marginBottom: 16 },
   balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
   balanceValue: { color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 6 },
@@ -201,5 +301,19 @@ const s = StyleSheet.create({
   navCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0' },
   navCardTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
   navCardSub: { fontSize: 12, color: '#90A4AE', marginTop: 2 },
+  bigCard: { borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  bigCardTitle: { fontSize: 17, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  bigCardSub: { fontSize: 12, color: 'rgba(255,255,255,0.70)', lineHeight: 17 },
+  profileCard: { backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#F0F0F0' },
+  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  avatarText: { fontSize: 26, fontWeight: '800' },
+  profileName: { fontSize: 18, fontWeight: '800', color: BRAND.navy },
+  profileEmail: { fontSize: 13, color: '#90A4AE', marginTop: 2 },
   versionLabel: { textAlign: 'center', color: '#B0BEC5', fontSize: 11, marginTop: 12 },
+  bottomBar: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E8EDF2', paddingTop: 8 },
+  bottomTab: { flex: 1, alignItems: 'center', gap: 2, paddingBottom: 2 },
+  activeStripe: { position: 'absolute', top: -8, left: '22%', right: '22%', height: 2, borderRadius: 2 },
+  bottomIcon: { fontSize: 20, opacity: 0.42 },
+  bottomIconActive: { opacity: 1 },
+  bottomLabel: { fontSize: 9, fontWeight: '500', color: '#9EAAB8' },
 });
