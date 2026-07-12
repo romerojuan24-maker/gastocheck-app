@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  Alert, StyleSheet, ActivityIndicator,
+  Alert, StyleSheet, ActivityIndicator, Modal, TextInput,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useNavigation } from '@react-navigation/native'
@@ -61,6 +61,10 @@ export default function FacturaCheckHome() {
   const [activeTab,   setActiveTab]   = useState(0)
   const [viewMode,    setViewMode]    = useState<PanelViewMode>('admin')
   const [cfdiTab,     setCfdiTab]     = useState<CfdiTab>('received')
+  const [actionDoc,   setActionDoc]   = useState<CfdiDocument | null>(null)
+  const [cancelBusy,  setCancelBusy]  = useState(false)
+  const [motivo,      setMotivo]      = useState<'01' | '02' | '03' | '04'>('02')
+  const [folioSustitucion, setFolioSustitucion] = useState('')
 
   const { documents, refetch: refetchDocuments } = useFacturaDocuments(companyId || '')
 
@@ -262,10 +266,90 @@ export default function FacturaCheckHome() {
         </View>
 
         <View style={{ paddingHorizontal: 16 }}>
-          <DocumentList documents={filtered} />
+          <DocumentList documents={filtered} onPress={d => { if (d.direction === 'issued' && d.status === 'vigente') setActionDoc(d) }} />
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
+    )
+  }
+
+  async function handleCancelCfdi() {
+    if (!actionDoc) return
+    if (motivo === '01' && !folioSustitucion.trim()) {
+      Alert.alert('Falta UUID', 'El motivo 01 (sustitución) requiere el UUID del comprobante que la reemplaza.')
+      return
+    }
+    setCancelBusy(true)
+    try {
+      const { data: reqRow, error: e1 } = await supabase.from('cfdi_issue_requests')
+        .select('id').eq('company_id', actionDoc.company_id).eq('uuid_cfdi', actionDoc.uuid_cfdi).maybeSingle()
+      if (e1 || !reqRow) throw new Error('No se encontró la solicitud original de este CFDI.')
+
+      const { data, error } = await supabase.functions.invoke('cancelar-cfdi', {
+        body: { request_id: reqRow.id, motivo, folio_sustitucion: motivo === '01' ? folioSustitucion.trim() : undefined },
+      })
+      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? 'Error al cancelar')
+
+      Alert.alert('✓ CFDI cancelado', '', [{ text: 'OK', onPress: () => { setActionDoc(null); refetchDocuments() } }])
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo cancelar el CFDI.')
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
+  function goToNotaCredito() {
+    if (!actionDoc) return
+    setActionDoc(null)
+    router.push({
+      pathname: '/facturacheck/emitir',
+      params: {
+        related_uuid: actionDoc.uuid_cfdi, relacion_tipo: '01',
+        receptor_rfc: actionDoc.rfc_receptor, receptor_razon_social: actionDoc.razon_social_receptor ?? '',
+      },
+    } as any)
+  }
+
+  function CfdiActionsModal() {
+    if (!actionDoc) return null
+    return (
+      <Modal visible transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Acciones del CFDI</Text>
+            <Text style={s.modalSub} numberOfLines={1}>{actionDoc.uuid_cfdi}</Text>
+
+            <TouchableOpacity style={[s.modalBtn, { backgroundColor: FACTURA_COLOR }]} onPress={goToNotaCredito}>
+              <Text style={s.modalBtnText}>📝 Generar Nota de Crédito</Text>
+            </TouchableOpacity>
+
+            <Text style={[s.fieldLabelModal]}>Motivo de cancelación SAT</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {(['01', '02', '03', '04'] as const).map(m => (
+                <TouchableOpacity key={m} onPress={() => setMotivo(m)} style={[s.motivoChip, motivo === m && { backgroundColor: BRAND.red, borderColor: BRAND.red }]}>
+                  <Text style={[s.motivoChipText, motivo === m && { color: '#fff' }]}>
+                    {m === '01' ? '01 Sustitución' : m === '02' ? '02 Error c/relación' : m === '03' ? '03 Error s/relación' : '04 Operación no realizada'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {motivo === '01' && (
+              <TextInput
+                style={s.modalInput} value={folioSustitucion} onChangeText={setFolioSustitucion}
+                placeholder="UUID del CFDI que sustituye a este" placeholderTextColor="#B0BEC5" autoCapitalize="none"
+              />
+            )}
+
+            <TouchableOpacity style={[s.modalBtn, { backgroundColor: BRAND.red }, cancelBusy && { opacity: 0.6 }]} onPress={handleCancelCfdi} disabled={cancelBusy}>
+              {cancelBusy ? <ActivityIndicator color="#fff" /> : <Text style={s.modalBtnText}>🚫 Cancelar CFDI</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.modalCancelBtn} onPress={() => setActionDoc(null)}>
+              <Text style={s.modalCancelBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     )
   }
 
@@ -342,6 +426,7 @@ export default function FacturaCheckHome() {
       </View>
 
       <BottomTabBar />
+      <CfdiActionsModal />
     </View>
   )
 }
@@ -364,6 +449,19 @@ const s = StyleSheet.create({
 
   newCfdiBtn:     { marginHorizontal: 16, marginTop: 16, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   newCfdiBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'center', alignItems: 'center' },
+  modalCard: { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '90%', maxHeight: '86%' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  modalSub: { fontSize: 12, color: '#90A4AE', marginBottom: 16 },
+  modalBtn: { borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10, backgroundColor: '#F0F4F8' },
+  modalBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  modalInput: { backgroundColor: '#F8F9FB', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E0E0E0', fontSize: 13, color: BRAND.navy, marginBottom: 10 },
+  fieldLabelModal: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 6, marginTop: 6 },
+  motivoChip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F0F4F8', borderWidth: 1, borderColor: '#E0E0E0' },
+  motivoChipText: { fontSize: 11, fontWeight: '600', color: BRAND.navy },
+  modalCancelBtn: { paddingVertical: 10, alignItems: 'center' },
+  modalCancelBtnText: { color: '#90A4AE', fontSize: 13, fontWeight: '700' },
 
   kpiRow:   { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 16, gap: 8, marginBottom: 8 },
   kpi:      { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2 },

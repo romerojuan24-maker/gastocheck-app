@@ -28,6 +28,8 @@ interface IssueRequest {
   total: number | null
   provider: string
   status: string
+  related_uuid_cfdi: string | null
+  relacion_tipo: string | null
 }
 
 interface ProviderConfig {
@@ -81,6 +83,9 @@ async function timbrarFacturama(cfg: ProviderConfig, req: IssueRequest): Promise
       Taxes: [{ Total: Number(it.iva ?? 0), Name: 'IVA', Base: Number(it.subtotal ?? 0), Rate: 0.16, IsRetention: false }],
       Total: Number(it.total ?? 0),
     })),
+    ...(req.related_uuid_cfdi ? {
+      CfdiRelatedDocuments: [{ Uuid: req.related_uuid_cfdi, RelationshipType: req.relacion_tipo ?? '01' }],
+    } : {}),
   }
 
   const resp = await fetch(`${base}/3/cfdis`, {
@@ -118,6 +123,9 @@ async function timbrarFacturapia(cfg: ProviderConfig, req: IssueRequest): Promis
       },
     })),
     payment_form: '03',
+    ...(req.related_uuid_cfdi ? {
+      related_documents: [{ uuid: req.related_uuid_cfdi, relationship: req.relacion_tipo ?? '01' }],
+    } : {}),
   }
 
   const resp = await fetch(`${base}/invoices`, {
@@ -196,6 +204,21 @@ Deno.serve(async (httpReq) => {
         status: 'timbrado', uuid_cfdi: result.uuid, provider: cfg.provider,
         provider_id: result.provider_id, pdf_storage_path: result.pdf_url, timbrado_at: new Date().toISOString(),
       }).eq('id', request_id)
+
+      // El "documento" final (lo que se ve en CFDIs > Emitidas) vive en
+      // cfdi_documents — timbrar solo actualizaba cfdi_issue_requests, así
+      // que un CFDI recién timbrado nunca aparecía en la lista.
+      const r = req as IssueRequest
+      await admin.from('cfdi_documents').insert({
+        company_id: req.company_id, direction: 'issued', uuid_cfdi: result.uuid,
+        rfc_emisor: cfg.rfc, razon_social_emisor: cfg.razon_social,
+        rfc_receptor: r.receptor_rfc, razon_social_receptor: r.receptor_razon_social,
+        fecha_emision: new Date().toISOString(), subtotal: r.subtotal, iva: r.iva, total: r.total,
+        forma_pago: '03', metodo_pago: 'PUE', uso_cfdi: r.receptor_uso_cfdi,
+        tipo_comprobante: r.cfdi_type === 'egreso' ? 'E' : 'I',
+        status: 'vigente', pdf_storage_path: result.pdf_url,
+      })
+
       await admin.from('audit_logs').insert({
         company_id: req.company_id, user_id: caller.id,
         entity_type: 'cfdi_issue_request', entity_id: request_id,
