@@ -12,10 +12,10 @@ import { supabase } from '../../lib/supabase'
 import { getActiveMembership } from '../../lib/membership'
 
 // Hooks
-import { useInventarioProducts, useInventarioAlerts, useInventarioMutations } from './hooks'
+import { useInventarioProducts, useInventarioAlerts, useInventarioMutations, useInventarioMovements, useInventarioQuickMove } from './hooks'
 
 // Componentes
-import { ProductList, AlertsList, EditModal } from './components'
+import { ProductList, AlertsList, EditModal, QuickMovementModal, MovementsList } from './components'
 
 // Tipos
 import type { InventoryProduct } from './types'
@@ -47,10 +47,15 @@ export default function InventarioCheckHome() {
   const [activeTab, setActiveTab] = useState(0)
   const [search,    setSearch]    = useState('')
   const [editing,   setEditing]   = useState<Partial<InventoryProduct> | null>(null)
+  const [quickMoveTarget, setQuickMoveTarget] = useState<InventoryProduct | null>(null)
+  const [quickMoveDirection, setQuickMoveDirection] = useState<'in' | 'out' | null>(null)
+  const [quickMoveKey, setQuickMoveKey] = useState<string>('')
 
   const { products, refetch: refetchProducts } = useInventarioProducts(companyId || '')
   const { alerts } = useInventarioAlerts(companyId || '')
   const { save, remove, saving } = useInventarioMutations(companyId || '')
+  const { movements, productNames, refetch: refetchMovements } = useInventarioMovements(companyId || '')
+  const { quickMove, saving: quickMoveSaving } = useInventarioQuickMove()
 
   useEffect(() => { navigation.setOptions({ headerShown: false }) }, [navigation])
 
@@ -100,6 +105,27 @@ export default function InventarioCheckHome() {
       await refetchProducts()
     } else {
       Alert.alert('Error', result.error || 'No se pudo guardar')
+    }
+  }
+
+  const openQuickMove = (product: InventoryProduct, direction: 'in' | 'out') => {
+    // idempotencyKey se genera UNA vez al abrir el sheet, no en cada intento
+    // de guardar — así un doble tap en "Guardar" no crea 2 movimientos.
+    setQuickMoveTarget(product)
+    setQuickMoveDirection(direction)
+    setQuickMoveKey(`${product.id}-${direction}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  }
+
+  const handleQuickMoveConfirm = async (quantity: number, reason: string, notes: string | null) => {
+    if (!quickMoveTarget || !quickMoveDirection) return
+    const type = quickMoveDirection === 'in' ? 'IN' : 'OUT'
+    const res = await quickMove(quickMoveTarget.id, type, quantity, reason, notes, quickMoveKey)
+    if (res.success) {
+      setQuickMoveTarget(null)
+      setQuickMoveDirection(null)
+      await Promise.all([refetchProducts(), refetchMovements()])
+    } else {
+      Alert.alert('Error', res.error ?? 'No se pudo registrar el movimiento')
     }
   }
 
@@ -247,6 +273,8 @@ export default function InventarioCheckHome() {
               products={visible}
               onEdit={setEditing}
               onDelete={handleDelete}
+              onQuickIn={p => openQuickMove(p, 'in')}
+              onQuickOut={p => openQuickMove(p, 'out')}
             />
           </View>
           <View style={{ height: 100 }} />
@@ -312,7 +340,11 @@ export default function InventarioCheckHome() {
       <View style={{ flex: 1 }}>
         {activeTab === 0 && <InventarioTab />}
         {activeTab === 1 && <AlertasTab />}
-        {activeTab === 2 && <ComingSoon title="Movimientos" />}
+        {activeTab === 2 && (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+            <MovementsList movements={movements} productNames={productNames} />
+          </ScrollView>
+        )}
         {activeTab === 3 && <ComingSoon title="Ajustes" />}
         {activeTab === 4 && <ProfileTab />}
       </View>
@@ -324,6 +356,14 @@ export default function InventarioCheckHome() {
         onClose={() => setEditing(null)}
         onSave={handleSave}
         saving={saving}
+      />
+
+      <QuickMovementModal
+        product={quickMoveTarget}
+        direction={quickMoveDirection}
+        onClose={() => { setQuickMoveTarget(null); setQuickMoveDirection(null) }}
+        onConfirm={handleQuickMoveConfirm}
+        saving={quickMoveSaving}
       />
     </View>
   )

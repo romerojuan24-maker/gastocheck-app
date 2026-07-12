@@ -1,3 +1,5 @@
 export { ProductList } from './ProductList'
 export { AlertsList } from './AlertsList'
 export { EditModal } from './EditModal'
+export { QuickMovementModal } from './QuickMovementModal'
+export { MovementsList } from './MovementsList'

@@ -8,9 +8,11 @@ interface Props {
   products: InventoryProduct[]
   onEdit: (product: InventoryProduct) => void
   onDelete: (product: InventoryProduct) => void
+  onQuickIn?: (product: InventoryProduct) => void
+  onQuickOut?: (product: InventoryProduct) => void
 }
 
-export function ProductList({ products, onEdit, onDelete }: Props) {
+export function ProductList({ products, onEdit, onDelete, onQuickIn, onQuickOut }: Props) {
   if (products.length === 0) {
     return (
       <View style={styles.empty}>
@@ -47,6 +49,20 @@ export function ProductList({ products, onEdit, onDelete }: Props) {
                 {status.label}
               </Text>
             </View>
+            {(onQuickIn || onQuickOut) && (
+              <View style={styles.quickRow}>
+                {onQuickIn && (
+                  <TouchableOpacity style={[styles.quickBtn, styles.quickBtnIn]} onPress={() => onQuickIn(p)}>
+                    <Text style={styles.quickBtnText}>+ Entró</Text>
+                  </TouchableOpacity>
+                )}
+                {onQuickOut && (
+                  <TouchableOpacity style={[styles.quickBtn, styles.quickBtnOut]} onPress={() => onQuickOut(p)}>
+                    <Text style={styles.quickBtnText}>− Salió</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             <View style={styles.actions}>
               <TouchableOpacity onPress={() => onEdit(p)}>
                 <Text style={styles.buttonEdit}>Editar</Text>
@@ -83,4 +99,9 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 12 },
   buttonEdit: { color: '#3b82f6', fontSize: 11, fontWeight: '600' },
   buttonDelete: { color: '#ef4444', fontSize: 11, fontWeight: '600' },
+  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  quickBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  quickBtnIn: { backgroundColor: '#10b98122' },
+  quickBtnOut: { backgroundColor: '#ef444422' },
+  quickBtnText: { color: '#f1f5f9', fontSize: 12, fontWeight: '700' },
 })
