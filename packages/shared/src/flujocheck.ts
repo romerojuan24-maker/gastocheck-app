@@ -196,3 +196,46 @@ export const PRIORITY_ORDER: Record<Commitment['priority'], number> = {
   medium: 2,
   low: 3,
 }
+
+// ============================================================================
+// CASH FLOW RISK METADATA
+// ============================================================================
+
+export const CASH_FLOW_RISK_META: Record<'critical' | 'warning' | 'healthy', { label: string; color: string; icon: string }> = {
+  critical: { label: 'Crítico', color: '#E53935', icon: '🔴' },
+  warning: { label: 'Advertencia', color: '#FB8C00', icon: '🟠' },
+  healthy: { label: 'Saludable', color: '#43A047', icon: '🟢' },
+}
+
+// ============================================================================
+// CASH FLOW PROJECTION HELPER
+// ============================================================================
+
+export function projectCashFlow(
+  currentBalance: number,
+  items: Array<{ amount: number; expected_date: string }>,
+  horizonDays: number = 7,
+): { balance: number; risk: 'critical' | 'warning' | 'healthy' } {
+  const now = new Date()
+  const horizon = new Date(now)
+  horizon.setDate(horizon.getDate() + horizonDays)
+
+  let projectedBalance = currentBalance
+  for (const item of items) {
+    const itemDate = new Date(item.expected_date)
+    if (itemDate <= horizon) {
+      projectedBalance += item.amount
+    }
+  }
+
+  let risk: 'critical' | 'warning' | 'healthy'
+  if (projectedBalance < 0) {
+    risk = 'critical'
+  } else if (projectedBalance < currentBalance * 0.2) {
+    risk = 'warning'
+  } else {
+    risk = 'healthy'
+  }
+
+  return { balance: projectedBalance, risk }
+}
