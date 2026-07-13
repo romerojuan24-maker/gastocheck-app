@@ -167,6 +167,7 @@ export default function Layout() {
       <Stack.Screen name="bancocheck/cuenta-detalle" options={{ title: 'Detalle de Cuenta' }} />
       <Stack.Screen name="bancocheck/conciliacion"   options={{ title: 'Conciliación de Cuenta' }} />
       <Stack.Screen name="facturacheck/index"      options={{ title: 'FacturaCheck' }} />
+      <Stack.Screen name="advisor/index"           options={{ title: 'Advisor' }} />
       <Stack.Screen name="facturacheck/emitir"     options={{ title: 'Emitir CFDI' }} />
       <Stack.Screen name="facturacheck/pac-config" options={{ title: 'Configurar PAC' }} />
       <Stack.Screen name="flujocheck/index"        options={{ title: 'FlujoCheck' }} />

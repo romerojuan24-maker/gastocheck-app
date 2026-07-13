@@ -202,6 +202,7 @@ export default function CheckSuiteHome() {
               <MiniCard icon="🧾" label="FacturaCheck"  onPress={() => router.push('/facturacheck' as any)} />
               <MiniCard icon="💧" label="FlujoCheck"    onPress={() => router.push('/flujocheck' as any)} />
               <MiniCard icon="📦" label="Inventario"    onPress={() => router.push('/inventariocheck' as any)} />
+              <MiniCard icon="🧠" label="Advisor"       onPress={() => router.push('/advisor' as any)} />
             </View>
           </>
         )}

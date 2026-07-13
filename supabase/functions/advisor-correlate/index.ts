@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       const actions = [
         ...(overdue ? [{ action_type: 'navigate', label: 'Ver clientes a cobrar', route: '/cobracheck/cartera-total' }] : []),
         { action_type: 'navigate', label: 'Ver flujo', route: '/flujocheck' },
-        ...(invPurchase ? [{ action_type: 'navigate', label: 'Revisar compra', route: '/inventariocheck/compras' }] : []),
+        ...(invPurchase ? [{ action_type: 'navigate', label: 'Ver inventario', route: '/inventariocheck' }] : []),
       ]
 
       const created = await upsertInsight(admin, company_id, {
@@ -166,8 +166,8 @@ Deno.serve(async (req) => {
         roleScope: ['owner', 'admin'], relatedSignalIds: [plannedPurchase.id, cashRisk.id],
         evidence: { plannedPurchase: plannedPurchase.value_decimal, projectedCash: cashRisk.value_decimal },
         actions: [
-          { action_type: 'navigate', label: 'Revisar compra', route: '/inventariocheck/compras' },
           { action_type: 'navigate', label: 'Ver inventario', route: '/inventariocheck' },
+          { action_type: 'navigate', label: 'Ver flujo', route: '/flujocheck' },
         ],
       })
       created ? insightsCreated++ : insightsUpdated++
