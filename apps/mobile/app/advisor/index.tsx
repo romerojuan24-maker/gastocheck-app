@@ -1,10 +1,12 @@
 // Check Advisor — motor de inteligencia y priorización de CHECK SUITE.
-// LOS MÓDULOS CALCULAN. EL MOTOR CORRELACIONA. LA IA EXPLICA (esta última
-// capa todavía no existe — hoy el texto es 100% determinístico).
+// LOS MÓDULOS CALCULAN. EL MOTOR CORRELACIONA. LA IA EXPLICA. El texto de
+// cada tarjeta (title/body) siempre es determinístico y correcto por sí
+// solo; "Explicar con IA" es una capa opcional (Gemini) que redacta mejor
+// sin poder inventar ni cambiar ningún número.
 //
 // Wave 8 (publicación automática de señales por módulo) no está lista
-// todavía, así que "Recalcular" corre el motor manualmente contra las
-// señales que ya existan.
+// todavía, así que "Recalcular" corre el motor manualmente — sí calcula
+// señales reales desde CobraCheck/BancoCheck/GastoCheck/InventarioCheck.
 import { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -26,8 +28,11 @@ interface Insight {
   id: string;
   title: string;
   body: string;
+  explanation: string | null;
+  generated_by: string;
   severity: string;
   status: string;
+  priority_score: number;
   evidence_json: any;
   created_at: string;
 }
@@ -49,6 +54,7 @@ export default function AdvisorHome() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [actionsByInsight, setActionsByInsight] = useState<Record<string, Action[]>>({});
   const [expandedEvidence, setExpandedEvidence] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState<string | null>(null);
 
   const loadInsights = useCallback(async (cid: string) => {
     const { data: insightRows } = await supabase
@@ -56,7 +62,7 @@ export default function AdvisorHome() {
       .select('*')
       .eq('company_id', cid)
       .not('status', 'in', '(RESOLVED,DISMISSED,EXPIRED)')
-      .order('severity', { ascending: true })
+      .order('priority_score', { ascending: false })
       .order('created_at', { ascending: false });
 
     const list = (insightRows ?? []) as Insight[];
@@ -113,6 +119,29 @@ export default function AdvisorHome() {
       Alert.alert('Error', e.message ?? 'No se pudo recalcular');
     } finally {
       setRecalculating(false);
+    }
+  }
+
+  async function handleExplain(insight: Insight) {
+    setExplaining(insight.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/advisor-explain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ insight_id: insight.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error ?? 'No se pudo generar la explicación');
+      if (!json.ai_used) {
+        Alert.alert('Sin IA por ahora', json.reason ?? 'Se conserva el texto ya calculado.');
+        return;
+      }
+      if (companyId) await loadInsights(companyId);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudo generar la explicación');
+    } finally {
+      setExplaining(null);
     }
   }
 
@@ -189,11 +218,23 @@ export default function AdvisorHome() {
                 <Text style={[s.severityText, { color: meta.color }]}>{meta.label}</Text>
               </View>
               <Text style={s.cardTitle}>{insight.title}</Text>
-              <Text style={s.cardBody}>{insight.body}</Text>
+              <Text style={s.cardBody}>{insight.generated_by === 'HYBRID' && insight.explanation ? insight.explanation : insight.body}</Text>
+              {insight.generated_by === 'HYBRID' && (
+                <Text style={s.aiTag}>✨ Redactado por IA a partir de estos datos</Text>
+              )}
 
-              <TouchableOpacity onPress={() => setExpandedEvidence(isExpanded ? null : insight.id)}>
-                <Text style={s.whyLink}>{isExpanded ? '▲ Ocultar datos' : '¿Por qué te digo esto? ›'}</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 10 }}>
+                <TouchableOpacity onPress={() => setExpandedEvidence(isExpanded ? null : insight.id)}>
+                  <Text style={s.whyLink}>{isExpanded ? '▲ Ocultar datos' : '¿Por qué te digo esto? ›'}</Text>
+                </TouchableOpacity>
+                {insight.generated_by !== 'HYBRID' && (
+                  <TouchableOpacity onPress={() => handleExplain(insight)} disabled={explaining === insight.id}>
+                    {explaining === insight.id
+                      ? <ActivityIndicator size="small" color={ADVISOR_COLOR} />
+                      : <Text style={s.whyLink}>✨ Explicar con IA</Text>}
+                  </TouchableOpacity>
+                )}
+              </View>
               {isExpanded && insight.evidence_json && (
                 <View style={s.evidenceBox}>
                   {Object.entries(insight.evidence_json).map(([k, v]) => (
@@ -252,6 +293,7 @@ const s = StyleSheet.create({
   severityText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   cardTitle: { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 6 },
   cardBody: { fontSize: 13, color: '#455A64', lineHeight: 19 },
+  aiTag: { fontSize: 10, color: '#90A4AE', marginTop: 6, fontStyle: 'italic' },
   whyLink: { fontSize: 12, color: BRAND.blue, fontWeight: '700', marginTop: 10 },
   evidenceBox: { backgroundColor: '#F8F9FB', borderRadius: 10, padding: 12, marginTop: 8 },
   evidenceLine: { fontSize: 12, color: '#607D8B', marginBottom: 3 },
