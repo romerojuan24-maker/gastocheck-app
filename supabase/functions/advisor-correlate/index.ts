@@ -331,20 +331,30 @@ Deno.serve(async (req) => {
     const { data: { user: caller }, error: authErr } = await supabaseUser.auth.getUser()
     if (authErr || !caller) return Response.json({ error: 'No autenticado' }, { status: 401, headers: CORS })
 
-    const { company_id } = await req.json()
+    const body = await req.json()
+    const { company_id, manual = false, force = false } = body
     if (!company_id) return Response.json({ error: 'company_id requerido' }, { status: 400, headers: CORS })
 
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const { data: member } = await admin.from('company_members').select('role')
-      .eq('company_id', company_id).eq('user_id', caller.id).eq('status', 'active').maybeSingle()
-    if (!member) return Response.json({ error: 'Sin acceso a esta empresa' }, { status: 403, headers: CORS })
+    // For automated calls (manual=false), verify user is member
+    if (!manual) {
+      const { data: member } = await admin.from('company_members').select('role')
+        .eq('company_id', company_id).eq('user_id', caller.id).eq('status', 'active').maybeSingle()
+      if (!member) return Response.json({ error: 'Sin acceso a esta empresa' }, { status: 403, headers: CORS })
+    }
 
     // ── Rate limit: máx. 1 corrida por minuto por empresa ──────────────────
-    const { data: recentRun } = await admin.from('advisor_runs')
-      .select('started_at').eq('company_id', company_id).order('started_at', { ascending: false }).limit(1).maybeSingle()
-    if (recentRun && (Date.now() - new Date(recentRun.started_at).getTime()) < RATE_LIMIT_SECONDS * 1000) {
-      return Response.json({ error: `Espera ${RATE_LIMIT_SECONDS}s entre recálculos.` }, { status: 429, headers: CORS })
+    // Skip rate limit if manual=true (user override) or force=true (system trigger)
+    if (!manual && !force) {
+      const { data: cooldown } = await admin.from('advisor_correlate_cooldown')
+        .select('next_allowed_at').eq('company_id', company_id).maybeSingle()
+      if (cooldown?.next_allowed_at && new Date() < new Date(cooldown.next_allowed_at)) {
+        return Response.json(
+          { error: `Espera ${RATE_LIMIT_SECONDS}s entre recálculos.`, retry_after: 60 },
+          { status: 429, headers: CORS }
+        )
+      }
     }
 
     const { data: run } = await admin.from('advisor_runs').insert({ company_id, status: 'running' }).select('id').single()
@@ -569,6 +579,67 @@ Deno.serve(async (req) => {
         actions: [{ action_type: 'navigate', label: 'Ver gastos', route: '/gastocheck' }],
       })
       created ? insightsCreated++ : insightsUpdated++
+    }
+
+    // ── Create advisor_tasks for newly created insights (Wave 6) ─────────────
+    if (!manual) {
+      const { data: newInsights } = await admin.from('advisor_insights')
+        .select('id, role_scope')
+        .eq('company_id', company_id)
+        .eq('status', 'NEW')
+        .limit(100)
+
+      for (const insight of newInsights ?? []) {
+        try {
+          // Determine assignment: if role_scope contains specific roles, assign to that role
+          // Otherwise, assign to 'owner'/'admin' (default)
+          let assignedRole = 'owner'
+          if (insight.role_scope?.length > 0) {
+            // If scope is supervisor-focused, assign to supervisors
+            if (insight.role_scope.includes('supervisor') && !insight.role_scope.includes('owner')) {
+              assignedRole = 'supervisor'
+            }
+            // If scope is operator-focused, assign to operators
+            else if (insight.role_scope.includes('comprador') || insight.role_scope.includes('spender')) {
+              assignedRole = 'operator'
+            }
+          }
+
+          const { error: taskErr } = await admin
+            .rpc('create_advisor_task', {
+              p_company_id: company_id,
+              p_insight_id: insight.id,
+              p_assigned_to_role: assignedRole,
+            })
+
+          if (taskErr) {
+            console.warn(`Failed to create task for insight ${insight.id}:`, taskErr)
+          }
+        } catch (taskErr: any) {
+          console.warn(`Exception creating task for insight ${insight.id}:`, taskErr)
+        }
+      }
+
+      // Mark new insights as ACTIVE (no longer NEW)
+      await admin.from('advisor_insights')
+        .update({ status: 'ACTIVE' })
+        .eq('company_id', company_id)
+        .eq('status', 'NEW')
+    }
+
+    // ── Update rate limit cooldown (60 seconds) ──────────────────────────────
+    if (!manual) {
+      const nextAllowed = new Date()
+      nextAllowed.setSeconds(nextAllowed.getSeconds() + 60)
+
+      await admin
+        .from('advisor_correlate_cooldown')
+        .upsert({
+          company_id,
+          last_run_at: new Date().toISOString(),
+          next_allowed_at: nextAllowed.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
     }
 
     await admin.from('advisor_runs').update({
