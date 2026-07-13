@@ -1,86 +1,50 @@
 import React from 'react'
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 import type { BankAccount } from '../types'
-import { formatCurrency } from '@gastocheck/shared'
+import { formatCurrency, BRAND } from '@gastocheck/shared'
 
 interface Props {
   accounts: BankAccount[]
   selectedId: string | null
-  onSelect: (id: string) => void
+  onSelect: (id: string | null) => void
 }
 
 export function AccountSelector({ accounts, selectedId, onSelect }: Props) {
   if (accounts.length === 0) return null
 
   return (
-    <View>
-      <Text style={styles.label}>Cuentas</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.container}>
-        {accounts.map(acc => (
-          <TouchableOpacity
-            key={acc.id}
-            onPress={() => onSelect(acc.id)}
-            style={[
-              styles.button,
-              selectedId === acc.id && styles.buttonActive
-            ]}
-          >
-            <Text style={[
-              styles.buttonText,
-              selectedId === acc.id && styles.buttonTextActive
-            ]}>
-              {acc.name}
-            </Text>
-            <Text style={[
-              styles.buttonBalance,
-              selectedId === acc.id && styles.buttonBalanceActive
-            ]}>
-              {formatCurrency(acc.current_balance)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.container}>
+      <TouchableOpacity
+        onPress={() => onSelect(null)}
+        style={[styles.chip, selectedId === null && styles.chipActive]}
+      >
+        <Text style={[styles.chipText, selectedId === null && styles.chipTextActive]}>Todas</Text>
+      </TouchableOpacity>
+      {accounts.map(acc => (
+        <TouchableOpacity
+          key={acc.id}
+          onPress={() => onSelect(acc.id)}
+          style={[styles.chip, selectedId === acc.id && styles.chipActive]}
+        >
+          <Text style={[styles.chipText, selectedId === acc.id && styles.chipTextActive]}>{acc.name}</Text>
+          <Text style={[styles.chipBalance, selectedId === acc.id && styles.chipBalanceActive]}>
+            {formatCurrency(acc.current_balance)}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  label: {
-    color: '#f1f5f9',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 16,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+  container: { paddingHorizontal: 16, marginBottom: 12 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14,
+    backgroundColor: '#fff', marginRight: 8, borderWidth: 1, borderColor: '#EEF2F7',
   },
-  container: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  button: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#1e293b',
-    marginRight: 8,
-  },
-  buttonActive: {
-    backgroundColor: '#00a650',
-  },
-  buttonText: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  buttonTextActive: {
-    color: '#ffffff',
-  },
-  buttonBalance: {
-    color: '#94a3b8',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  buttonBalanceActive: {
-    color: '#e0f2fe',
-  },
+  chipActive: { backgroundColor: BRAND.blue, borderColor: BRAND.blue },
+  chipText: { color: BRAND.navy, fontSize: 13, fontWeight: '700' },
+  chipTextActive: { color: '#fff' },
+  chipBalance: { color: '#90A4AE', fontSize: 11, marginTop: 2 },
+  chipBalanceActive: { color: 'rgba(255,255,255,0.85)' },
 })

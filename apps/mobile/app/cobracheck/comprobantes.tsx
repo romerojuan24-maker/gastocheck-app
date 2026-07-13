@@ -135,9 +135,6 @@ export default function ComprobantesPage() {
                     <Text style={styles.photoMissingLabel}>⚠️ Sin foto</Text>
                   </View>
                 ) : null}
-                <TouchableOpacity style={styles.detailBtn}>
-                  <Text style={styles.detailBtnText}>Ver detalle →</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -188,6 +185,4 @@ const styles = StyleSheet.create({
   photoLabel: { color: '#22c55e', fontSize: 10, fontWeight: 'bold' },
   photoMissingBox: { backgroundColor: '#3f0f0f', padding: 6, borderRadius: 4, flex: 1 },
   photoMissingLabel: { color: '#ef4444', fontSize: 10, fontWeight: 'bold' },
-  detailBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  detailBtnText: { color: '#36BF6A', fontSize: 10, fontWeight: 'bold' },
 })

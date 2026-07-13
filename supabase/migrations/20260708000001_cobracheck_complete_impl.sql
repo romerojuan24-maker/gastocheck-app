@@ -1,5 +1,13 @@
 -- CobraCheck — Implementación COMPLETA (Recepción de cobranzas + comisiones)
 -- 2026-07-08
+--
+-- [BLOQUEADO 2026-07-11] No aplicada — CREATE INDEX idx_routes_collector usa
+-- cobra_routes(collector_id), columna que no existe en la tabla real
+-- (usa actor_id/assigned_date/clients_assigned, ver 20260618200000). Este
+-- archivo asume un cobra_routes distinto al que ya está en producción y en
+-- uso por mi-ruta.tsx/reporte-cobrador.tsx. Antes de aplicar: reconciliar
+-- el índice con el esquema real o quitarlo si cobra_collections/
+-- cobra_commissions no lo necesitan. Marcado 'reverted' en el tracker.
 
 -- ============================================================================
 -- 1. COBRANZAS (Recepción de dinero de clientes)
@@ -21,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.cobra_collections (
   received_time TIME,
 
   -- Vinculación automática
-  linked_invoice_id UUID REFERENCES public.invoices(id),
+  linked_invoice_id UUID REFERENCES public.cobra_invoices(id),
   linked_bank_transaction_id UUID,
 
   -- Cobrador

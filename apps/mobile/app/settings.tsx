@@ -337,6 +337,8 @@ export default function SettingsScreen() {
         {Updates.channel ? (
           <Text style={styles.versionId}>Canal: {Updates.channel}</Text>
         ) : null}
+        <Text style={styles.versionId}>Runtime: {Updates.runtimeVersion ?? '(embebido, sin runtime)'}</Text>
+        <Text style={styles.versionId}>Embebido: {Updates.isEmbeddedLaunch ? 'sí' : 'no'}</Text>
         {Updates.updateId ? (
           <Text style={styles.versionId}>
             ID: {Updates.updateId.slice(0, 8)}…

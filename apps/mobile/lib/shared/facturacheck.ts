@@ -1,127 +1,267 @@
-// ── FacturaCheck — tipos compartidos ─────────────────────────────────────────
+/**
+ * FacturaCheck — Tipos COMPLETOS
+ * Generación, validación y distribución de CFDIs (facturas electrónicas México)
+ */
 
-export type CfdiStatus =
-  | 'vigente'
-  | 'cancelado'
-  | 'not_found'
-  | 'duplicate'
-  | 'unmatched'
-  | 'matched'
-  | 'pending_complement';
+// ============================================================================
+// ENUMS
+// ============================================================================
 
-export type CfdiDirection = 'received' | 'issued';
-export type CfdiType = 'I' | 'E' | 'P' | 'T';  // Ingreso | Egreso | Pago | Traslado
+export type CFDIType = 'ingreso' | 'egreso' | 'traslado' | 'nomina'
+export type CFDIStatus = 'draft' | 'generated' | 'validated' | 'sent' | 'cancelled'
+export type DistributionChannel = 'email' | 'whatsapp' | 'download_link' | 'portal'
+export type DistributionStatus = 'pending' | 'sent' | 'failed' | 'bounced' | 'read'
+export type PACProvider = 'facturama' | 'solucion_facil' | 'sw' | 'finkok'
+export type CreditPlan = 'fixed' | 'payperuse' | 'hybrid'
 
-export interface CfdiDocument {
-  id:                     string;
-  company_id:             string;
-  direction:              CfdiDirection;
-  uuid_cfdi:              string;
-  rfc_emisor:             string;
-  razon_social_emisor:    string | null;
-  rfc_receptor:           string;
-  razon_social_receptor:  string | null;
-  fecha_emision:          string | null;
-  subtotal:               number | null;
-  iva:                    number | null;
-  ieps:                   number | null;
-  retenciones:            number | null;
-  total:                  number | null;
-  metodo_pago:            string | null;
-  forma_pago:             string | null;
-  uso_cfdi:               string | null;
-  tipo_comprobante:       CfdiType | null;
-  status:                 CfdiStatus;
-  xml_storage_path:       string | null;
-  pdf_storage_path:       string | null;
-  related_receipt_id:     string | null;
-  related_cobra_invoice_id: string | null;
-  related_bank_txn_id:    string | null;
-  sat_validated_at:       string | null;
-  created_at:             string;
-  updated_at:             string;
+// ============================================================================
+// CFDI DOCUMENT (Factura electrónica)
+// ============================================================================
+
+export interface CFDIDocument {
+  id: string
+  company_id: string
+  cfdi_type: CFDIType
+  receptor_rfc: string
+  receptor_name: string
+  receptor_email: string | null
+  subtotal: number
+  iva: number
+  ieps: number | null
+  retenciones: number | null
+  total: number
+  folio: string | null
+  serie: string | null
+  invoice_date: string
+  invoice_number: string | null
+  description: string
+  line_items: Array<{
+    id: string
+    product_code: string
+    description: string
+    quantity: number
+    unit_price: number
+    total: number
+    iva_rate: number
+  }>
+  uso_cfdi: string | null
+  payment_method: string | null
+  payment_terms: string | null
+  status: CFDIStatus
+  xml_path: string | null
+  pac_folio: string | null
+  pac_status: string | null
+  sat_validated_at: string | null
+  linked_invoice_id: string | null
+  linked_bank_transaction_id: string | null
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface CfdiIssueRequest {
-  id:                    string;
-  company_id:            string;
-  cfdi_type:             'ingreso' | 'egreso' | 'pago' | 'traslado';
-  receptor_rfc:          string;
-  receptor_razon_social: string | null;
-  receptor_uso_cfdi:     string;
-  receptor_codigo_postal: string | null;
-  receptor_regimen:      string | null;
-  items:                 CfdiLineItem[];
-  subtotal:              number | null;
-  iva:                   number | null;
-  total:                 number | null;
-  status:                'draft' | 'pending' | 'timbrado' | 'cancelled' | 'error';
-  uuid_cfdi:             string | null;
-  provider:              string;
-  error_message:         string | null;
-  requested_by:          string | null;
-  timbrado_at:           string | null;
-  created_at:            string;
-  updated_at:            string;
+// ============================================================================
+// CFDI DISTRIBUTION (Envío de CFDI)
+// ============================================================================
+
+export interface CFDIDistribution {
+  id: string
+  cfdi_id: string
+  channel: DistributionChannel
+  recipient_email: string | null
+  recipient_phone: string | null
+  recipient_name: string | null
+  template_id: string | null
+  custom_message: string | null
+  status: DistributionStatus
+  error_message: string | null
+  retry_count: number
+  last_retry_at: string | null
+  sent_at: string | null
+  read_at: string | null
+  download_count: number
+  created_at: string
+  updated_at: string
 }
 
-export interface CfdiLineItem {
-  description:    string;
-  quantity:       number;
-  unit:           string;
-  unit_price:     number;
-  subtotal:       number;
-  iva_rate:       number;
-  clave_prod_serv?: string;
-  clave_unidad?:  string;
+// ============================================================================
+// CFDI CREDITS (Saldo de créditos)
+// ============================================================================
+
+export interface CFDICredits {
+  id: string
+  company_id: string
+  credit_plan: CreditPlan
+  total_balance: number
+  monthly_allowance: number | null
+  price_per_cfdi: number | null
+  consumed_this_month: number
+  overage_allowed: boolean
+  overage_percentage: number
+  last_reset_date: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface CfdiProviderConfig {
-  id:                   string;
-  company_id:           string;
-  provider:             'facturama' | 'facturapia' | 'finkok';
-  rfc:                  string;
-  razon_social:         string | null;
-  regimen_fiscal:       string | null;
-  codigo_postal_fiscal: string | null;
-  mode:                 'sandbox' | 'production';
-  is_active:            boolean;
-  created_at:           string;
-  updated_at:           string;
+// ============================================================================
+// CFDI CREDIT TRANSACTION
+// ============================================================================
+
+export interface CFDICreditTransaction {
+  id: string
+  credit_id: string
+  transaction_type: 'recharge' | 'consumption' | 'overage' | 'adjustment'
+  amount: number
+  balance_before: number
+  balance_after: number
+  reference: string | null
+  description: string | null
+  created_at: string
 }
 
-export const CFDI_STATUS_META: Record<CfdiStatus, { label: string; color: string; icon: string }> = {
-  vigente:            { label: 'Vigente',              color: '#43A047', icon: '✓'  },
-  cancelado:          { label: 'Cancelado',            color: '#E53935', icon: '✕'  },
-  not_found:          { label: 'No encontrado en SAT', color: '#FB8C00', icon: '?'  },
-  duplicate:          { label: 'Duplicado',            color: '#7B1FA2', icon: '⚡' },
-  unmatched:          { label: 'Sin relacionar',       color: '#90A4AE', icon: '○'  },
-  matched:            { label: 'Relacionado',          color: '#1565C0', icon: '🔗' },
-  pending_complement: { label: 'Falta complemento',    color: '#FF9800', icon: '⏳' },
-};
+// ============================================================================
+// PAC CONFIGURATION
+// ============================================================================
 
-export const CFDI_TYPE_LABELS: Record<CfdiType, string> = {
-  I: 'Ingreso',
-  E: 'Egreso',
-  P: 'Pago',
-  T: 'Traslado',
-};
+export interface PACConfiguration {
+  id: string
+  company_id: string
+  pac_provider: PACProvider
+  api_key_encrypted: string
+  api_user: string | null
+  api_password_encrypted: string | null
+  webhook_secret_encrypted: string | null
+  is_active: boolean
+  test_mode: boolean
+  last_validated: string | null
+  validation_error: string | null
+  created_at: string
+  updated_at: string
+}
 
-export const USO_CFDI_LABELS: Record<string, string> = {
-  G01: 'Adquisición de mercancias',
-  G02: 'Devoluciones, descuentos o bonificaciones',
-  G03: 'Gastos en general',
-  I01: 'Construcciones',
-  D01: 'Honorarios médicos',
-  S01: 'Sin efectos fiscales',
-  CP01: 'Pagos',
-};
+// ============================================================================
+// EMAIL TEMPLATE
+// ============================================================================
 
-export const FORMA_PAGO_LABELS: Record<string, string> = {
-  '01': 'Efectivo',
-  '02': 'Cheque',
-  '03': 'Transferencia',
-  '04': 'Tarjeta crédito',
-  '28': 'Tarjeta débito',
-  '99': 'Por definir',
-};
+export interface EmailTemplate {
+  id: string
+  company_id: string
+  template_name: string
+  subject: string
+  body: string
+  variables: Record<string, string> | null
+  is_default: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ============================================================================
+// WHATSAPP TEMPLATE
+// ============================================================================
+
+export interface WhatsAppTemplate {
+  id: string
+  company_id: string
+  template_name: string
+  message: string
+  variables: Record<string, string> | null
+  is_default: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ============================================================================
+// DASHBOARD
+// ============================================================================
+
+export interface FacturaCheckDashboard {
+  period_month: number
+  period_year: number
+  total_cfdi_generated: number
+  total_cfdi_amount: number
+  pending_distributions: number
+  failed_distributions: number
+  credit_balance: number
+  credit_plan: CreditPlan
+  credit_usage_percentage: number
+  monthly_allowance: number | null
+  cfdi_by_type: Array<{
+    type: CFDIType
+    count: number
+    total: number
+  }>
+  distribution_by_channel: Array<{
+    channel: DistributionChannel
+    count: number
+    success_rate: number
+  }>
+  recent_cfdis: CFDIDocument[]
+  alerts: FacturaCheckAlert[]
+  pac_configured: boolean
+  pac_provider: PACProvider | null
+  pac_status: 'connected' | 'error' | 'unknown'
+}
+
+export interface FacturaCheckAlert {
+  id: string
+  severity: 'critical' | 'warning' | 'info'
+  title: string
+  message: string
+  action_label?: string
+  action_url?: string
+}
+
+// ============================================================================
+// REQUEST/RESPONSE TYPES
+// ============================================================================
+
+export interface GenerateCFDIRequest {
+  company_id: string
+  cfdi_type: CFDIType
+  receptor_rfc: string
+  receptor_name: string
+  receptor_email: string
+  line_items: Array<{
+    description: string
+    quantity: number
+    unit_price: number
+    iva_rate?: number
+  }>
+  payment_method?: string
+  uso_cfdi?: string
+  notes?: string
+}
+
+export interface DistributeCFDIRequest {
+  cfdi_id: string
+  channels: DistributionChannel[]
+  recipients: Array<{
+    channel: DistributionChannel
+    email?: string
+    phone?: string
+    name?: string
+  }>
+  custom_message?: string
+  template_id?: string
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+export const CFDI_TYPE_LABEL: Record<CFDIType, string> = {
+  ingreso: 'Factura (Ingreso)',
+  egreso: 'Gasto (Egreso)',
+  traslado: 'Traslado',
+  nomina: 'Nómina',
+}
+
+export const DISTRIBUTION_STATUS_COLOR: Record<DistributionStatus, string> = {
+  pending: '#FFA726',
+  sent: '#66BB6A',
+  failed: '#EF5350',
+  bounced: '#AB47BC',
+  read: '#29B6F6',
+}

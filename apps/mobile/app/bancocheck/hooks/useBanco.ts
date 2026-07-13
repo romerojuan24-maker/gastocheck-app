@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../../lib/supabase'
-import type { BankAccount, BankTransaction, BankReconciliation } from '../types'
+import type { BankAccount, BankTransaction } from '../types'
 
 // ============================================================================
 // 1. LOAD ACCOUNTS (con saldos totales)
@@ -24,24 +24,19 @@ export function useBancoAccounts(companyId: string) {
 
       const accounts_list = (data ?? []) as BankAccount[]
       setAccounts(accounts_list)
-
-      // Sumar todos los saldos (convertir a MXN si aplica)
-      const total = accounts_list.reduce((sum, a) => sum + (a.current_balance || 0), 0)
-      setTotalBalance(total)
+      setTotalBalance(accounts_list.reduce((sum, a) => sum + (a.current_balance || 0), 0))
     } finally {
       setLoading(false)
     }
   }, [companyId])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   return { accounts, totalBalance, loading, refetch: load }
 }
 
 // ============================================================================
-// 2. LOAD TRANSACTIONS (filtrados por estado y fuente)
+// 2. LOAD TRANSACTIONS (filtrados por estado y cuenta)
 // ============================================================================
 
 export function useBancoTransactions(companyId: string, accountId?: string, filterStatus?: string) {
@@ -59,13 +54,8 @@ export function useBancoTransactions(companyId: string, accountId?: string, filt
         .order('transaction_date', { ascending: false })
         .limit(500)
 
-      if (accountId) {
-        query = query.eq('bank_account_id', accountId)
-      }
-
-      if (filterStatus) {
-        query = query.eq('status', filterStatus)
-      }
+      if (accountId) query = query.eq('bank_account_id', accountId)
+      if (filterStatus) query = query.eq('status', filterStatus)
 
       const { data } = await query
       setTransactions((data ?? []) as BankTransaction[])
@@ -74,144 +64,82 @@ export function useBancoTransactions(companyId: string, accountId?: string, filt
     }
   }, [companyId, accountId, filterStatus])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   return { transactions, loading, refetch: load }
 }
 
 // ============================================================================
-// 3. CLASSIFY & UPDATE TRANSACTION
+// 3. ACCIONES — cada una llama al RPC atómico (update + audit log en la
+// misma transacción de Postgres; ver 20260712020000_bancocheck_rpc_acciones.sql)
 // ============================================================================
 
-export function useBancoClassify(companyId: string) {
+export function useBancoActions() {
   const [saving, setSaving] = useState(false)
 
-  const classify = async (transactionId: string, category: string, status: string) => {
+  async function run<T>(fn: () => Promise<T>) {
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('bank_transactions')
-        .update({ category, status, updated_at: new Date().toISOString() })
-        .eq('id', transactionId)
-
-      if (error) throw error
+      await fn()
       return { success: true, error: null }
     } catch (err: any) {
-      return { success: false, error: err.message }
+      return { success: false, error: err.message ?? 'Error desconocido' }
     } finally {
       setSaving(false)
     }
   }
 
-  const updateTransaction = async (transactionId: string, updates: Partial<BankTransaction>) => {
-    setSaving(true)
-    try {
-      const { error } = await supabase
-        .from('bank_transactions')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', transactionId)
-
+  const classify = (transactionId: string, status: string, category?: string, notes?: string) =>
+    run(async () => {
+      const { error } = await supabase.rpc('bancocheck_classify', {
+        p_transaction_id: transactionId, p_status: status, p_category: category ?? null, p_notes: notes ?? null,
+      })
       if (error) throw error
-      return { success: true, error: null }
-    } catch (err: any) {
-      return { success: false, error: err.message }
-    } finally {
-      setSaving(false)
-    }
-  }
+    })
 
-  const reset = async (transactionId: string) => {
-    setSaving(true)
-    try {
-      const { error } = await supabase
-        .from('bank_transactions')
-        .update({ category: null, status: 'new', updated_at: new Date().toISOString() })
-        .eq('id', transactionId)
-
+  const match = (transactionId: string, entityType: 'receipt' | 'invoice' | 'advance', entityId: string) =>
+    run(async () => {
+      const { error } = await supabase.rpc('bancocheck_match', {
+        p_transaction_id: transactionId, p_entity_type: entityType, p_entity_id: entityId,
+      })
       if (error) throw error
-      return { success: true, error: null }
-    } catch (err: any) {
-      return { success: false, error: err.message }
-    } finally {
-      setSaving(false)
-    }
-  }
+    })
 
-  return { classify, updateTransaction, reset, saving }
+  const markPersonal = (transactionId: string, isPersonal: boolean) =>
+    run(async () => {
+      const { error } = await supabase.rpc('bancocheck_mark_personal', {
+        p_transaction_id: transactionId, p_is_personal: isPersonal,
+      })
+      if (error) throw error
+    })
+
+  const ignore = (transactionId: string) =>
+    run(async () => {
+      const { error } = await supabase.rpc('bancocheck_ignore', { p_transaction_id: transactionId })
+      if (error) throw error
+    })
+
+  return { classify, match, markPersonal, ignore, saving }
 }
 
 // ============================================================================
-// 4. RECONCILIATION
-// ============================================================================
-
-export function useBancoReconciliation(companyId: string) {
-  const [reconciliations, setReconciliations] = useState<BankReconciliation[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const load = useCallback(async () => {
-    if (!companyId) return
-    setLoading(true)
-    try {
-      const { data } = await supabase
-        .from('bank_reconciliations')
-        .select('*')
-        .eq('company_id', companyId)
-        .order('period_year', { ascending: false })
-        .order('period_month', { ascending: false })
-
-      setReconciliations((data ?? []) as BankReconciliation[])
-    } finally {
-      setLoading(false)
-    }
-  }, [companyId])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const reconcile = async (reconciliationId: string, notes?: string) => {
-    try {
-      const { error } = await supabase
-        .from('bank_reconciliations')
-        .update({
-          status: 'reconciled',
-          reconciled_at: new Date().toISOString(),
-          notes
-        })
-        .eq('id', reconciliationId)
-
-      if (error) throw error
-      return { success: true, error: null }
-    } catch (err: any) {
-      console.error('useBancoReconciliation.reconcile failed:', err.message);
-      return { success: false, error: err.message }
-    }
-  }
-
-  return { reconciliations, loading, refetch: load, reconcile }
-}
-
-// ============================================================================
-// 5. COMPUTE KPIs
+// 4. COMPUTE KPIs
 // ============================================================================
 
 export function useBancoKPIs(transactions: BankTransaction[], accounts: BankAccount[]) {
-  const today = new Date().toISOString().split('T')[0]
+  const UNEXPLAINED: string[] = ['new', 'unidentified', 'pending_document', 'pending_invoice', 'matched']
 
-  const stats = {
+  const total = transactions.length
+  const unexplained = transactions.filter(t => UNEXPLAINED.includes(t.status)).length
+  const explained = transactions.filter(t => t.status === 'explained').length
+
+  return {
     totalBalance: accounts.reduce((sum, a) => sum + (a.current_balance || 0), 0),
-    todayIncome: transactions
-      .filter(t => t.transaction_date === today && t.amount > 0 && t.status === 'explained')
-      .reduce((sum, t) => sum + t.amount, 0),
-    todayExpense: transactions
-      .filter(t => t.transaction_date === today && t.amount < 0 && t.status === 'explained')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0),
-    pendingReconcile: transactions.filter(t => t.status === 'new' || t.status === 'pending_document').length,
-    fromGastoCheck: transactions.filter(t => t.imported_from === 'gastocheck').length,
-    fromCobraCheck: transactions.filter(t => t.imported_from === 'cobracheck').length,
+    totalTransactions: total,
+    unexplainedCount: unexplained,
+    explainedPercentage: total > 0 ? Math.round((explained / total) * 100) : 0,
+    needsReceiptCount: transactions.filter(t => t.status === 'pending_document').length,
+    needsInvoiceCount: transactions.filter(t => t.status === 'pending_invoice').length,
+    personalCount: transactions.filter(t => t.is_personal).length,
   }
-
-  return stats
 }

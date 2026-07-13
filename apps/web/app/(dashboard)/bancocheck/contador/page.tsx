@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase, getSessionUser } from '../../../../lib/supabase';
-import type { BankTransaction } from '@gastocheck/shared';
+import type { BankTransaction } from '@/lib/bancocheck-types';
 
 const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
@@ -14,6 +14,7 @@ export default function ContadorBancoCheckPage() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [explained, setExplained] = useState<BankTransaction[]>([]);
   const [withoutCFDI, setWithoutCFDI] = useState<BankTransaction[]>([]);
+  const [withoutInvoice, setWithoutInvoice] = useState<BankTransaction[]>([]);
   const [unidentified, setUnidentified] = useState<BankTransaction[]>([]);
   const [personal, setPersonal] = useState<BankTransaction[]>([]);
 
@@ -28,7 +29,7 @@ export default function ContadorBancoCheckPage() {
       setTotalBalance(balance);
 
       // Transacciones por estado
-      const [expRes, noCFDIRes, unidRes, perRes] = await Promise.all([
+      const [expRes, noCFDIRes, noInvoiceRes, unidRes, perRes] = await Promise.all([
         supabase.from('bank_transactions')
           .select('*').eq('company_id', cid).eq('status', 'explained')
           .order('transaction_date', { ascending: false }).limit(50),
@@ -38,16 +39,21 @@ export default function ContadorBancoCheckPage() {
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
+          .select('*').eq('company_id', cid).eq('status', 'pending_invoice')
+          .order('transaction_date', { ascending: false }).limit(50),
+
+        supabase.from('bank_transactions')
           .select('*').eq('company_id', cid).eq('status', 'unidentified')
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
-          .select('*').eq('company_id', cid).eq('category', 'personal')
+          .select('*').eq('company_id', cid).eq('is_personal', true)
           .order('transaction_date', { ascending: false }).limit(50),
       ]);
 
       setExplained((expRes.data ?? []) as BankTransaction[]);
       setWithoutCFDI((noCFDIRes.data ?? []) as BankTransaction[]);
+      setWithoutInvoice((noInvoiceRes.data ?? []) as BankTransaction[]);
       setUnidentified((unidRes.data ?? []) as BankTransaction[]);
       setPersonal((perRes.data ?? []) as BankTransaction[]);
     } finally {
@@ -64,14 +70,15 @@ export default function ContadorBancoCheckPage() {
   }, [load]);
 
   const sections = [
-    { title: 'Explicados',             count: explained.length,   data: explained,   color: 'emerald' },
-    { title: 'Falta comprobante SAT',  count: withoutCFDI.length, data: withoutCFDI, color: 'amber' },
-    { title: 'Sin identificar',        count: unidentified.length, data: unidentified, color: 'red' },
-    { title: 'Gastos personales',      count: personal.length,   data: personal,   color: 'slate' },
+    { title: 'Explicados',             count: explained.length,      data: explained,      color: 'emerald' },
+    { title: 'Falta comprobante',      count: withoutCFDI.length,    data: withoutCFDI,    color: 'amber' },
+    { title: 'Falta factura',          count: withoutInvoice.length, data: withoutInvoice, color: 'amber' },
+    { title: 'Revisar con contador',   count: unidentified.length,   data: unidentified,   color: 'red' },
+    { title: 'Movimientos personales', count: personal.length,       data: personal,       color: 'slate' },
   ];
 
   async function exportToCSV() {
-    const allTxns = [...explained, ...withoutCFDI, ...unidentified, ...personal];
+    const allTxns = [...explained, ...withoutCFDI, ...withoutInvoice, ...unidentified, ...personal];
     const csv = [
       ['Fecha', 'Descripción', 'Referencia', 'Monto', 'Saldo después', 'Estado', 'Categoría'].join(','),
       ...allTxns.map(t =>

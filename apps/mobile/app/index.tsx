@@ -28,6 +28,7 @@ export default function CheckSuiteHome() {
   const [viewMode,    setViewMode]    = useState<GlobalViewMode>('admin');
   const [userEmail,   setUserEmail]   = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [topInsight,  setTopInsight]  = useState<{ id: string; title: string; body: string; severity: string } | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -81,6 +82,18 @@ export default function CheckSuiteHome() {
             .eq('id', member.company_id)
             .maybeSingle();
           setCompanyName((co as any)?.name ?? null);
+
+          if (MANAGER_ROLES.includes(member.role)) {
+            const { data: insight } = await supabase
+              .from('advisor_insights')
+              .select('id, title, body, severity')
+              .eq('company_id', member.company_id)
+              .not('status', 'in', '(RESOLVED,DISMISSED,EXPIRED)')
+              .order('priority_score', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            setTopInsight(insight as any ?? null);
+          }
         }
       } finally {
         setLoading(false);
@@ -161,6 +174,15 @@ export default function CheckSuiteHome() {
 
         <TrialBanner onUpgrade={() => router.push('/settings')} />
 
+        {topInsight && (
+          <TouchableOpacity style={styles.advisorCard} onPress={() => router.push('/advisor' as any)} activeOpacity={0.85}>
+            <Text style={styles.advisorLabel}>🧠 ADVISOR · {topInsight.severity === 'critical' ? 'CRÍTICO' : topInsight.severity === 'warning' ? 'IMPORTANTE' : 'REVISAR'}</Text>
+            <Text style={styles.advisorTitle}>{topInsight.title}</Text>
+            <Text style={styles.advisorBody} numberOfLines={2}>{topInsight.body}</Text>
+            <Text style={styles.advisorLink}>Ver Advisor ›</Text>
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.sectionLabel}>MÓDULOS</Text>
 
         {showGasto && (
@@ -198,11 +220,11 @@ export default function CheckSuiteHome() {
           <>
             <Text style={styles.sectionLabel}>MÁS HERRAMIENTAS</Text>
             <View style={styles.miniGrid}>
-              {/* DISABLED 2026-07-09: BancoCheck lógica deficiente, requiere revisión arquitectónica */}
-              {/* <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} /> */}
+              <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} />
               <MiniCard icon="🧾" label="FacturaCheck"  onPress={() => router.push('/facturacheck' as any)} />
               <MiniCard icon="💧" label="FlujoCheck"    onPress={() => router.push('/flujocheck' as any)} />
               <MiniCard icon="📦" label="Inventario"    onPress={() => router.push('/inventariocheck' as any)} />
+              <MiniCard icon="🧠" label="Advisor"       onPress={() => router.push('/advisor' as any)} />
             </View>
           </>
         )}
@@ -295,6 +317,14 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: '800', color: '#90A4AE',
     letterSpacing: 1, marginTop: 18, marginBottom: 8,
   },
+
+  advisorCard: {
+    backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, marginTop: 14,
+  },
+  advisorLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5, marginBottom: 6 },
+  advisorTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  advisorBody: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 17 },
+  advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
 
   moduleCard: {
     backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12,

@@ -2,20 +2,33 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, getSessionUser } from '@/lib/supabase'
-import type { BankAccount, BankTransaction } from '@gastocheck/shared'
+import type { BankAccount, BankTransaction } from '@/lib/bancocheck-types'
 
 const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n)
 
-const CATEGORIES: { key: string; label: string; status: string }[] = [
-  { key: 'collection', label: '💰 Cobranza (cliente)', status: 'explained' },
-  { key: 'expense',    label: '🧾 Gasto',              status: 'explained' },
-  { key: 'supplier',   label: '🏭 Pago a proveedor',   status: 'explained' },
-  { key: 'advance',    label: '📤 Anticipo',           status: 'explained' },
-  { key: 'transfer',   label: '🔁 Traspaso',           status: 'explained' },
-  { key: 'personal',   label: '👤 Personal',           status: 'personal' },
-  { key: 'ignore',     label: '🚫 Ignorar',            status: 'ignored' },
+// Cargos/depósitos — nunca "póliza/asiento/debe/haber" (regla UX del módulo).
+const CHARGE_CATEGORIES = [
+  { key: 'expense',  label: '🧾 Gasto de negocio' },
+  { key: 'supplier', label: '🏭 Proveedor' },
+  { key: 'advance',  label: '📤 Anticipo' },
+  { key: 'refund',   label: '↩️ Reembolso' },
+  { key: 'tax',      label: '🏛️ Impuesto' },
+  { key: 'bank_fee', label: '🏦 Comisión bancaria' },
+  { key: 'loan',     label: '💳 Préstamo' },
+  { key: 'other',    label: '❓ Otro' },
 ]
-const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label]))
+const DEPOSIT_CATEGORIES = [
+  { key: 'client_payment',     label: '💰 Pago de cliente' },
+  { key: 'unbilled_income',    label: '📥 Ingreso no facturado' },
+  { key: 'loan',               label: '💳 Préstamo' },
+  { key: 'owner_contribution', label: '🏢 Aportación del dueño' },
+  { key: 'refund',             label: '↩️ Devolución' },
+  { key: 'internal_transfer',  label: '🔁 Transferencia interna' },
+  { key: 'other',              label: '❓ Otro' },
+]
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  [...CHARGE_CATEGORIES, ...DEPOSIT_CATEGORIES].map((c) => [c.key, c.label]),
+)
 
 export default function BancoCheckPage() {
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -48,26 +61,42 @@ export default function BancoCheckPage() {
 
   async function classify(category: string) {
     if (!companyId || !classifying) return
-    const status = CATEGORIES.find((c) => c.key === category)?.status ?? 'explained'
     setSaving(true)
-    const { error } = await supabase.from('bank_transactions').update({ category, status }).eq('id', classifying.id)
+    const { error } = await supabase.rpc('bancocheck_classify', {
+      p_transaction_id: classifying.id, p_status: 'explained', p_category: category,
+    })
     setSaving(false)
     if (error) { alert('Error: ' + error.message); return }
     setClassifying(null)
     await load(companyId)
   }
 
-  async function resetClassification(t: BankTransaction) {
+  async function markPersonal(t: BankTransaction) {
     if (!companyId) return
-    const { error } = await supabase.from('bank_transactions').update({ category: null, status: 'new' }).eq('id', t.id)
+    const { error } = await supabase.rpc('bancocheck_mark_personal', { p_transaction_id: t.id, p_is_personal: true })
     if (error) { alert('Error: ' + error.message); return }
     await load(companyId)
   }
 
+  async function ignoreTxn(t: BankTransaction) {
+    if (!companyId) return
+    const { error } = await supabase.rpc('bancocheck_ignore', { p_transaction_id: t.id })
+    if (error) { alert('Error: ' + error.message); return }
+    await load(companyId)
+  }
+
+  async function resetClassification(t: BankTransaction) {
+    if (!companyId) return
+    const { error } = await supabase.rpc('bancocheck_classify', { p_transaction_id: t.id, p_status: 'new', p_category: null })
+    if (error) { alert('Error: ' + error.message); return }
+    await load(companyId)
+  }
+
+  const UNEXPLAINED = ['new', 'matched', 'unidentified', 'pending_document', 'pending_invoice']
   const filtered = transactions.filter((t) => {
     if (selectedAccountId && t.bank_account_id !== selectedAccountId) return false
-    if (tab === 'new') return t.status === 'new'
-    if (tab === 'explained') return ['explained', 'personal', 'ignored', 'matched'].includes(t.status)
+    if (tab === 'new') return UNEXPLAINED.includes(t.status) && !t.is_personal
+    if (tab === 'explained') return t.status === 'explained'
     if (tab === 'pending') return t.status === 'pending_document' || t.status === 'pending_invoice'
     return true
   })
@@ -83,7 +112,11 @@ export default function BancoCheckPage() {
         <div>
           <h1 className="text-3xl font-black text-slate-900">🏦 BancoCheck</h1>
           <p className="text-slate-500 mt-1">Reconciliación bancaria inteligente</p>
-          <a href="/bancocheck/analisis" className="inline-block mt-2 text-sm font-semibold text-emerald-600 hover:text-emerald-800">🤖 Análisis IA de convergencias →</a>
+          <div className="flex gap-3 mt-2">
+            <a href="/bancocheck/conciliacion" className="text-sm font-semibold text-purple-600 hover:text-purple-800">🔗 Conciliación cruzada →</a>
+            <a href="/bancocheck/contador" className="text-sm font-semibold text-blue-600 hover:text-blue-800">📊 Vista contador →</a>
+            <a href="/bancocheck/analisis" className="text-sm font-semibold text-emerald-600 hover:text-emerald-800">🤖 Análisis IA de convergencias →</a>
+          </div>
         </div>
         <a href="/bancocheck/importar"
           className="px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-sm whitespace-nowrap">
@@ -132,10 +165,14 @@ export default function BancoCheckPage() {
                     {t.category && <> · {CATEGORY_LABEL[t.category] ?? t.category}</>}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <p className={`font-black ${isDeposit ? 'text-emerald-600' : 'text-red-600'}`}>{isDeposit ? '+' : '-'}{money(Math.abs(t.amount ?? 0))}</p>
-                  {t.status === 'new' ? (
-                    <button onClick={() => setClassifying(t)} className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-700">Clasificar</button>
+                  {t.status !== 'explained' && t.status !== 'ignored' ? (
+                    <>
+                      <button onClick={() => setClassifying(t)} className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-700">Explicar</button>
+                      <button onClick={() => markPersonal(t)} className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-800 font-semibold">Personal</button>
+                      <button onClick={() => ignoreTxn(t)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700 font-semibold">Ignorar</button>
+                    </>
                   ) : (
                     <button onClick={() => resetClassification(t)} className="text-xs text-slate-400 hover:text-slate-700 font-semibold">Reabrir</button>
                   )}
@@ -150,11 +187,11 @@ export default function BancoCheckPage() {
       {classifying && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setClassifying(null)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-900">Clasificar movimiento</h2>
+            <h2 className="text-lg font-bold text-slate-900">Explicar movimiento</h2>
             <p className="text-sm text-slate-500 truncate">{classifying.description}</p>
             <p className={`font-black ${(classifying.amount ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{money(Math.abs(classifying.amount ?? 0))}</p>
             <div className="grid grid-cols-1 gap-2 pt-1">
-              {CATEGORIES.map((c) => (
+              {((classifying.amount ?? 0) >= 0 ? DEPOSIT_CATEGORIES : CHARGE_CATEGORIES).map((c) => (
                 <button key={c.key} disabled={saving} onClick={() => classify(c.key)}
                   className="w-full text-left px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 disabled:opacity-50">
                   {c.label}

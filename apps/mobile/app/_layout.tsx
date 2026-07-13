@@ -145,10 +145,18 @@ export default function Layout() {
       <Stack.Screen name="reportes"          options={{ title: 'Reportes' }} />
       <Stack.Screen name="catalogo-cuentas"  options={{ title: 'Catálogo de cuentas' }} />
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
-      <Stack.Screen name="bancocheck"        options={{ title: 'BancoCheck' }} />
-      <Stack.Screen name="facturacheck"      options={{ title: 'FacturaCheck' }} />
-      <Stack.Screen name="flujocheck"        options={{ title: 'FlujoCheck' }} />
-      <Stack.Screen name="inventariocheck"   options={{ title: 'Inventario' }} />
+      <Stack.Screen name="bancocheck/index"        options={{ title: 'BancoCheck' }} />
+      <Stack.Screen name="bancocheck/movimientos"  options={{ title: 'Movimientos Bancarios' }} />
+      <Stack.Screen name="bancocheck/cuentas"        options={{ title: 'Cuentas Bancarias' }} />
+      <Stack.Screen name="bancocheck/importar"       options={{ title: 'Importar Movimientos' }} />
+      <Stack.Screen name="bancocheck/cuenta-detalle" options={{ title: 'Detalle de Cuenta' }} />
+      <Stack.Screen name="bancocheck/conciliacion"   options={{ title: 'Conciliación de Cuenta' }} />
+      <Stack.Screen name="facturacheck/index"      options={{ title: 'FacturaCheck' }} />
+      <Stack.Screen name="advisor/index"           options={{ title: 'Advisor' }} />
+      <Stack.Screen name="facturacheck/emitir"     options={{ title: 'Emitir CFDI' }} />
+      <Stack.Screen name="facturacheck/pac-config" options={{ title: 'Configurar PAC' }} />
+      <Stack.Screen name="flujocheck/index"        options={{ title: 'FlujoCheck' }} />
+      <Stack.Screen name="inventariocheck/index"   options={{ title: 'Inventario' }} />
       <Stack.Screen name="polizas"           options={{ title: 'Mis Pólizas' }} />
       <Stack.Screen name="depositos"         options={{ title: 'Mis Depósitos' }} />
       <Stack.Screen name="reembolso"         options={{ title: 'Reembolso' }} />
@@ -156,7 +164,18 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/tareas-diarias" options={{ title: 'Tareas Diarias' }} />
       <Stack.Screen name="cobracheck/clientes"       options={{ title: 'Clientes' }} />
       <Stack.Screen name="cobracheck/historial"      options={{ title: 'Historial' }} />
-      <Stack.Screen name="cobracheck/page"           options={{ title: 'CobraCheck' }} />
+      <Stack.Screen name="cobracheck/cartera-total"    options={{ title: 'Relación CxC' }} />
+      <Stack.Screen name="cobracheck/comprobantes"     options={{ title: 'Relación de Facturas' }} />
+      <Stack.Screen name="cobracheck/pagos"            options={{ title: 'Registrar Pago' }} />
+      <Stack.Screen name="cobracheck/factura-manual"   options={{ title: 'Alta de Factura' }} />
+      <Stack.Screen name="cobracheck/polizas"          options={{ title: 'Pólizas' }} />
+      <Stack.Screen name="cobracheck/reporte-cobrador" options={{ title: 'Reporte Cobrador' }} />
+      <Stack.Screen name="cobracheck/transferencia"    options={{ title: 'Transferencia Bancaria' }} />
+      <Stack.Screen name="cobracheck/reportes"         options={{ title: 'Reportes de Cobranza' }} />
+      <Stack.Screen name="cobracheck/alta-cliente"     options={{ title: 'Alta de Cliente' }} />
+      <Stack.Screen name="cobracheck/generar-ruta"     options={{ title: 'Generar Ruta del Día' }} />
+      <Stack.Screen name="cobracheck/mis-reportes"     options={{ title: 'Mis Reportes' }} />
+      <Stack.Screen name="cobracheck/depositos"        options={{ title: 'Depósitos' }} />
     </Stack>
     </ErrorBoundary>
   );

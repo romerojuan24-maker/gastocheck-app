@@ -23,6 +23,7 @@ export default function BancoCheckImportPage() {
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
+  const [rawFile, setRawFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,6 +86,7 @@ export default function BancoCheckImportPage() {
       const rows = parseCSV(text);
       if (rows.length === 0) throw new Error('No se encontraron transacciones válidas');
       setParsed(rows);
+      setRawFile(file);
     } catch (err: any) {
       setError(err.message ?? 'Error al parsear CSV');
     } finally {
@@ -92,12 +94,47 @@ export default function BancoCheckImportPage() {
     }
   }
 
+  async function sha256(text: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Regla #2: uniqueHash = tenant + cuenta + fecha + descripción normalizada
+  // + cargo + abono + referencia. Deduplica a nivel de fila (índice único
+  // en bank_transactions, ver 20260712010000_bancocheck_ajuste_operativo.sql).
+  async function rowHash(p: ParsedRow): Promise<string> {
+    const desc = p.description.trim().toLowerCase().replace(/\s+/g, ' ');
+    const cargo = p.amount < 0 ? Math.abs(p.amount).toFixed(2) : '0.00';
+    const abono = p.amount >= 0 ? p.amount.toFixed(2) : '0.00';
+    return sha256([companyId, selectedAccount, p.transaction_date, desc, cargo, abono, p.reference ?? ''].join('|'));
+  }
+
   async function handleImport() {
-    if (!selectedAccount || parsed.length === 0) return;
+    if (!selectedAccount || parsed.length === 0 || !companyId || !rawFile) return;
     setLoading(true);
+    setError(null);
     try {
-      const batchId = crypto.randomUUID();
-      const rows = parsed.map(p => ({
+      // Regla #3: mismo archivo dos veces = no duplicar (índice único
+      // company+cuenta+file_hash en bank_import_logs).
+      const fileHash = await sha256(await rawFile.text() + '|' + selectedAccount);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: logRow, error: logErr } = await supabase
+        .from('bank_import_logs')
+        .insert({
+          company_id: companyId, bank_account_id: selectedAccount,
+          filename: rawFile.name, import_type: 'CSV', file_size_bytes: rawFile.size,
+          file_hash: fileHash, total_records: parsed.length, status: 'pending',
+          imported_by: user?.id,
+        })
+        .select('id').single();
+
+      if (logErr) {
+        if (logErr.code === '23505') throw new Error('Este archivo ya fue importado antes para esta cuenta.');
+        throw logErr;
+      }
+
+      const rows = await Promise.all(parsed.map(async p => ({
         company_id:      companyId,
         bank_account_id: selectedAccount,
         transaction_date: p.transaction_date,
@@ -107,19 +144,30 @@ export default function BancoCheckImportPage() {
         balance_after:   p.balance_after,
         status:          'new' as const,
         imported_from:   'csv' as const,
-        import_batch_id: batchId,
-      }));
+        import_batch_id: logRow.id,
+        unique_hash:     await rowHash(p),
+      })));
 
-      const { error: err } = await supabase
+      // ignoreDuplicates: movimientos idénticos ya importados (mismo hash)
+      // se saltan en vez de duplicarse — regla #1/#2.
+      const { data: inserted, error: err } = await supabase
         .from('bank_transactions')
-        .insert(rows);
+        .upsert(rows, { onConflict: 'company_id,bank_account_id,unique_hash', ignoreDuplicates: true })
+        .select('id');
 
       if (err) throw err;
 
+      const importedCount = inserted?.length ?? 0;
+      await supabase.from('bank_import_logs').update({
+        status: 'completed', success_count: importedCount,
+        error_count: parsed.length - importedCount,
+      }).eq('id', logRow.id);
+
       setParsed([]);
+      setRawFile(null);
       if (fileRef.current) fileRef.current.value = '';
 
-      router.push('/bancocheck?imported=true');
+      router.push(`/bancocheck?imported=${importedCount}&duplicates=${parsed.length - importedCount}`);
     } catch (err: any) {
       setError(err.message ?? 'Error al importar');
     } finally {

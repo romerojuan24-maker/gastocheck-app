@@ -3,12 +3,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, TextInput, Modal, FlatList,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { BRAND, type CobraClient, type CobraInvoice } from '@gastocheck/shared';
+import { BRAND, type CobraClient, type CobraInvoice, type CobraRoute } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
 import {
@@ -17,38 +17,13 @@ import {
   calcTotalKm, syncPendingRoutes, isOnWifi, todayStr,
   type RoutePoint,
 } from '../../lib/route-tracker';
+import {
+  addMovementToday, loadTodayMovements, syncPendingMovements,
+  type CobraMovement,
+} from '../../lib/cobra-movements-queue';
 import DatePickerField from '../../components/DatePickerField';
 
 const AUTO_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
-
-// ── Tipos locales ─────────────────────────────────────────────────────────
-
-interface CollectionMovement {
-  id:              string;
-  route_point_ts:  string;           // Vinculado al point de ruta
-  client_id:       string;
-  client_name:     string;
-  invoice_id?:     string;
-  folio?:          string;           // Folio de factura
-  amount_original: number;           // Monto original de la factura
-  movement_type:   'collected' | 'promise' | 'not_paid'; // Tipo de movimiento
-  collected_amount?: number;         // Si collected: monto cobrado
-  promise_date?:   string;           // Si promise: fecha comprometida
-  reason_not_paid?: string;          // Si not_paid: motivo (sin fondos, disputa, rechazó, otro)
-  photo_uri?:      string;           // Comprobante de pago (optional)
-  notes?:          string;
-  created_at:      string;
-}
-
-interface RutaDay {
-  points:    RoutePoint[];
-  movements: CollectionMovement[];
-  synced:    boolean;
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-}
 
 // ── Motivos de no pago predefinidos ───────────────────────────────────────
 const NO_PAY_REASONS = [
@@ -70,7 +45,7 @@ export default function MiRutaCobraScreen() {
   const [userId,     setUserId]     = useState<string | null>(null);
   const [companyId,  setCompanyId]  = useState<string | null>(null);
   const [points,     setPoints]     = useState<RoutePoint[]>([]);
-  const [movements,  setMovements]  = useState<CollectionMovement[]>([]);
+  const [movements,  setMovements]  = useState<CobraMovement[]>([]);
   const [tracking,   setTracking]   = useState(false);
   const [busy,       setBusy]       = useState(false);
   const [syncing,    setSyncing]    = useState(false);
@@ -87,7 +62,7 @@ export default function MiRutaCobraScreen() {
   // ── Formulario captura ──────────────────────────────────────────────────
   const [movementType,     setMovementType]     = useState<'collected' | 'promise' | 'not_paid'>('collected');
   const [collectedAmount,  setCollectedAmount]  = useState('');
-  const [promiseDate,      setPromiseDate]      = useState<Date | null>(null);
+  const [promiseDate,      setPromiseDate]      = useState('');
   const [reasonNotPaid,    setReasonNotPaid]    = useState('');
   const [movementNotes,    setMovementNotes]    = useState('');
   const [photoUri,         setPhotoUri]         = useState<string | null>(null);
@@ -97,6 +72,11 @@ export default function MiRutaCobraScreen() {
   const [clients,  setClients]  = useState<CobraClient[]>([]);
   const [invoices, setInvoices] = useState<CobraInvoice[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
+
+  // ── Ruta asignada por el Contador (Operaciones > Generar Ruta) ──────────
+  const [assignedRoute,  setAssignedRoute]  = useState<CobraRoute | null>(null);
+  const [routeClients,   setRouteClients]   = useState<CobraClient[]>([]);
+  const [loadingRoute,   setLoadingRoute]   = useState(true);
 
   // ── Init ────────────────────────────────────────────────────────────────
 
@@ -111,6 +91,9 @@ export default function MiRutaCobraScreen() {
 
       const pts = await loadTodayPoints(user.id);
       setPoints(pts);
+
+      const movs = await loadTodayMovements(user.id);
+      setMovements(movs);
 
       const w = await isOnWifi();
       setWifi(w);
@@ -141,6 +124,41 @@ export default function MiRutaCobraScreen() {
       }
     })();
   }, [companyId]);
+
+  // ── Cargar ruta asignada del día (Contador > Operaciones > Generar Ruta) ──
+
+  useEffect(() => {
+    if (!companyId || !userId) return;
+    (async () => {
+      setLoadingRoute(true);
+      try {
+        const { data: route } = await supabase
+          .from('cobra_routes')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('actor_id', userId)
+          .eq('assigned_date', todayStr())
+          .maybeSingle();
+
+        if (route) {
+          setAssignedRoute(route as CobraRoute);
+          const ids: string[] = (route as any).clients_assigned ?? [];
+          if (ids.length > 0) {
+            const { data: cls } = await supabase.from('cobra_clients').select('*').in('id', ids);
+            const byId = new Map((cls ?? []).map((c: any) => [c.id, c]));
+            setRouteClients(ids.map(id => byId.get(id)).filter(Boolean) as CobraClient[]);
+          }
+        } else {
+          setAssignedRoute(null);
+          setRouteClients([]);
+        }
+      } catch (e) {
+        console.error('Error cargando ruta asignada:', e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoadingRoute(false);
+      }
+    })();
+  }, [companyId, userId]);
 
   // ── Cargar facturas de cliente ──────────────────────────────────────────
 
@@ -200,6 +218,11 @@ export default function MiRutaCobraScreen() {
     }
     setBusy(false);
     setTracking(true);
+
+    if (assignedRoute && assignedRoute.status === 'planned') {
+      await supabase.from('cobra_routes').update({ status: 'in_progress' }).eq('id', assignedRoute.id);
+      setAssignedRoute({ ...assignedRoute, status: 'in_progress' });
+    }
   }
 
   async function handleStopTracking() {
@@ -212,6 +235,13 @@ export default function MiRutaCobraScreen() {
     }
     setBusy(false);
     setTracking(false);
+
+    if (assignedRoute && assignedRoute.status === 'in_progress') {
+      await supabase.from('cobra_routes')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', assignedRoute.id);
+      setAssignedRoute({ ...assignedRoute, status: 'completed' });
+    }
   }
 
   // ── Flujo de captura de movimiento ──────────────────────────────────────
@@ -229,6 +259,18 @@ export default function MiRutaCobraScreen() {
     setSelectedClient(client);
     loadInvoicesForClient(client.id);
     setCaptureStep('invoice');
+  }
+
+  function visitRouteClient(client: CobraClient) {
+    if (!tracking) {
+      Alert.alert(
+        'Inicia tu ruta',
+        'Activa "Iniciar ruta" primero para que tu recorrido quede registrado.',
+      );
+      return;
+    }
+    handleSelectClient(client);
+    setShowCaptureModal(true);
   }
 
   function handleSelectInvoice(invoice: CobraInvoice) {
@@ -262,59 +304,56 @@ export default function MiRutaCobraScreen() {
       return;
     }
 
+    if (!userId || !companyId) {
+      Alert.alert('Error', 'No se pudo identificar tu empresa. Vuelve a intentar.');
+      return;
+    }
+
     setSaving(true);
     try {
       const invoice = selectedInvoices[0];
       const currentPoint = points[points.length - 1];
 
-      const movement: CollectionMovement = {
-        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        route_point_ts: currentPoint?.ts || new Date().toISOString(),
-        client_id: selectedClient.id,
-        client_name: selectedClient.name,
-        invoice_id: invoice.id,
-        folio: invoice.folio,
-        amount_original: invoice.amount,
-        movement_type: movementType,
-        collected_amount: movementType === 'collected' ? parseFloat(collectedAmount) : undefined,
-        promise_date: movementType === 'promise' && promiseDate ? promiseDate.toISOString() : undefined,
-        reason_not_paid: movementType === 'not_paid' ? reasonNotPaid : undefined,
-        photo_uri: photoUri || undefined,
-        notes: movementNotes || undefined,
-        created_at: new Date().toISOString(),
-      };
+      // addMovementToday guarda en el teléfono de inmediato (nunca se
+      // pierde) y sube a Supabase al toque si hay conexión — antes esto
+      // solo vivía en memoria de React y se perdía sin conexión.
+      const updated = await addMovementToday(userId, {
+        company_id:        companyId,
+        user_id:           userId,
+        client_id:         selectedClient.id,
+        client_name:       selectedClient.name,
+        invoice_id:        invoice.id,
+        folio:             invoice.folio,
+        route_point_ts:    currentPoint?.ts || new Date().toISOString(),
+        amount_original:   invoice.amount,
+        movement_type:     movementType,
+        collected_amount:  movementType === 'collected' ? parseFloat(collectedAmount) : undefined,
+        promise_date:      movementType === 'promise' && promiseDate ? promiseDate : undefined,
+        reason_not_paid:   movementType === 'not_paid' ? reasonNotPaid : undefined,
+        photo_uri:         photoUri || undefined,
+        notes:             movementNotes || undefined,
+      });
+      const isNewClientToday = !movements.some(m => m.client_id === selectedClient.id);
+      setMovements(updated);
 
-      // Guardar movimiento (offline first)
-      setMovements([...movements, movement]);
-
-      // Intentar sincronizar inmediatamente si hay WiFi
-      if (wifi && userId && companyId) {
-        const { error } = await supabase
-          .from('cobra_movements')
-          .insert([{
-            route_point_ts: movement.route_point_ts,
-            client_id: movement.client_id,
-            invoice_id: movement.invoice_id,
-            amount_original: movement.amount_original,
-            movement_type: movement.movement_type,
-            collected_amount: movement.collected_amount,
-            promise_date: movement.promise_date,
-            reason_not_paid: movement.reason_not_paid,
-            photo_uri: movement.photo_uri,
-            notes: movement.notes,
-            user_id: userId,
-            company_id: companyId,
-          }]);
-
-        if (error) {
-          console.error('Error sincronizando movimiento:', error.message);
+      // Refleja el avance en la ruta asignada, para que el Reporte de Ruta
+      // del Contador tenga datos reales (no solo lo que el cobrador ve).
+      if (assignedRoute) {
+        const patch: Record<string, number> = {};
+        if (isNewClientToday) patch.clients_visited = assignedRoute.clients_visited + 1;
+        if (movementType === 'collected') patch.payments_collected = assignedRoute.payments_collected + (parseFloat(collectedAmount) || 0);
+        if (movementType === 'promise') patch.promises_made = assignedRoute.promises_made + 1;
+        if (movementType === 'not_paid') patch.rejections = assignedRoute.rejections + 1;
+        if (Object.keys(patch).length > 0) {
+          await supabase.from('cobra_routes').update(patch).eq('id', assignedRoute.id);
+          setAssignedRoute({ ...assignedRoute, ...patch });
         }
       }
 
       // Resetear formulario y cerrar
       setShowCaptureModal(false);
       setCollectedAmount('');
-      setPromiseDate(null);
+      setPromiseDate('');
       setReasonNotPaid('');
       setMovementNotes('');
       setPhotoUri(null);
@@ -336,12 +375,20 @@ export default function MiRutaCobraScreen() {
     if (!userId || !companyId) return;
     setSyncing(true);
     try {
-      const result = await syncPendingRoutes(userId, companyId);
+      const [routeResult, movResult] = await Promise.all([
+        syncPendingRoutes(userId, companyId),
+        syncPendingMovements(userId),
+      ]);
+      const movs = await loadTodayMovements(userId);
+      setMovements(movs);
       setSyncing(false);
-      if (!result.wifiAvailable) {
-        setSyncMsg('Sin WiFi — los datos se subirán automáticamente al conectarte.');
-      } else if (result.synced > 0) {
-        setSyncMsg(`✅ ${result.synced} día(s) sincronizados correctamente.`);
+
+      if (!routeResult.wifiAvailable && !movResult.online) {
+        setSyncMsg('Sin conexión — los datos se subirán automáticamente al conectarte.');
+      } else if (routeResult.synced > 0 || movResult.synced > 0) {
+        setSyncMsg(`✅ Sincronizado: ${routeResult.synced} día(s) de ruta, ${movResult.synced} movimiento(s) de cobranza.`);
+      } else if (movResult.pending > 0) {
+        setSyncMsg(`${movResult.pending} movimiento(s) pendientes por sincronizar.`);
       } else {
         setSyncMsg('Todo está al día, no hay pendientes.');
       }
@@ -395,6 +442,50 @@ export default function MiRutaCobraScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+
+        {/* Ruta asignada por el Contador */}
+        {loadingRoute ? null : routeClients.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>
+              Ruta de hoy ({routeClients.length} cliente{routeClients.length !== 1 ? 's' : ''})
+              {assignedRoute?.route_priority ? ` · prioridad ${assignedRoute.route_priority}` : ''}
+            </Text>
+            {routeClients.map((c, i) => {
+              const visited = movements.some(m => m.client_id === c.id);
+              return (
+                <TouchableOpacity key={c.id} style={styles.routeClientRow} onPress={() => visitRouteClient(c)}>
+                  <View style={styles.routeClientNum}>
+                    <Text style={styles.routeClientNumText}>{visited ? '✓' : i + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.routeClientName}>{c.name}</Text>
+                    {c.address ? <Text style={styles.routeClientMeta} numberOfLines={1}>{c.address}</Text> : null}
+                    {(c.payer_name || c.visit_schedule) && (
+                      <Text style={styles.routeClientMeta} numberOfLines={1}>
+                        {[c.payer_name, c.visit_schedule].filter(Boolean).join(' · ')}
+                      </Text>
+                    )}
+                  </View>
+                  {c.lat != null && c.lng != null && (
+                    <TouchableOpacity
+                      style={styles.routeGpsBtn}
+                      onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`)}
+                    >
+                      <Text style={{ fontSize: 16 }}>📍</Text>
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Ruta de hoy</Text>
+            <Text style={styles.syncInfo}>
+              Sin ruta asignada — puedes seguir registrando cobros manualmente con "Registrar cobro" abajo.
+            </Text>
+          </View>
+        )}
 
         {/* Controles principales */}
         <View style={styles.card}>
@@ -491,17 +582,24 @@ export default function MiRutaCobraScreen() {
                   mov.movement_type === 'promise' ? '#FF9800' :
                   BRAND.red;
                 return (
-                  <View key={mov.id} style={styles.timelineItem}>
+                  <View key={mov.local_id} style={styles.timelineItem}>
                     <View style={styles.timelineLeft}>
                       <View style={[styles.dot, { backgroundColor: color }]} />
                       {!isLast && <View style={styles.line} />}
                     </View>
                     <View style={styles.timelineContent}>
-                      <Text style={[styles.timelineTime, { color }]}>
-                        {mov.movement_type === 'collected' ? '✓ Cobrado' :
-                         mov.movement_type === 'promise' ? '⏰ Promesa' :
-                         '✗ No pagó'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.timelineTime, { color }]}>
+                          {mov.movement_type === 'collected' ? '✓ Cobrado' :
+                           mov.movement_type === 'promise' ? '⏰ Promesa' :
+                           '✗ No pagó'}
+                        </Text>
+                        {!mov.synced && (
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingBadgeText}>sin subir</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.timelineNote}>{mov.client_name}</Text>
                       <Text style={styles.timelineCoords}>
                         Factura: {mov.folio} • $ {mov.amount_original.toLocaleString('es-MX')}
@@ -554,13 +652,16 @@ export default function MiRutaCobraScreen() {
               {captureStep === 'client' && (
                 <>
                   <Text style={styles.modalTitle}>Selecciona cliente</Text>
+                  {routeClients.length > 0 && (
+                    <Text style={styles.modalSub}>Mostrando tu ruta asignada de hoy</Text>
+                  )}
                   {loadingClients ? (
                     <ActivityIndicator size="large" color={BRAND.navy} style={{ marginVertical: 20 }} />
-                  ) : clients.length === 0 ? (
+                  ) : (routeClients.length > 0 ? routeClients : clients).length === 0 ? (
                     <Text style={styles.modalSub}>No hay clientes disponibles</Text>
                   ) : (
                     <FlatList
-                      data={clients}
+                      data={routeClients.length > 0 ? routeClients : clients}
                       keyExtractor={c => c.id}
                       scrollEnabled={false}
                       renderItem={({ item }) => (
@@ -647,7 +748,7 @@ export default function MiRutaCobraScreen() {
                         onPress={() => {
                           setMovementType(type);
                           setCollectedAmount('');
-                          setPromiseDate(null);
+                          setPromiseDate('');
                           setReasonNotPaid('');
                         }}
                       >
@@ -680,9 +781,9 @@ export default function MiRutaCobraScreen() {
                     <>
                       <Text style={styles.fieldLabel}>Fecha de promesa</Text>
                       <DatePickerField
+                        label="Fecha de promesa"
                         value={promiseDate}
                         onChange={setPromiseDate}
-                        minimumDate={new Date()}
                       />
                     </>
                   )}
@@ -811,6 +912,12 @@ const styles = StyleSheet.create({
 
   // Sync
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
+  routeClientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', gap: 10 },
+  routeClientNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#182535', alignItems: 'center', justifyContent: 'center' },
+  routeClientNumText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  routeClientName: { fontSize: 13, fontWeight: '700', color: '#182535' },
+  routeClientMeta: { fontSize: 11, color: '#90A4AE', marginTop: 1 },
+  routeGpsBtn: { padding: 6 },
   syncInfo:     { fontSize: 13, color: '#607D8B', lineHeight: 18 },
   syncMsg:      { marginTop: 8, fontSize: 13, color: BRAND.green, fontWeight: '600' },
 
@@ -827,6 +934,8 @@ const styles = StyleSheet.create({
   line:         { flex: 1, width: 2, backgroundColor: '#E0E0E0', marginTop: 4 },
   timelineContent:  { flex: 1, paddingBottom: 16 },
   timelineTime:     { fontSize: 13, fontWeight: '700', color: '#182535' },
+  pendingBadge:     { backgroundColor: '#FFF3E0', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  pendingBadgeText: { fontSize: 9, fontWeight: '700', color: '#FF9800' },
   timelineNote:     { fontSize: 13, color: '#607D8B', marginTop: 2 },
   timelineCoords:   { fontSize: 10, color: '#B0BEC5', marginTop: 2 },
 
