@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 206 · v0.1.72';
+export const APP_VERSION = 'OTA 210 · v0.1.72 · FlujoCheck fix';
