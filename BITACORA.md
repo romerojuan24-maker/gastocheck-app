@@ -97,7 +97,8 @@ eas build --platform android --profile preview --wait
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación |
 |-----|--------|--------|--|--|
-| **217** | **a8eda2e** | **✅ ACTUAL FUNCIONAL** | **"OTA 217 · v0.1.73 · UI Redesign"** | **15-jul-2026 publicado ✅** |
+| **224** | **f3ce4e6** | **✅ ACTUAL FUNCIONAL** | **"OTA 224 · v0.1.79 · Complete Dashboard Layout"** | **15-jul-2026 publicado ✅** |
+| 217 | a8eda2e | ✅ Funcional | "OTA 217 · v0.1.73 · UI Redesign" | 15-jul-2026 publicado ✅ |
 | 216 | 3074d2f | ✅ Funcional | "OTA 216 · v0.1.72 · Code Quality Audit" | Dashboard + Suite Apps |
 | 215 | 3f50164 | ✅ Funcional | "OTA 215 · v0.1.72 · Suite Apps Complete" | 14-jul-2026 publicado ✅ |
 | 214 | a7d1e82 | ✅ Funcional | "OTA 214 · v0.1.72 · Dashboard UI Fix" | Dashboard UI OK |
@@ -105,6 +106,15 @@ eas build --platform android --profile preview --wait
 | 212 | 549998c | ✅ Funcional | "OTA 212 · v0.1.72 · Wave 6 UI Screens" | Wave 6 UI (auth fix) OK |
 | 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
 | 210 | baf06ae | ✅ Funcional | "OTA 210 · v0.1.72 · FlujoCheck fix" | 14-jul-2026 confirmado ✅ |
+
+**OTA 224 (f3ce4e6) — Complete Dashboard Layout with All Apps (COMPLETADO):**
+- ✅ Top grid: 3 icons (Admin, Contador, Operador)
+- ✅ Middle section: Full-width buttons (Advisor, GastoCheck, CobraCheck, Suite Apps)
+- ✅ Bottom grid: 4 icons (Empresa, Empleados, Finanzas, Ajustes)
+- ✅ All apps restored per user design specification
+- ✅ APP_VERSION: "OTA 224 · v0.1.79 · Complete Dashboard Layout"
+- ✅ LOW RISK: UI-only layout changes
+- Files: apps/mobile/app/index.tsx (complete redesign)
 
 **OTA 217 (a8eda2e) — UI Redesign: Icon-Only Dashboard & Suite Apps (COMPLETADO):**
 - ✅ Dashboard: Replaced text-heavy ModuleCard with large icon grid (6 buttons)
