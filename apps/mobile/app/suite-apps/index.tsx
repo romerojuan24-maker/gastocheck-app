@@ -8,6 +8,14 @@ import { SuiteAppsModal } from '../../components/SuiteAppsModal';
 
 const TOOLS = [
   {
+    id: 'cobracheck',
+    title: 'CobraCheck',
+    subtitle: 'Gestión de cobranza',
+    icon: '🎯',
+    route: '/cobracheck',
+    description: 'Gestión de cobranza, rutas y operaciones de cobrador',
+  },
+  {
     id: 'bancocheck',
     title: 'BancoCheck',
     subtitle: 'Control bancario',

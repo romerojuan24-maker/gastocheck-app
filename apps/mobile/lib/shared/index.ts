@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 215 · v0.1.72 · Suite Apps Complete';
+export const APP_VERSION = 'OTA 216 · v0.1.72 · Code Quality Audit';
