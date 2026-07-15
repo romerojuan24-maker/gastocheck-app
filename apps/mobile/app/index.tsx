@@ -200,7 +200,7 @@ export default function CheckSuiteHome() {
           <TouchableOpacity
             key={item.id}
             style={styles.fullWidthBtn}
-            onPress={() => router.push(item.route as any)}
+            onPress={() => setShowSuiteAppsModal(true)}
             activeOpacity={0.7}
           >
             <Text style={styles.fullWidthIcon}>{item.icon}</Text>

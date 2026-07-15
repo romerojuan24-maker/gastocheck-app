@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 226 · v0.1.81 · Disable Operador in Dashboard';
+export const APP_VERSION = 'OTA 227 · v0.1.82 · Restore Suite Apps Authentication';
