@@ -6,6 +6,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { CobraCheckCFDIIntegration, CobraCheckImportButton } from '../../components/CobraCheckCFDIIntegration';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
@@ -34,6 +35,8 @@ export default function FacturaManualScreen() {
   const [issueDate, setIssueDate] = useState(todayStr());
   const [dueDate,   setDueDate]   = useState('');
 
+  const [showCfdiModal, setShowCfdiModal] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -48,6 +51,33 @@ export default function FacturaManualScreen() {
       setLoading(false);
     })();
   }, []);
+
+  function handleCfdiImported(data: {
+    cliente: string;
+    rfc_cliente: string;
+    monto: number;
+    iva: number;
+    fecha: string;
+    descripcion: string;
+    cfdi_uuid?: string;
+    folio: string;
+  }) {
+    // Buscar cliente por nombre o RFC
+    const clientByName = clients.find(c => c.name.toLowerCase().includes(data.cliente.toLowerCase()));
+    const clientByRfc = clients.find(c => c.name.toLowerCase().includes(data.rfc_cliente.toLowerCase()));
+    const client = clientByName || clientByRfc;
+
+    if (client) {
+      setSelectedClient(client);
+    } else {
+      Alert.alert('Cliente no encontrado', `No se encontró "${data.cliente}" en la lista. Selecciona manualmente.`);
+    }
+
+    setFolio(data.folio);
+    setAmount(String(data.monto));
+    setIssueDate(data.fecha);
+    setShowCfdiModal(false);
+  }
 
   async function handleSave() {
     if (!companyId || !selectedClient) {
@@ -97,8 +127,16 @@ export default function FacturaManualScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-      <Text style={styles.fieldLabel}>Cliente</Text>
+    <>
+      <CobraCheckCFDIIntegration
+        visible={showCfdiModal}
+        onDismiss={() => setShowCfdiModal(false)}
+        onCFDILoaded={handleCfdiImported}
+      />
+      <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        <CobraCheckImportButton onPress={() => setShowCfdiModal(true)} />
+
+        <Text style={styles.fieldLabel}>Cliente</Text>
       {clients.length === 0 ? (
         <Text style={styles.emptyHint}>Sin clientes activos — dalos de alta primero.</Text>
       ) : (
@@ -128,10 +166,11 @@ export default function FacturaManualScreen() {
       <Text style={styles.fieldLabel}>Fecha de vencimiento</Text>
       <DatePickerField label="Fecha de vencimiento" value={dueDate} onChange={setDueDate} />
 
-      <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>✓ Registrar Factura</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>✓ Registrar Factura</Text>}
+        </TouchableOpacity>
+      </ScrollView>
+    </>
   );
 }
 
