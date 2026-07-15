@@ -17,18 +17,20 @@ const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_g
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 
-const DASHBOARD_SHORTCUTS = [
+const DASHBOARD_MAIN = [
+  { id: 'gasto',      icon: '✓',  label: 'Gasto',      route: '/gastocheck' },
+  { id: 'cobra',      icon: '🎯', label: 'Cobra',      route: '/cobracheck' },
   { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
   { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
-  { id: 'operator',   icon: '🛠',  label: 'Operador',   route: '/operador' },
-  { id: 'collector',  icon: '🎯', label: 'Cobrador',   route: '/cobracheck' },
-  { id: 'employee',   icon: '👥', label: 'Empleados',  route: '/equipo' },
-  { id: 'suite',      icon: '🔐', label: 'Suite Apps', route: 'suite-apps' },
+  { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/operador' },
+  { id: 'suite',      icon: '🔐', label: 'Suite',      route: 'suite-apps' },
 ];
 
-const FUNCTION_SHORTCUTS = [
-  { id: 'apps',       icon: '📱', label: 'Mis Apps' },
-  { id: 'functions',  icon: '⚙️',  label: 'Funciones' },
+const DASHBOARD_BOTTOM = [
+  { id: 'empresa',    icon: '🏢', label: 'Empresa',    route: '/empresas' },
+  { id: 'equipo',     icon: '👥', label: 'Equipo',     route: '/equipo' },
+  { id: 'finanzas',   icon: '💰', label: 'Finanzas',   route: '/administracion' },
+  { id: 'ajustes',    icon: '⚙️',  label: 'Ajustes',    route: '/settings' },
 ];
 
 export default function CheckSuiteHome() {
@@ -194,22 +196,32 @@ export default function CheckSuiteHome() {
           </View>
         )}
 
-        {/* ── Grid de iconos grandes para roles/vistas ── */}
+        {/* ── Grid de iconos grandes (6 apps principales) ── */}
         <View style={styles.iconGrid}>
-          <LargeIconButton icon="✓" label="Gasto" onPress={() => router.push('/gastocheck' as any)} hidden={!showGasto} />
-          <LargeIconButton icon="🎯" label="Cobra" onPress={() => router.push('/cobracheck' as any)} hidden={!showCobra} />
-          <LargeIconButton icon="👑" label="Admin" onPress={() => router.push('/settings')} />
-          <LargeIconButton icon="📊" label="Contador" onPress={() => router.push('/administracion')} />
-          <LargeIconButton icon="🛠" label="Operador" onPress={() => router.push('/operador')} hidden={isCollector} />
-          <LargeIconButton icon="🔐" label="Suite" onPress={() => setShowSuiteAppsModal(true)} />
+          {DASHBOARD_MAIN.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.largeIconBtn}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.largeIcon}>{item.icon}</Text>
+              <Text style={styles.largeLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* ── Sección de Mis Apps y Funciones ── */}
-        <View style={styles.bottomActions}>
-          {FUNCTION_SHORTCUTS.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.actionButton} activeOpacity={0.7}>
-              <Text style={styles.actionIcon}>{item.icon}</Text>
-              <Text style={styles.actionLabel}>{item.label}</Text>
+        {/* ── Grid de iconos abajo (4 utilidades) ── */}
+        <View style={styles.iconGrid}>
+          {DASHBOARD_BOTTOM.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.largeIconBtn}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.largeIcon}>{item.icon}</Text>
+              <Text style={styles.largeLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -227,19 +239,6 @@ export default function CheckSuiteHome() {
   );
 }
 
-function LargeIconButton({
-  icon, label, onPress, hidden = false,
-}: {
-  icon: string; label: string; onPress: () => void; hidden?: boolean;
-}) {
-  if (hidden) return null;
-  return (
-    <TouchableOpacity style={styles.largeIconBtn} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.largeIcon}>{icon}</Text>
-      <Text style={styles.largeLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray },
@@ -313,17 +312,4 @@ const styles = StyleSheet.create({
   },
   largeIcon: { fontSize: 42, marginBottom: 6 },
   largeLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
-
-  bottomActions: {
-    flexDirection: 'row', gap: 12, marginBottom: 16, justifyContent: 'center',
-  },
-  actionButton: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4,
-  },
-  actionIcon: { fontSize: 24, marginBottom: 4 },
-  actionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
 });
