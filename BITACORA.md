@@ -97,7 +97,8 @@ eas build --platform android --profile preview --wait
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación en device |
 |-----|--------|--------|--|--|
-| **214** | **a7d1e82** | **✅ ACTUAL FUNCIONAL** | **"OTA 214 · v0.1.72 · Dashboard UI Fix"** | **14-jul-2026 publicado ✅** |
+| **215** | **3f50164** | **✅ ACTUAL FUNCIONAL** | **"OTA 215 · v0.1.72 · Suite Apps Complete"** | **14-jul-2026 publicado ✅** |
+| 214 | a7d1e82 | ✅ Funcional | "OTA 214 · v0.1.72 · Dashboard UI Fix" | Dashboard UI OK |
 | 213 | 5eb8d14 | ✅ Funcional | "OTA 213 · v0.1.72 · Suite Apps" | Suite Apps features OK |
 | 212 | 549998c | ✅ Funcional | "OTA 212 · v0.1.72 · Wave 6 UI Screens" | Wave 6 UI (auth fix) OK |
 | 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
@@ -105,6 +106,12 @@ eas build --platform android --profile preview --wait
 | 209 | 283e9de | ⚠️ Problematic | "OTA 209 · v0.1.72 · Wave 6/8" | Crash/revert to 208 |
 | 208 | c372b2f | ✅ Funcional | "OTA 208 · v0.1.72 · Suite Apps" | Canary verificado |
 | 206 | 1c4cbd7 | ✅ Base | "OTA 206 · v0.1.72" | Punto de rollback base |
+
+**OTA 215 (3f50164) — Suite Apps Complete (COMPLETADO):**
+- ✅ Todas las apps incluidas: BancoCheck, FacturaCheck, FlujoCheck, Inventario, Pólizas, Depósitos, Reembolsos, Admin Panel, Empresas, Herramientas, Reportes, Catálogo de Cuentas, Advisor
+- ✅ Excluidas: GastoCheck, CobraCheck (botones principales), Copiloto/IA (externo)
+- ✅ Auth flow fijo: Modal → router.push('/suite-apps') después de validar contraseña
+- ✅ Dashboard completo con todas las herramientas
 
 **OTA 214 (a7d1e82) — Dashboard UI Fix (COMPLETADO):**
 - ✅ Suite Apps button added: mismo tamaño que ModuleCard (GastoCheck, CobraCheck)
