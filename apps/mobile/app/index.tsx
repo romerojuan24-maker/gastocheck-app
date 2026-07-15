@@ -262,16 +262,16 @@ const styles = StyleSheet.create({
   advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
 
   iconGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24, marginTop: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4, marginTop: 4,
   },
   largeIconBtn: {
-    width: '48%', aspectRatio: 1.0, backgroundColor: '#fff', borderRadius: 16,
+    width: '48%', aspectRatio: 1.15, backgroundColor: '#fff', borderRadius: 14,
     justifyContent: 'center', alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 6,
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
   },
-  largeIcon: { fontSize: 42, marginBottom: 6 },
-  largeLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  largeIcon: { fontSize: 36, marginBottom: 4 },
+  largeLabel: { fontSize: 10, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
   viewModeActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
 });
