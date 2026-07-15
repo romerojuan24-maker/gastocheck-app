@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, ScrollViewComponent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getSuiteAppsSession } from '../lib/suiteAppsAuth';
+import { SuiteAppsModal } from '../components/SuiteAppsModal';
 import TrialBanner from '../components/TrialBanner';
 import { getGlobalViewMode, setGlobalViewMode, type GlobalViewMode } from '../lib/viewMode';
 
@@ -23,12 +25,15 @@ const VIEW_MODE_OPTIONS: { mode: GlobalViewMode; label: string }[] = [
 export default function CheckSuiteHome() {
   const router      = useRouter();
   const navigation  = useNavigation();
+  const alertScrollRef = useRef<ScrollViewComponent>(null);
   const [loading,     setLoading]     = useState(true);
   const [userRole,    setUserRole]    = useState<string | null>(null);
   const [viewMode,    setViewMode]    = useState<GlobalViewMode>('admin');
   const [userEmail,   setUserEmail]   = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [topInsight,  setTopInsight]  = useState<{ id: string; title: string; body: string; severity: string } | null>(null);
+  const [insights,    setInsights]    = useState<{ id: string; title: string; body: string; severity: string }[]>([]);
+  const [alertIndex,  setAlertIndex]  = useState(0);
+  const [showSuiteAppsModal, setShowSuiteAppsModal] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -84,15 +89,14 @@ export default function CheckSuiteHome() {
           setCompanyName((co as any)?.name ?? null);
 
           if (MANAGER_ROLES.includes(member.role)) {
-            const { data: insight } = await supabase
+            const { data: insightList } = await supabase
               .from('advisor_insights')
               .select('id, title, body, severity')
               .eq('company_id', member.company_id)
               .not('status', 'in', '(RESOLVED,DISMISSED,EXPIRED)')
               .order('priority_score', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            setTopInsight(insight as any ?? null);
+              .limit(5);
+            setInsights((insightList as any) ?? []);
           }
         }
       } finally {
@@ -174,13 +178,41 @@ export default function CheckSuiteHome() {
 
         <TrialBanner onUpgrade={() => router.push('/settings')} />
 
-        {topInsight && (
-          <TouchableOpacity style={styles.advisorCard} onPress={() => router.push('/advisor' as any)} activeOpacity={0.85}>
-            <Text style={styles.advisorLabel}>🧠 ADVISOR · {topInsight.severity === 'critical' ? 'CRÍTICO' : topInsight.severity === 'warning' ? 'IMPORTANTE' : 'REVISAR'}</Text>
-            <Text style={styles.advisorTitle}>{topInsight.title}</Text>
-            <Text style={styles.advisorBody} numberOfLines={2}>{topInsight.body}</Text>
-            <Text style={styles.advisorLink}>Ver Advisor ›</Text>
-          </TouchableOpacity>
+        {insights.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2, marginBottom: 8 }}>
+              <Text style={styles.alertsLabel}>AVISOS</Text>
+              {insights.length > 1 && (
+                <Text style={styles.alertCounter}>{alertIndex + 1} de {insights.length}</Text>
+              )}
+            </View>
+            <ScrollView
+              ref={alertScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={(e) => {
+                const offset = e.nativeEvent.contentOffset.x;
+                const width = e.nativeEvent.layoutMeasurement.width;
+                setAlertIndex(Math.round(offset / width));
+              }}
+              pagingEnabled
+            >
+              {insights.map((insight) => (
+                <TouchableOpacity
+                  key={insight.id}
+                  style={[styles.advisorCard, { width: '100%', marginRight: 0 }]}
+                  onPress={() => router.push('/advisor' as any)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.advisorLabel}>🧠 ADVISOR · {insight.severity === 'critical' ? 'CRÍTICO' : insight.severity === 'warning' ? 'IMPORTANTE' : 'REVISAR'}</Text>
+                  <Text style={styles.advisorTitle}>{insight.title}</Text>
+                  <Text style={styles.advisorBody} numberOfLines={2}>{insight.body}</Text>
+                  <Text style={styles.advisorLink}>Ver Advisor ›</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         )}
 
         <Text style={styles.sectionLabel}>MÓDULOS</Text>
@@ -204,6 +236,14 @@ export default function CheckSuiteHome() {
             onPress={() => router.push('/cobracheck' as any)}
           />
         )}
+
+        <ModuleCard
+          icon="🔐"
+          iconBg={BRAND.navy}
+          title="Suite Apps"
+          subtitle="Herramientas avanzadas con acceso restringido"
+          onPress={() => setShowSuiteAppsModal(true)}
+        />
 
         {showMore && (
           <ModuleCard
@@ -229,6 +269,12 @@ export default function CheckSuiteHome() {
           </>
         )}
       </View>
+
+      <SuiteAppsModal
+        visible={showSuiteAppsModal}
+        onDismiss={() => setShowSuiteAppsModal(false)}
+        onSuccess={() => setShowSuiteAppsModal(false)}
+      />
     </ScrollView>
   );
 }
@@ -318,8 +364,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1, marginTop: 18, marginBottom: 8,
   },
 
+  alertsLabel: {
+    fontSize: 11, fontWeight: '800', color: '#90A4AE',
+    letterSpacing: 1, marginBottom: 8,
+  },
+  alertCounter: {
+    fontSize: 11, fontWeight: '700', color: '#90A4AE',
+  },
+
   advisorCard: {
-    backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, marginTop: 14,
+    backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, marginTop: 0, marginBottom: 0,
   },
   advisorLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5, marginBottom: 6 },
   advisorTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
