@@ -171,12 +171,13 @@ export default function CheckSuiteHome() {
           {DASHBOARD_TOP.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.topIconBtn}
-              onPress={() => router.push(item.route as any)}
-              activeOpacity={0.7}
+              style={[styles.topIconBtn, item.id === 'operador' && styles.disabledBtn]}
+              onPress={() => item.id !== 'operador' && router.push(item.route as any)}
+              activeOpacity={item.id === 'operador' ? 1 : 0.7}
+              disabled={item.id === 'operador'}
             >
-              <Text style={styles.topIcon}>{item.icon}</Text>
-              <Text style={styles.topLabel}>{item.label}</Text>
+              <Text style={[styles.topIcon, item.id === 'operador' && styles.disabledIcon]}>{item.icon}</Text>
+              <Text style={[styles.topLabel, item.id === 'operador' && styles.disabledLabel]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -308,6 +309,9 @@ const styles = StyleSheet.create({
   },
   topIcon: { fontSize: 40, marginBottom: 4 },
   topLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  disabledBtn: { opacity: 0.5, backgroundColor: '#f0f0f0' },
+  disabledIcon: { opacity: 0.6 },
+  disabledLabel: { opacity: 0.6, color: '#90A4AE' },
 
   fullWidthBtn: {
     backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
