@@ -273,7 +273,10 @@ export default function CheckSuiteHome() {
       <SuiteAppsModal
         visible={showSuiteAppsModal}
         onDismiss={() => setShowSuiteAppsModal(false)}
-        onSuccess={() => setShowSuiteAppsModal(false)}
+        onSuccess={() => {
+          setShowSuiteAppsModal(false);
+          router.push('/suite-apps' as any);
+        }}
       />
     </ScrollView>
   );
