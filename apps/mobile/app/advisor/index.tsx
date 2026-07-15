@@ -92,13 +92,14 @@ export default function AdvisorHome() {
       if (!member) { setLoading(false); return; }
       setUserRole(member.role);
       setCompanyId(member.company_id);
+      // Wave 6: Role-based screens (mis-tareas, supervisor/tareas) available but not forced routing
       await loadInsights(member.company_id);
     } catch (err) {
       console.error('advisor.load failed:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }
-  }, [loadInsights]);
+  }, [loadInsights, router]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
