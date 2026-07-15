@@ -118,8 +118,14 @@ export function calculateTotalTax(
   const vat = customVAT ?? config.vat;
 
   const vatAmount = (subtotal * vat) / 100;
-  const localTaxAmount = (subtotal * config.localTaxes[0].rate) / 100;
-  const retentionAmount = (subtotal * config.retentions[0].rate) / 100;
+  const localTaxAmount = config.localTaxes.reduce(
+    (sum, tax) => sum + (subtotal * tax.rate) / 100,
+    0
+  );
+  const retentionAmount = config.retentions.reduce(
+    (sum, tax) => sum + (subtotal * tax.rate) / 100,
+    0
+  );
 
   return {
     vat: vatAmount,

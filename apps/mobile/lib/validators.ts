@@ -57,16 +57,40 @@ export function validateCPF(cpf: string): boolean {
   return true;
 }
 
-// CUIT (Argentina) — 11 dígitos
+// CUIT (Argentina) — 11 dígitos con check digit
 export function validateCUIT(cuit: string): boolean {
   const digits = cuit.replace(/\D/g, '');
-  return digits.length === 11;
+  if (digits.length !== 11) return false;
+
+  const multipliers = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(digits[i]) * multipliers[i];
+  }
+  const checkDigit = 11 - (sum % 11);
+  const expectedCheckDigit = checkDigit === 11 ? 0 : checkDigit === 10 ? 9 : checkDigit;
+
+  return expectedCheckDigit === parseInt(digits[10]);
 }
 
-// NIT (Colombia) — 5-15 dígitos
+// NIT (Colombia) — hasta 15 dígitos, con verificación de check digit si disponible
 export function validateNIT(nit: string): boolean {
   const digits = nit.replace(/\D/g, '');
-  return digits.length >= 5 && digits.length <= 15;
+  if (digits.length < 5 || digits.length > 15) return false;
+
+  // Si tiene exactamente 10 dígitos, validar check digit
+  if (digits.length === 10) {
+    const multipliers = [3, 7, 13, 17, 19, 23, 29, 31, 37, 41];
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(digits[i]) * multipliers[i];
+    }
+    const checkDigit = sum % 11;
+    const expectedCheckDigit = checkDigit < 2 ? checkDigit : 11 - checkDigit;
+    return expectedCheckDigit === parseInt(digits[9]);
+  }
+
+  return true; // Otros formatos válidos
 }
 
 // RUT (Chile) — Formato: 12345678-K o 12345678-9
@@ -75,10 +99,20 @@ export function validateRUT(rut: string): boolean {
   return pattern.test(rut.toUpperCase());
 }
 
-// RUC (Perú) — 11 dígitos
+// RUC (Perú) — 11 dígitos con check digit
 export function validateRUC(ruc: string): boolean {
   const digits = ruc.replace(/\D/g, '');
-  return digits.length === 11;
+  if (digits.length !== 11) return false;
+
+  const multipliers = [3, 2, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 8; i++) {
+    sum += parseInt(digits[i + 2]) * multipliers[i];
+  }
+  const checkDigit = 11 - (sum % 11);
+  const expectedCheckDigit = checkDigit === 11 ? 0 : checkDigit === 10 ? 1 : checkDigit;
+
+  return expectedCheckDigit === parseInt(digits[10]);
 }
 
 // NIF/CIF (España) — Formato: A12345678
