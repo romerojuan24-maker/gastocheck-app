@@ -16,11 +16,6 @@ import { getGlobalViewMode, setGlobalViewMode, type GlobalViewMode } from '../li
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
-const VIEW_MODE_OPTIONS: { mode: GlobalViewMode; label: string }[] = [
-  { mode: 'admin',       label: '👑 Admin' },
-  { mode: 'contador',    label: '📊 Contador' },
-  { mode: 'operational', label: '🛠 Operativo' },
-];
 
 const DASHBOARD_SHORTCUTS = [
   { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
@@ -142,14 +137,6 @@ export default function CheckSuiteHome() {
         <View style={styles.circleTopRight} />
         <View style={styles.circleBottomLeft} />
 
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => router.push('/settings')}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 22, color: '#fff' }}>⚙️</Text>
-        </TouchableOpacity>
-
         <View style={styles.brandRow}>
           <View style={styles.checkMark}>
             <Text style={styles.checkMarkText}>✓</Text>
@@ -169,28 +156,6 @@ export default function CheckSuiteHome() {
             <Text style={styles.companyPillSwitch}>Cambiar</Text>
           </TouchableOpacity>
         )}
-
-        {userRole && MANAGER_ROLES.includes(userRole) && (
-          <View style={styles.viewSwitcherCard}>
-            <Text style={styles.viewSwitcherTitle}>Vista del panel</Text>
-            <Text style={styles.viewSwitcherSub}>
-              Se aplica igual en todos los módulos
-            </Text>
-            <View style={styles.viewSwitcherRow}>
-              {VIEW_MODE_OPTIONS.map((o) => (
-                <TouchableOpacity
-                  key={o.mode}
-                  style={[styles.viewChip, viewMode === o.mode && styles.viewChipActive]}
-                  onPress={() => handleSelectViewMode(o.mode)}
-                >
-                  <Text style={[styles.viewChipText, viewMode === o.mode && { color: '#fff' }]}>{o.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <TrialBanner onUpgrade={() => router.push('/settings')} />
 
         {insights.length > 0 && (
           <View style={{ marginBottom: 16 }}>
@@ -305,6 +270,7 @@ const styles = StyleSheet.create({
   brandTitle:    { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   brandTagline:  { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   versionText:   { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 14 },
+  settingsBtn:   { display: 'none' },
 
   companyPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -313,20 +279,6 @@ const styles = StyleSheet.create({
   },
   companyPillText:   { fontSize: 13, fontWeight: '700', color: BRAND.navy },
   companyPillSwitch: { fontSize: 12, fontWeight: '700', color: BRAND.csblue },
-
-  viewSwitcherCard: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#E8EAF6',
-  },
-  viewSwitcherTitle: { fontSize: 14, fontWeight: '700', color: BRAND.navy, marginBottom: 2 },
-  viewSwitcherSub:   { fontSize: 11, color: '#78909C', marginBottom: 12, lineHeight: 15 },
-  viewSwitcherRow:   { flexDirection: 'row', gap: 8 },
-  viewChip: {
-    flex: 1, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#CFD8DC', backgroundColor: '#F5F7FA',
-  },
-  viewChipActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
-  viewChipText:   { fontSize: 11, fontWeight: '700', color: BRAND.navy },
 
   sectionLabel: {
     fontSize: 11, fontWeight: '800', color: '#90A4AE',
