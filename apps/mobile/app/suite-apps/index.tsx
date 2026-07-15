@@ -33,6 +33,11 @@ const TOOLS = [
   },
 ];
 
+const BOTTOM_ACTIONS = [
+  { id: 'apps', icon: '📱', label: 'Mis Apps' },
+  { id: 'functions', icon: '⚙️', label: 'Funciones' },
+];
+
 export default function SuiteAppsHome() {
   const router = useRouter();
   const [sessionValid, setSessionValid] = useState(false);
@@ -170,6 +175,15 @@ export default function SuiteAppsHome() {
           ))}
         </View>
 
+        <View style={s.bottomActions}>
+          {BOTTOM_ACTIONS.map((item) => (
+            <TouchableOpacity key={item.id} style={s.actionButton} activeOpacity={0.7}>
+              <Text style={s.actionIcon}>{item.icon}</Text>
+              <Text style={s.actionLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={s.footer}>
           <Text style={s.footerText}>🔐 Sesión segura</Text>
         </View>
@@ -197,9 +211,9 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#90A4AE', textAlign: 'center', marginBottom: 32 },
   authenticateBtn: { backgroundColor: BRAND.navy, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 10 },
   authenticateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
   gridItem: {
-    width: '47%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 16,
+    width: '48%', aspectRatio: 1.0, backgroundColor: '#fff', borderRadius: 16,
     justifyContent: 'center', alignItems: 'center',
     elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
@@ -207,6 +221,18 @@ const s = StyleSheet.create({
   },
   gridIcon: { fontSize: 42, marginBottom: 6 },
   gridLabel: { fontSize: 12, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  bottomActions: {
+    flexDirection: 'row', gap: 12, marginBottom: 16, justifyContent: 'center',
+  },
+  actionButton: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4,
+  },
+  actionIcon: { fontSize: 24, marginBottom: 4 },
+  actionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
   footer: { marginTop: 24, paddingVertical: 16, alignItems: 'center' },
   footerText: { fontSize: 12, color: '#90A4AE', textAlign: 'center' },
 });

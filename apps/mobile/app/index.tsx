@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
   advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
 
   iconGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24, marginTop: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24, marginTop: 8,
   },
   largeIconBtn: {
-    width: '32.5%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 16,
+    width: '48%', aspectRatio: 1.0, backgroundColor: '#fff', borderRadius: 16,
     justifyContent: 'center', alignItems: 'center',
     elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
