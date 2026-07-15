@@ -97,12 +97,22 @@ eas build --platform android --profile preview --wait
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación en device |
 |-----|--------|--------|--|--|
-| **212** | **549998c** | **✅ ACTUAL FUNCIONAL** | **"OTA 212 · v0.1.72 · Wave 6 UI Screens"** | **14-jul-2026 publicado ✅** |
+| **213** | **5eb8d14** | **✅ ACTUAL FUNCIONAL** | **"OTA 213 · v0.1.72 · Suite Apps"** | **14-jul-2026 publicado ✅** |
+| 212 | 549998c | ✅ Funcional | "OTA 212 · v0.1.72 · Wave 6 UI Screens" | Wave 6 UI (auth fix) OK |
 | 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
 | 210 | baf06ae | ✅ Funcional | "OTA 210 · v0.1.72 · FlujoCheck fix" | 14-jul-2026 confirmado ✅ |
 | 209 | 283e9de | ⚠️ Problematic | "OTA 209 · v0.1.72 · Wave 6/8" | Crash/revert to 208 |
 | 208 | c372b2f | ✅ Funcional | "OTA 208 · v0.1.72 · Suite Apps" | Canary verificado |
 | 206 | 1c4cbd7 | ✅ Base | "OTA 206 · v0.1.72" | Punto de rollback base |
+
+**OTA 213 (5eb8d14) — Suite Apps (COMPLETADO):**
+- ✅ Authentication modal: password-gated access (password: "suite1")
+- ✅ Session management: 24-hour session stored in AsyncStorage
+- ✅ Tools dashboard: BancoCheck, FlujoCheck, FacturaCheck, Inventario, Advisor
+- ✅ Session timer: countdown display + auto-logout on expiration
+- ✅ Secure session clearing with encrypted data
+- Files: suiteAppsAuth.ts (logic), SuiteAppsModal.tsx (UI), suite-apps/index.tsx (dashboard)
+- ✅ Low risk, focused feature → PUBLICADO
 
 **OTA 212 (549998c) — Wave 6 UI Screens (FIX):**
 - ✅ Pantallas: /advisor/mis-tareas (operator), /advisor/supervisor/tareas (supervisor), /advisor/task-detail/[id]
