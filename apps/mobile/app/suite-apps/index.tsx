@@ -33,9 +33,11 @@ const TOOLS = [
   },
 ];
 
-const BOTTOM_ACTIONS = [
-  { id: 'apps', icon: '📱', label: 'Mis Apps' },
-  { id: 'functions', icon: '⚙️', label: 'Funciones' },
+const BOTTOM_GRID = [
+  { id: 'empresa',    icon: '🏢', label: 'Empresa',    route: '/empresas' },
+  { id: 'empleados',  icon: '👥', label: 'Empleados',  route: '/equipo' },
+  { id: 'finanzas',   icon: '💰', label: 'Finanzas',   route: '/administracion' },
+  { id: 'engrane',    icon: '⚙️',  label: 'Engrane',    route: '/settings' },
 ];
 
 export default function SuiteAppsHome() {
@@ -161,25 +163,28 @@ export default function SuiteAppsHome() {
       </View>
 
       <ScrollView contentContainerStyle={s.content}>
-        <View style={s.grid}>
-          {TOOLS.map(tool => (
+        {TOOLS.map(tool => (
+          <TouchableOpacity
+            key={tool.id}
+            style={s.fullWidthBtn}
+            onPress={() => handleToolPress(tool.route)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.fullWidthIcon}>{tool.icon}</Text>
+            <Text style={s.fullWidthLabel}>{tool.title}</Text>
+          </TouchableOpacity>
+        ))}
+
+        <View style={s.bottomGrid}>
+          {BOTTOM_GRID.map((item) => (
             <TouchableOpacity
-              key={tool.id}
-              style={s.gridItem}
-              onPress={() => handleToolPress(tool.route)}
+              key={item.id}
+              style={s.bottomGridItem}
+              onPress={() => handleToolPress(item.route)}
               activeOpacity={0.7}
             >
-              <Text style={s.gridIcon}>{tool.icon}</Text>
-              <Text style={s.gridLabel}>{tool.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={s.bottomActions}>
-          {BOTTOM_ACTIONS.map((item) => (
-            <TouchableOpacity key={item.id} style={s.actionButton} activeOpacity={0.7}>
-              <Text style={s.actionIcon}>{item.icon}</Text>
-              <Text style={s.actionLabel}>{item.label}</Text>
+              <Text style={s.bottomGridIcon}>{item.icon}</Text>
+              <Text style={s.bottomGridLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -211,28 +216,29 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#90A4AE', textAlign: 'center', marginBottom: 32 },
   authenticateBtn: { backgroundColor: BRAND.navy, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 10 },
   authenticateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  gridItem: {
-    width: '48%', aspectRatio: 1.0, backgroundColor: '#fff', borderRadius: 16,
-    justifyContent: 'center', alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 6,
-  },
-  gridIcon: { fontSize: 42, marginBottom: 6 },
-  gridLabel: { fontSize: 12, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
-  bottomActions: {
-    flexDirection: 'row', gap: 12, marginBottom: 16, justifyContent: 'center',
-  },
-  actionButton: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    alignItems: 'center', justifyContent: 'center',
+  fullWidthBtn: {
+    backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginBottom: 12,
     elevation: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4,
+    shadowOpacity: 0.06, shadowRadius: 3,
   },
-  actionIcon: { fontSize: 24, marginBottom: 4 },
-  actionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  fullWidthIcon: { fontSize: 28 },
+  fullWidthLabel: { fontSize: 14, fontWeight: '600', color: BRAND.navy },
+
+  bottomGrid: {
+    flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 20, marginBottom: 16,
+  },
+  bottomGridItem: {
+    flex: 1, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
+  },
+  bottomGridIcon: { fontSize: 28, marginBottom: 4 },
+  bottomGridLabel: { fontSize: 9, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
   footer: { marginTop: 24, paddingVertical: 16, alignItems: 'center' },
   footerText: { fontSize: 12, color: '#90A4AE', textAlign: 'center' },
 });

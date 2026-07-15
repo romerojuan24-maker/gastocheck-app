@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 224 · v0.1.79 · Complete Dashboard Layout';
+export const APP_VERSION = 'OTA 225 · v0.1.80 · Suite Apps Redesign';
