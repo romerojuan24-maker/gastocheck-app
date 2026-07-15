@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 228 · v0.1.83 · CFDI XML Import (GastoCheck & CobraCheck)';
+export const APP_VERSION = 'OTA 229 · v0.1.84 · CFDI Integration Complete';
