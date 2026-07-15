@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 230 · v0.1.85 · CFDI Import Wired to Forms';
+export const APP_VERSION = 'OTA 231 · v0.1.86 · Multi-language Support (es/en)';

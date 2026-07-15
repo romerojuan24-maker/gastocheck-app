@@ -5,6 +5,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { parseCFDI, type CFDIData } from '@gastocheck/shared';
+import { useI18n } from '../hooks/useI18n';
 import { BRAND } from '@gastocheck/shared';
 
 interface CFDIImportModalProps {
@@ -16,6 +17,7 @@ interface CFDIImportModalProps {
 
 export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImportModalProps) {
   const [loading, setLoading] = useState(false);
+  const { t } = useI18n();
 
   const handlePickFile = async () => {
     try {
@@ -36,14 +38,14 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       const cfdiData = parseCFDI(xmlContent);
 
       if (!cfdiData) {
-        Alert.alert('Error', 'No se pudo parsear el CFDI. Verifica que sea un XML válido.');
+        Alert.alert(t('common.error'), t('cfdi.parseError'));
         setLoading(false);
         return;
       }
 
       // Validar que sea el tipo correcto
       if (mode === 'gasto' && cfdiData.tipo_comprobante !== 'I') {
-        Alert.alert('Error', 'Para gastos se requiere una factura emitida (Tipo I)');
+        Alert.alert(t('common.error'), t('cfdi.vendorInvoice'));
         setLoading(false);
         return;
       }
@@ -51,15 +53,15 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       onSuccess(cfdiData);
       onDismiss();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo leer el archivo: ' + (error as Error).message);
+      Alert.alert(t('common.error'), t('validation.fileSaveError') + ': ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
   const title = mode === 'gasto'
-    ? 'Importar Factura de Proveedor'
-    : 'Importar Factura Emitida';
+    ? t('cfdi.selectFile')
+    : t('cfdi.selectIssuedFile');
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -69,14 +71,14 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
 
           <Text style={styles.description}>
             {mode === 'gasto'
-              ? 'Selecciona el archivo XML de la factura emitida por el proveedor'
-              : 'Selecciona el archivo XML de la factura que emitiste'}
+              ? t('cfdi.selectVendorXml')
+              : t('cfdi.selectIssuedXml')}
           </Text>
 
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={BRAND.navy} />
-              <Text style={styles.loadingText}>Importando...</Text>
+              <Text style={styles.loadingText}>{t('cfdi.importing')}</Text>
             </View>
           ) : (
             <View style={styles.buttonContainer}>
@@ -85,7 +87,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
                 onPress={handlePickFile}
                 activeOpacity={0.7}
               >
-                <Text style={styles.importBtnText}>📁 Seleccionar XML</Text>
+                <Text style={styles.importBtnText}>{t('cfdi.selectXml')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -93,13 +95,13 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
                 onPress={onDismiss}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           )}
 
           <Text style={styles.hint}>
-            💡 El XML CFDI se auto-llenará en el formulario
+            {t('cfdi.autoFillHint')}
           </Text>
         </View>
       </View>
