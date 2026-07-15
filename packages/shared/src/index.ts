@@ -45,4 +45,4 @@ export * from './advisor';
 export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 227 · v0.1.82';
+export const APP_VERSION = 'OTA 230 · v0.1.85 · CFDI Import Wired to Forms';
