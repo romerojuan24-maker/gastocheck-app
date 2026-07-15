@@ -42,6 +42,7 @@ export * from './flujocheck';
 export * from './facturacheck';
 export * from './inventariocheck';
 export * from './advisor';
+export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 206 · v0.1.72';
+export const APP_VERSION = 'OTA 227 · v0.1.82';
