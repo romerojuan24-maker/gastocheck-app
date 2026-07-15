@@ -90,5 +90,19 @@
     "renderError": "Algo deu errado",
     "renderErrorMsg": "Ocorreu um erro inesperado. Ele foi registrado para análise.",
     "retry": "Tentar Novamente"
+  },
+  "suiteApps": {
+    "title": "🔐 Suite Apps",
+    "subtitle": "Acesso a ferramentas avançadas",
+    "password": "Senha",
+    "passwordPlaceholder": "Digite a senha",
+    "passwordRequired": "Digite a senha",
+    "accessDenied": "Acesso negado",
+    "invalidPassword": "Senha incorreta",
+    "sessionError": "Não foi possível estabelecer a sessão",
+    "sessionInfo": "Sessão válida por 24 horas desde acesso",
+    "cancel": "Cancelar",
+    "access": "Acessar",
+    "dataEncrypted": "Todos os dados estão encriptados"
   }
 }

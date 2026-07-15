@@ -90,5 +90,19 @@
     "renderError": "Something went wrong",
     "renderErrorMsg": "An unexpected error occurred. It has been logged for review.",
     "retry": "Retry"
+  },
+  "suiteApps": {
+    "title": "🔐 Suite Apps",
+    "subtitle": "Access to advanced tools",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "passwordRequired": "Enter the password",
+    "accessDenied": "Access denied",
+    "invalidPassword": "Incorrect password",
+    "sessionError": "Could not establish session",
+    "sessionInfo": "Session valid for 24 hours from access",
+    "cancel": "Cancel",
+    "access": "Access",
+    "dataEncrypted": "All data is encrypted"
   }
 }

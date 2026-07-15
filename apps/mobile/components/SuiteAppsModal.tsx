@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
+import { useI18n } from '../hooks/useI18n';
 import { validateSuiteAppsPassword, setSuiteAppsSession, getRemainingSessionTime } from '../lib/suiteAppsAuth';
 
 interface SuiteAppsModalProps {
@@ -10,13 +11,14 @@ interface SuiteAppsModalProps {
 }
 
 export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModalProps) {
+  const { t } = useI18n();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleAuthenticate = async () => {
     if (!password.trim()) {
-      Alert.alert('Error', 'Ingresa la contraseña');
+      Alert.alert(t('common.error'), t('suiteApps.passwordRequired'));
       return;
     }
 
@@ -24,7 +26,7 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
     try {
       const isValid = await validateSuiteAppsPassword(password);
       if (!isValid) {
-        Alert.alert('Acceso denegado', 'Contraseña incorrecta');
+        Alert.alert(t('suiteApps.accessDenied'), t('suiteApps.invalidPassword'));
         return;
       }
 
@@ -32,7 +34,7 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
       setPassword('');
       onSuccess();
     } catch (err) {
-      Alert.alert('Error', 'No se pudo establecer la sesión');
+      Alert.alert(t('common.error'), t('suiteApps.sessionError'));
     } finally {
       setLoading(false);
     }
@@ -47,15 +49,15 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
     <Modal visible={visible} transparent animationType="fade">
       <View style={s.overlay}>
         <View style={s.container}>
-          <Text style={s.title}>🔐 Suite Apps</Text>
-          <Text style={s.subtitle}>Acceso a herramientas avanzadas</Text>
+          <Text style={s.title}>{t('suiteApps.title')}</Text>
+          <Text style={s.subtitle}>{t('suiteApps.subtitle')}</Text>
 
           <View style={s.form}>
-            <Text style={s.label}>Contraseña</Text>
+            <Text style={s.label}>{t('suiteApps.password')}</Text>
             <View style={s.inputContainer}>
               <TextInput
                 style={s.input}
-                placeholder="Ingresa contraseña"
+                placeholder={t('suiteApps.passwordPlaceholder')}
                 placeholderTextColor="#90A4AE"
                 secureTextEntry={!showPassword}
                 value={password}
@@ -71,7 +73,7 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
               </TouchableOpacity>
             </View>
 
-            <Text style={s.info}>Sesión válida por 24 horas desde acceso</Text>
+            <Text style={s.info}>{t('suiteApps.sessionInfo')}</Text>
           </View>
 
           <View style={s.actions}>
@@ -81,7 +83,7 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
               disabled={loading}
               activeOpacity={0.7}
             >
-              <Text style={s.btnCancelText}>Cancelar</Text>
+              <Text style={s.btnCancelText}>{t('suiteApps.cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -93,12 +95,12 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={s.btnAccessText}>Acceder</Text>
+                <Text style={s.btnAccessText}>{t('suiteApps.access')}</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <Text style={s.footer}>Todos los datos están encriptados</Text>
+          <Text style={s.footer}>{t('suiteApps.dataEncrypted')}</Text>
         </View>
       </View>
     </Modal>
