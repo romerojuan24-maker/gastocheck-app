@@ -95,17 +95,32 @@ eas build --platform android --profile preview --wait
 
 ## 📊 HISTORIAL — ROLLBACK POINTS (desde más reciente)
 
-| OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación en device |
+| OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación |
 |-----|--------|--------|--|--|
-| **215** | **3f50164** | **✅ ACTUAL FUNCIONAL** | **"OTA 215 · v0.1.72 · Suite Apps Complete"** | **14-jul-2026 publicado ✅** |
+| **217** | **a8eda2e** | **✅ ACTUAL FUNCIONAL** | **"OTA 217 · v0.1.73 · UI Redesign"** | **15-jul-2026 publicado ✅** |
+| 216 | 3074d2f | ✅ Funcional | "OTA 216 · v0.1.72 · Code Quality Audit" | Dashboard + Suite Apps |
+| 215 | 3f50164 | ✅ Funcional | "OTA 215 · v0.1.72 · Suite Apps Complete" | 14-jul-2026 publicado ✅ |
 | 214 | a7d1e82 | ✅ Funcional | "OTA 214 · v0.1.72 · Dashboard UI Fix" | Dashboard UI OK |
 | 213 | 5eb8d14 | ✅ Funcional | "OTA 213 · v0.1.72 · Suite Apps" | Suite Apps features OK |
 | 212 | 549998c | ✅ Funcional | "OTA 212 · v0.1.72 · Wave 6 UI Screens" | Wave 6 UI (auth fix) OK |
 | 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
 | 210 | baf06ae | ✅ Funcional | "OTA 210 · v0.1.72 · FlujoCheck fix" | 14-jul-2026 confirmado ✅ |
-| 209 | 283e9de | ⚠️ Problematic | "OTA 209 · v0.1.72 · Wave 6/8" | Crash/revert to 208 |
-| 208 | c372b2f | ✅ Funcional | "OTA 208 · v0.1.72 · Suite Apps" | Canary verificado |
-| 206 | 1c4cbd7 | ✅ Base | "OTA 206 · v0.1.72" | Punto de rollback base |
+
+**OTA 217 (a8eda2e) — UI Redesign: Icon-Only Dashboard & Suite Apps (COMPLETADO):**
+- ✅ Dashboard: Replaced text-heavy ModuleCard with large icon grid (6 buttons)
+- ✅ Suite Apps: Reduced from 14 apps to 4 core apps (Banco, Factura, Flujo, Inventario)
+- ✅ Consistent icon-based format across all menus (matches user sketched designs)
+- ✅ Bottom actions: Simplified "Mis Apps" and "Funciones" section
+- ✅ APP_VERSION: "OTA 217 · v0.1.73 · UI Redesign"
+- ✅ LOW RISK: UI-only changes, no backend/auth changes
+- Files: apps/mobile/app/index.tsx, apps/mobile/app/suite-apps/index.tsx
+
+**OTA 216 (3074d2f) — Code Quality Audit (COMPLETADO):**
+- ✅ Added CobraCheck to main dashboard
+- ✅ Identified 8 pending backend APIs + 166 type safety issues (deferred to future OTAs)
+- ✅ Validated 0 broken routes and module connectivity
+- ✅ Secured git history after sed command incident
+- ✅ LOW RISK: Focused feature addition without large refactoring
 
 **OTA 215 (3f50164) — Suite Apps Complete (COMPLETADO):**
 - ✅ Todas las apps incluidas: BancoCheck, FacturaCheck, FlujoCheck, Inventario, Pólizas, Depósitos, Reembolsos, Admin Panel, Empresas, Herramientas, Reportes, Catálogo de Cuentas, Advisor
@@ -187,4 +202,4 @@ Luego retry cambios más pequeños desde esa base limpia.
 
 ---
 
-**Última actualización:** 2026-07-14 · **OTA actual:** 210 (canal preview)
+**Última actualización:** 2026-07-15 · **OTA actual:** 217 (UI Redesign - icon-only format)
