@@ -45,4 +45,4 @@ export * from './advisor';
 export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 233 · v0.1.88 · LATAM + España + US completo';
+export const APP_VERSION = 'OTA 234 · v0.1.89 · Audit Fixes - i18n mobile + tax calculation + validators';
