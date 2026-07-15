@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 231 · v0.1.86 · Multi-language Support (es/en)';
+export const APP_VERSION = 'OTA 232 · v0.1.87 · i18n + Multi-currency (9 países)';
