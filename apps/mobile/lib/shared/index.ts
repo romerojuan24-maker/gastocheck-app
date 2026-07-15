@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 220 · v0.1.75 · Bottom Grid Icons';
+export const APP_VERSION = 'OTA 221 · v0.1.76 · View Mode Icons';

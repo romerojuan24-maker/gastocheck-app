@@ -17,6 +17,12 @@ const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_g
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 
+const VIEW_MODES = [
+  { id: 'admin',      icon: '👑', label: 'Admin',      mode: 'admin' },
+  { id: 'contador',   icon: '📊', label: 'Contador',   mode: 'contador' },
+  { id: 'operador',   icon: '🛠',  label: 'Operativo',  mode: 'operational' },
+];
+
 const DASHBOARD_MAIN = [
   { id: 'gasto',      icon: '✓',  label: 'Gasto',      route: '/gastocheck' },
   { id: 'cobra',      icon: '🎯', label: 'Cobra',      route: '/cobracheck' },
@@ -158,6 +164,21 @@ export default function CheckSuiteHome() {
             <Text style={styles.companyPillSwitch}>Cambiar</Text>
           </TouchableOpacity>
         )}
+
+        {/* ── Grid de 3 modos de vista arriba ── */}
+        <View style={[styles.iconGrid, { marginBottom: 16 }]}>
+          {VIEW_MODES.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.largeIconBtn, viewMode === item.mode && styles.viewModeActive]}
+              onPress={() => handleSelectViewMode(item.mode as GlobalViewMode)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.largeIcon}>{item.icon}</Text>
+              <Text style={styles.largeLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {insights.length > 0 && (
           <View style={{ marginBottom: 16 }}>
@@ -312,4 +333,5 @@ const styles = StyleSheet.create({
   },
   largeIcon: { fontSize: 42, marginBottom: 6 },
   largeLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  viewModeActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
 });
