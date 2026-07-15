@@ -97,13 +97,21 @@ eas build --platform android --profile preview --wait
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación en device |
 |-----|--------|--------|--|--|
-| **213** | **5eb8d14** | **✅ ACTUAL FUNCIONAL** | **"OTA 213 · v0.1.72 · Suite Apps"** | **14-jul-2026 publicado ✅** |
+| **214** | **a7d1e82** | **✅ ACTUAL FUNCIONAL** | **"OTA 214 · v0.1.72 · Dashboard UI Fix"** | **14-jul-2026 publicado ✅** |
+| 213 | 5eb8d14 | ✅ Funcional | "OTA 213 · v0.1.72 · Suite Apps" | Suite Apps features OK |
 | 212 | 549998c | ✅ Funcional | "OTA 212 · v0.1.72 · Wave 6 UI Screens" | Wave 6 UI (auth fix) OK |
 | 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
 | 210 | baf06ae | ✅ Funcional | "OTA 210 · v0.1.72 · FlujoCheck fix" | 14-jul-2026 confirmado ✅ |
 | 209 | 283e9de | ⚠️ Problematic | "OTA 209 · v0.1.72 · Wave 6/8" | Crash/revert to 208 |
 | 208 | c372b2f | ✅ Funcional | "OTA 208 · v0.1.72 · Suite Apps" | Canary verificado |
 | 206 | 1c4cbd7 | ✅ Base | "OTA 206 · v0.1.72" | Punto de rollback base |
+
+**OTA 214 (a7d1e82) — Dashboard UI Fix (COMPLETADO):**
+- ✅ Suite Apps button added: mismo tamaño que ModuleCard (GastoCheck, CobraCheck)
+- ✅ Alerts/Avisos carousel: arriba de GastoCheck, scrolleable con "1 de N"
+- ✅ Multiple insights support: hasta 5 avisos con paginación
+- ✅ Suite Apps modal: integrado en dashboard
+- Files: apps/mobile/app/index.tsx (updated layout + styles)
 
 **OTA 213 (5eb8d14) — Suite Apps (COMPLETADO):**
 - ✅ Authentication modal: password-gated access (password: "suite1")
