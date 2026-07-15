@@ -156,6 +156,7 @@ export default function Layout() {
       <Stack.Screen name="advisor/mis-tareas/index" options={{ title: 'Mis Tareas', headerShown: false }} />
       <Stack.Screen name="advisor/supervisor/tareas/index" options={{ title: 'Tareas del Equipo', headerShown: false }} />
       <Stack.Screen name="advisor/task-detail/[id]" options={{ title: 'Detalle de Tarea', headerShown: false }} />
+      <Stack.Screen name="suite-apps/index"        options={{ title: 'Suite Apps', headerShown: false }} />
       <Stack.Screen name="facturacheck/emitir"     options={{ title: 'Emitir CFDI' }} />
       <Stack.Screen name="facturacheck/pac-config" options={{ title: 'Configurar PAC' }} />
       <Stack.Screen name="flujocheck/index"        options={{ title: 'FlujoCheck' }} />
