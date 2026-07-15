@@ -22,6 +22,20 @@ const VIEW_MODE_OPTIONS: { mode: GlobalViewMode; label: string }[] = [
   { mode: 'operational', label: '🛠 Operativo' },
 ];
 
+const DASHBOARD_SHORTCUTS = [
+  { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
+  { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
+  { id: 'operator',   icon: '🛠',  label: 'Operador',   route: '/operador' },
+  { id: 'collector',  icon: '🎯', label: 'Cobrador',   route: '/cobracheck' },
+  { id: 'employee',   icon: '👥', label: 'Empleados',  route: '/equipo' },
+  { id: 'suite',      icon: '🔐', label: 'Suite Apps', route: 'suite-apps' },
+];
+
+const FUNCTION_SHORTCUTS = [
+  { id: 'apps',       icon: '📱', label: 'Mis Apps' },
+  { id: 'functions',  icon: '⚙️',  label: 'Funciones' },
+];
+
 export default function CheckSuiteHome() {
   const router      = useRouter();
   const navigation  = useNavigation();
@@ -160,7 +174,7 @@ export default function CheckSuiteHome() {
           <View style={styles.viewSwitcherCard}>
             <Text style={styles.viewSwitcherTitle}>Vista del panel</Text>
             <Text style={styles.viewSwitcherSub}>
-              Se aplica igual en todos los módulos (GastoCheck, CobraCheck, FlujoCheck, BancoCheck, FacturaCheck)
+              Se aplica igual en todos los módulos
             </Text>
             <View style={styles.viewSwitcherRow}>
               {VIEW_MODE_OPTIONS.map((o) => (
@@ -215,59 +229,25 @@ export default function CheckSuiteHome() {
           </View>
         )}
 
-        <Text style={styles.sectionLabel}>MÓDULOS</Text>
+        {/* ── Grid de iconos grandes para roles/vistas ── */}
+        <View style={styles.iconGrid}>
+          <LargeIconButton icon="✓" label="Gasto" onPress={() => router.push('/gastocheck' as any)} hidden={!showGasto} />
+          <LargeIconButton icon="🎯" label="Cobra" onPress={() => router.push('/cobracheck' as any)} hidden={!showCobra} />
+          <LargeIconButton icon="👑" label="Admin" onPress={() => router.push('/settings')} />
+          <LargeIconButton icon="📊" label="Contador" onPress={() => router.push('/administracion')} />
+          <LargeIconButton icon="🛠" label="Operador" onPress={() => router.push('/operador')} hidden={isCollector} />
+          <LargeIconButton icon="🔐" label="Suite" onPress={() => setShowSuiteAppsModal(true)} />
+        </View>
 
-        {showGasto && (
-          <ModuleCard
-            icon="✓"
-            iconBg={BRAND.green}
-            title="GastoCheck"
-            subtitle="Control de gastos, anticipos y pólizas"
-            onPress={() => router.push('/gastocheck' as any)}
-          />
-        )}
-
-        {showCobra && (
-          <ModuleCard
-            icon="🎯"
-            iconBg={BRAND.cobra}
-            title="CobraCheck"
-            subtitle="Gestión de cobranza y rutas"
-            onPress={() => router.push('/cobracheck' as any)}
-          />
-        )}
-
-        <ModuleCard
-          icon="🔐"
-          iconBg={BRAND.navy}
-          title="Suite Apps"
-          subtitle="Herramientas avanzadas con acceso restringido"
-          onPress={() => setShowSuiteAppsModal(true)}
-        />
-
-        {showMore && (
-          <ModuleCard
-            icon="👥"
-            iconBg={BRAND.purple ?? '#7B1FA2'}
-            title="Equipo"
-            subtitle="Miembros, roles e invitaciones — para todos los módulos"
-            onPress={() => router.push('/equipo' as any)}
-          />
-        )}
-
-        {/* ── Módulos complementarios (mandos / dev) ── */}
-        {showMore && (
-          <>
-            <Text style={styles.sectionLabel}>MÁS HERRAMIENTAS</Text>
-            <View style={styles.miniGrid}>
-              <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} />
-              <MiniCard icon="🧾" label="FacturaCheck"  onPress={() => router.push('/facturacheck' as any)} />
-              <MiniCard icon="💧" label="FlujoCheck"    onPress={() => router.push('/flujocheck' as any)} />
-              <MiniCard icon="📦" label="Inventario"    onPress={() => router.push('/inventariocheck' as any)} />
-              <MiniCard icon="🧠" label="Advisor"       onPress={() => router.push('/advisor' as any)} />
-            </View>
-          </>
-        )}
+        {/* ── Sección de Mis Apps y Funciones ── */}
+        <View style={styles.bottomActions}>
+          {FUNCTION_SHORTCUTS.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.actionButton} activeOpacity={0.7}>
+              <Text style={styles.actionIcon}>{item.icon}</Text>
+              <Text style={styles.actionLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <SuiteAppsModal
@@ -282,30 +262,16 @@ export default function CheckSuiteHome() {
   );
 }
 
-function ModuleCard({
-  icon, iconBg, title, subtitle, onPress,
+function LargeIconButton({
+  icon, label, onPress, hidden = false,
 }: {
-  icon: string; iconBg: string; title: string; subtitle: string; onPress: () => void;
+  icon: string; label: string; onPress: () => void; hidden?: boolean;
 }) {
+  if (hidden) return null;
   return (
-    <TouchableOpacity style={styles.moduleCard} onPress={onPress} activeOpacity={0.85}>
-      <View style={[styles.moduleIcon, { backgroundColor: iconBg }]}>
-        <Text style={styles.moduleIconText}>{icon}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.moduleTitle}>{title}</Text>
-        <Text style={styles.moduleSubtitle}>{subtitle}</Text>
-      </View>
-      <Text style={styles.moduleArrow}>›</Text>
-    </TouchableOpacity>
-  );
-}
-
-function MiniCard({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.miniCard} onPress={onPress} activeOpacity={0.85}>
-      <Text style={styles.miniIcon}>{icon}</Text>
-      <Text style={styles.miniLabel}>{label}</Text>
+    <TouchableOpacity style={styles.largeIconBtn} onPress={onPress} activeOpacity={0.7}>
+      <Text style={styles.largeIcon}>{icon}</Text>
+      <Text style={styles.largeLabel}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -383,27 +349,29 @@ const styles = StyleSheet.create({
   advisorBody: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 17 },
   advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
 
-  moduleCard: {
-    backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
+  iconGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24, marginTop: 8,
+  },
+  largeIconBtn: {
+    width: '32.5%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
     elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 6,
   },
-  moduleIcon:     { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  moduleIconText: { fontSize: 26, color: '#fff', fontWeight: '900' },
-  moduleTitle:    { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  moduleSubtitle: { fontSize: 12, color: '#90A4AE', marginTop: 2 },
-  moduleArrow:    { fontSize: 26, color: BRAND.csblue },
+  largeIcon: { fontSize: 42, marginBottom: 6 },
+  largeLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
 
-  miniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  miniCard: {
-    width: '47%', backgroundColor: '#fff', borderRadius: 14, padding: 16,
-    alignItems: 'center', gap: 6,
+  bottomActions: {
+    flexDirection: 'row', gap: 12, marginBottom: 16, justifyContent: 'center',
+  },
+  actionButton: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12,
+    alignItems: 'center', justifyContent: 'center',
     elevation: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4,
   },
-  miniIcon:  { fontSize: 28 },
-  miniLabel: { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  actionIcon: { fontSize: 24, marginBottom: 4 },
+  actionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
 });

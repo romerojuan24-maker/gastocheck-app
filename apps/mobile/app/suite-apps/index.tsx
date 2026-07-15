@@ -8,116 +8,28 @@ import { SuiteAppsModal } from '../../components/SuiteAppsModal';
 
 const TOOLS = [
   {
-    id: 'cobracheck',
-    title: 'CobraCheck',
-    subtitle: 'Gestión de cobranza',
-    icon: '🎯',
-    route: '/cobracheck',
-    description: 'Gestión de cobranza, rutas y operaciones de cobrador',
-  },
-  {
     id: 'bancocheck',
-    title: 'BancoCheck',
-    subtitle: 'Control bancario',
+    title: 'Banco',
     icon: '🏦',
     route: '/bancocheck',
-    description: 'Importar, conciliar y controlar cuentas bancarias',
   },
   {
     id: 'facturacheck',
-    title: 'FacturaCheck',
-    subtitle: 'Facturación CFDI',
+    title: 'Factura',
     icon: '📄',
     route: '/facturacheck',
-    description: 'Emitir comprobantes fiscales digitales',
   },
   {
     id: 'flujocheck',
-    title: 'FlujoCheck',
-    subtitle: 'Flujo de caja',
+    title: 'Flujo',
     icon: '💰',
     route: '/flujocheck',
-    description: 'Proyectar y analizar flujo de efectivo',
   },
   {
     id: 'inventariocheck',
-    title: 'InventarioCheck',
-    subtitle: 'Inventario',
+    title: 'Inventario',
     icon: '📦',
     route: '/inventariocheck',
-    description: 'Gestionar movimientos de inventario',
-  },
-  {
-    id: 'polizas',
-    title: 'Pólizas',
-    subtitle: 'Gestión de pólizas',
-    icon: '📋',
-    route: '/polizas',
-    description: 'Crear, revisar y aprobar pólizas contables',
-  },
-  {
-    id: 'depositos',
-    title: 'Depósitos',
-    subtitle: 'Depósitos bancarios',
-    icon: '💳',
-    route: '/depositos',
-    description: 'Registrar y seguimiento de depósitos',
-  },
-  {
-    id: 'reembolso',
-    title: 'Reembolsos',
-    subtitle: 'Gestión de reembolsos',
-    icon: '💸',
-    route: '/reembolso',
-    description: 'Solicitar y aprobar reembolsos de gastos',
-  },
-  {
-    id: 'admin-panel',
-    title: 'Panel Administrador',
-    subtitle: 'Configuración del sistema',
-    icon: '⚙️',
-    route: '/admin-panel',
-    description: 'Configurar empresa, usuarios y permisos',
-  },
-  {
-    id: 'empresas',
-    title: 'Mis Empresas',
-    subtitle: 'Seleccionar empresa',
-    icon: '🏢',
-    route: '/empresas',
-    description: 'Cambiar entre empresas y gestionar acceso',
-  },
-  {
-    id: 'herramientas',
-    title: 'Herramientas',
-    subtitle: 'Utilidades del sistema',
-    icon: '🛠️',
-    route: '/herramientas',
-    description: 'Acceso a herramientas complementarias',
-  },
-  {
-    id: 'reportes',
-    title: 'Reportes',
-    subtitle: 'Análisis y reportería',
-    icon: '📊',
-    route: '/reportes',
-    description: 'Generar reportes personalizados',
-  },
-  {
-    id: 'catalogo-cuentas',
-    title: 'Catálogo de Cuentas',
-    subtitle: 'Estructura contable',
-    icon: '📑',
-    route: '/catalogo-cuentas',
-    description: 'Gestionar plan de cuentas contables',
-  },
-  {
-    id: 'advisor',
-    title: 'Advisor',
-    subtitle: 'Inteligencia de negocio',
-    icon: '🧠',
-    route: '/advisor',
-    description: 'Motor de correlación y priorización de alertas',
   },
 ];
 
@@ -239,34 +151,27 @@ export default function SuiteAppsHome() {
           </TouchableOpacity>
         </View>
         <View style={s.sessionInfo}>
-          <Text style={s.sessionText}>Sesión activa • {formatTimeRemaining(remainingTime)} restante</Text>
+          <Text style={s.sessionText}>Sesión • {formatTimeRemaining(remainingTime)}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={s.content}>
-        <Text style={s.contentTitle}>Herramientas disponibles</Text>
-
-        {TOOLS.map(tool => (
-          <TouchableOpacity
-            key={tool.id}
-            style={s.toolCard}
-            onPress={() => handleToolPress(tool.route)}
-            activeOpacity={0.7}
-          >
-            <View style={s.toolIcon}>
-              <Text style={s.toolIconText}>{tool.icon}</Text>
-            </View>
-            <View style={s.toolInfo}>
-              <Text style={s.toolTitle}>{tool.title}</Text>
-              <Text style={s.toolSubtitle}>{tool.subtitle}</Text>
-              <Text style={s.toolDesc}>{tool.description}</Text>
-            </View>
-            <Text style={s.arrow}>›</Text>
-          </TouchableOpacity>
-        ))}
+        <View style={s.grid}>
+          {TOOLS.map(tool => (
+            <TouchableOpacity
+              key={tool.id}
+              style={s.gridItem}
+              onPress={() => handleToolPress(tool.route)}
+              activeOpacity={0.7}
+            >
+              <Text style={s.gridIcon}>{tool.icon}</Text>
+              <Text style={s.gridLabel}>{tool.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <View style={s.footer}>
-          <Text style={s.footerText}>🔐 Todos los datos están encriptados y seguros</Text>
+          <Text style={s.footerText}>🔐 Sesión segura</Text>
         </View>
       </ScrollView>
     </View>
@@ -284,23 +189,24 @@ const s = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: BRAND.navy },
   logoutBtn: { fontSize: 13, fontWeight: '700', color: '#E53935', paddingLeft: 12 },
   sessionInfo: { paddingHorizontal: 16, paddingBottom: 8 },
-  sessionText: { fontSize: 11, color: '#90A4AE', fontStyle: 'italic' },
+  sessionText: { fontSize: 11, color: '#90A4AE' },
   content: { padding: 16, paddingBottom: 44 },
-  contentTitle: { fontSize: 20, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
   noAccess: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   icon: { fontSize: 60, marginBottom: 16 },
   title: { fontSize: 22, fontWeight: '800', color: BRAND.navy, textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#90A4AE', textAlign: 'center', marginBottom: 32 },
   authenticateBtn: { backgroundColor: BRAND.navy, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 10 },
   authenticateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  toolCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0' },
-  toolIcon: { width: 54, height: 54, borderRadius: 12, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  toolIconText: { fontSize: 28 },
-  toolInfo: { flex: 1 },
-  toolTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy, marginBottom: 2 },
-  toolSubtitle: { fontSize: 12, color: '#90A4AE', marginBottom: 4 },
-  toolDesc: { fontSize: 11, color: '#90A4AE', lineHeight: 15 },
-  arrow: { fontSize: 20, color: BRAND.navy, fontWeight: '600', marginLeft: 8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24 },
+  gridItem: {
+    width: '47%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 6,
+  },
+  gridIcon: { fontSize: 42, marginBottom: 6 },
+  gridLabel: { fontSize: 12, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
   footer: { marginTop: 24, paddingVertical: 16, alignItems: 'center' },
   footerText: { fontSize: 12, color: '#90A4AE', textAlign: 'center' },
 });
