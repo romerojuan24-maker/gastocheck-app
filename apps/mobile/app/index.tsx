@@ -21,12 +21,21 @@ const DASHBOARD_TOP = [
   { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
   { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
   { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/operador' },
-  { id: 'suite',      icon: '🔐', label: 'Suite',      route: 'suite-apps' },
+];
+
+const DASHBOARD_MIDDLE = [
+  { id: 'advisor',    icon: '🤖', label: 'Advisor',    route: '/advisor' },
+  { id: 'gastocheck', icon: '💸', label: 'GastoCheck', route: '/gastocheck' },
+  { id: 'cobracheck', icon: '💳', label: 'CobraCheck', route: '/cobracheck' },
+];
+
+const DASHBOARD_SUITE = [
+  { id: 'suite',      icon: '🔐', label: 'Suite Apps', route: '/suite-apps' },
 ];
 
 const DASHBOARD_BOTTOM = [
   { id: 'empresa',    icon: '🏢', label: 'Empresa',    route: '/empresas' },
-  { id: 'equipo',     icon: '👥', label: 'Equipo',     route: '/equipo' },
+  { id: 'empleados',  icon: '👥', label: 'Empleados',  route: '/equipo' },
   { id: 'finanzas',   icon: '💰', label: 'Finanzas',   route: '/administracion' },
   { id: 'ajustes',    icon: '⚙️',  label: 'Ajustes',    route: '/settings' },
 ];
@@ -157,32 +166,58 @@ export default function CheckSuiteHome() {
           </TouchableOpacity>
         )}
 
-        {/* ── Grid de 4 iconos arriba ── */}
-        <View style={styles.iconGrid}>
+        {/* ── Grid de 3 iconos: Admin, Contador, Operador ── */}
+        <View style={styles.topGrid}>
           {DASHBOARD_TOP.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.largeIconBtn}
+              style={styles.topIconBtn}
               onPress={() => router.push(item.route as any)}
               activeOpacity={0.7}
             >
-              <Text style={styles.largeIcon}>{item.icon}</Text>
-              <Text style={styles.largeLabel}>{item.label}</Text>
+              <Text style={styles.topIcon}>{item.icon}</Text>
+              <Text style={styles.topLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* ── Grid de 4 iconos abajo ── */}
-        <View style={styles.iconGrid}>
+        {/* ── Botones individuales: Advisor, GastoCheck, CobraCheck ── */}
+        {DASHBOARD_MIDDLE.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.fullWidthBtn}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.fullWidthIcon}>{item.icon}</Text>
+            <Text style={styles.fullWidthLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+
+        {/* ── Suite Apps ── */}
+        {DASHBOARD_SUITE.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.fullWidthBtn}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.fullWidthIcon}>{item.icon}</Text>
+            <Text style={styles.fullWidthLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+
+        {/* ── Grid de 4 iconos abajo: Empresa, Empleados, Finanzas, Ajustes ── */}
+        <View style={styles.bottomGrid}>
           {DASHBOARD_BOTTOM.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.largeIconBtn}
+              style={styles.bottomIconBtn}
               onPress={() => router.push(item.route as any)}
               activeOpacity={0.7}
             >
-              <Text style={styles.largeIcon}>{item.icon}</Text>
-              <Text style={styles.largeLabel}>{item.label}</Text>
+              <Text style={styles.bottomIcon}>{item.icon}</Text>
+              <Text style={styles.bottomLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -261,17 +296,41 @@ const styles = StyleSheet.create({
   advisorBody: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 17 },
   advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
 
-  iconGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4, marginTop: 4,
+  topGrid: {
+    flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 16, marginTop: 4,
   },
-  largeIconBtn: {
-    width: '48%', aspectRatio: 1.15, backgroundColor: '#fff', borderRadius: 14,
+  topIconBtn: {
+    flex: 1, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12,
     justifyContent: 'center', alignItems: 'center',
     elevation: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 3,
   },
-  largeIcon: { fontSize: 36, marginBottom: 4 },
-  largeLabel: { fontSize: 10, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  topIcon: { fontSize: 40, marginBottom: 4 },
+  topLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+
+  fullWidthBtn: {
+    backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
+  },
+  fullWidthIcon: { fontSize: 28 },
+  fullWidthLabel: { fontSize: 14, fontWeight: '600', color: BRAND.navy },
+
+  bottomGrid: {
+    flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 16,
+  },
+  bottomIconBtn: {
+    flex: 1, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
+  },
+  bottomIcon: { fontSize: 28, marginBottom: 4 },
+  bottomLabel: { fontSize: 9, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
   viewModeActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
 });
