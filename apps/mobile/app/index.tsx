@@ -17,15 +17,7 @@ const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_g
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 
-const VIEW_MODES = [
-  { id: 'admin',      icon: '👑', label: 'Admin',      mode: 'admin' },
-  { id: 'contador',   icon: '📊', label: 'Contador',   mode: 'contador' },
-  { id: 'operador',   icon: '🛠',  label: 'Operativo',  mode: 'operational' },
-];
-
-const DASHBOARD_MAIN = [
-  { id: 'gasto',      icon: '✓',  label: 'Gasto',      route: '/gastocheck' },
-  { id: 'cobra',      icon: '🎯', label: 'Cobra',      route: '/cobracheck' },
+const DASHBOARD_TOP = [
   { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
   { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
   { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/operador' },
@@ -165,61 +157,9 @@ export default function CheckSuiteHome() {
           </TouchableOpacity>
         )}
 
-        {/* ── Grid de 3 modos de vista arriba ── */}
-        <View style={[styles.iconGrid, { marginBottom: 16 }]}>
-          {VIEW_MODES.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.largeIconBtn, viewMode === item.mode && styles.viewModeActive]}
-              onPress={() => handleSelectViewMode(item.mode as GlobalViewMode)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.largeIcon}>{item.icon}</Text>
-              <Text style={styles.largeLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {insights.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2, marginBottom: 8 }}>
-              <Text style={styles.alertsLabel}>AVISOS</Text>
-              {insights.length > 1 && (
-                <Text style={styles.alertCounter}>{alertIndex + 1} de {insights.length}</Text>
-              )}
-            </View>
-            <ScrollView
-              ref={alertScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={(e) => {
-                const offset = e.nativeEvent.contentOffset.x;
-                const width = e.nativeEvent.layoutMeasurement.width;
-                setAlertIndex(Math.round(offset / width));
-              }}
-              pagingEnabled
-            >
-              {insights.map((insight) => (
-                <TouchableOpacity
-                  key={insight.id}
-                  style={[styles.advisorCard, { width: '100%', marginRight: 0 }]}
-                  onPress={() => router.push('/advisor' as any)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.advisorLabel}>🧠 ADVISOR · {insight.severity === 'critical' ? 'CRÍTICO' : insight.severity === 'warning' ? 'IMPORTANTE' : 'REVISAR'}</Text>
-                  <Text style={styles.advisorTitle}>{insight.title}</Text>
-                  <Text style={styles.advisorBody} numberOfLines={2}>{insight.body}</Text>
-                  <Text style={styles.advisorLink}>Ver Advisor ›</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ── Grid de iconos grandes (6 apps principales) ── */}
+        {/* ── Grid de 4 iconos arriba ── */}
         <View style={styles.iconGrid}>
-          {DASHBOARD_MAIN.map((item) => (
+          {DASHBOARD_TOP.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.largeIconBtn}
@@ -232,7 +172,7 @@ export default function CheckSuiteHome() {
           ))}
         </View>
 
-        {/* ── Grid de iconos abajo (4 utilidades) ── */}
+        {/* ── Grid de 4 iconos abajo ── */}
         <View style={styles.iconGrid}>
           {DASHBOARD_BOTTOM.map((item) => (
             <TouchableOpacity
