@@ -8,7 +8,13 @@
     "loading": "Cargando...",
     "error": "Error",
     "success": "Éxito",
-    "warning": "Advertencia"
+    "warning": "Advertencia",
+    "currency": "💱 Moneda",
+    "region": "🌍 Región",
+    "taxSystem": "Sistema Fiscal",
+    "invoice": "Factura",
+    "idType": "Tipo de ID",
+    "defaultVAT": "IVA por Defecto"
   },
   "gastocheck": {
     "title": "GastoCheck",
@@ -80,6 +86,9 @@
     "noCompanyMsg": "No tienes una empresa activa. Contacta a tu administrador.",
     "noConnection": "No hay conexión",
     "serverError": "Error del servidor. Intenta de nuevo en un momento.",
-    "fileSaveError": "Error al guardar"
+    "fileSaveError": "Error al guardar",
+    "renderError": "Algo salió mal",
+    "renderErrorMsg": "Ocurrió un error inesperado. Ya se registró para revisión.",
+    "retry": "Reintentar"
   }
 }

@@ -8,7 +8,13 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
-    "warning": "Warning"
+    "warning": "Warning",
+    "currency": "💱 Currency",
+    "region": "🌍 Region",
+    "taxSystem": "Tax System",
+    "invoice": "Invoice",
+    "idType": "ID Type",
+    "defaultVAT": "Default VAT"
   },
   "gastocheck": {
     "title": "GastoCheck",
@@ -80,6 +86,9 @@
     "noCompanyMsg": "You don't have an active company. Contact your administrator.",
     "noConnection": "No connection",
     "serverError": "Server error. Try again in a moment.",
-    "fileSaveError": "Error saving file"
+    "fileSaveError": "Error saving file",
+    "renderError": "Something went wrong",
+    "renderErrorMsg": "An unexpected error occurred. It has been logged for review.",
+    "retry": "Retry"
   }
 }

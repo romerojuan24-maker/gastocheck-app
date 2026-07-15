@@ -1,15 +1,17 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRegion } from '../hooks/useRegion';
+import { useI18n } from '../hooks/useI18n';
 import { REGIONS } from '../lib/regions';
 import { BRAND } from '@gastocheck/shared';
 
 export function RegionSelector() {
   const { region, setRegion, availableRegions } = useRegion();
+  const { t } = useI18n();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>🌍 Región / Region</Text>
+      <Text style={styles.label}>{t('common.region')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
         <View style={styles.buttonGroup}>
           {availableRegions.map(code => {
@@ -39,13 +41,12 @@ export function RegionSelector() {
         </View>
       </ScrollView>
 
-      {/* Resumen de configuración regional */}
       <View style={styles.summary}>
-        <SummaryRow icon="💱" label="Currency" value={REGIONS[region].currency} />
-        <SummaryRow icon="🧾" label="Tax System" value={REGIONS[region].taxSystem} />
-        <SummaryRow icon="📝" label="Invoice" value={REGIONS[region].invoiceSystem} />
-        <SummaryRow icon="🆔" label="ID Type" value={REGIONS[region].idType} />
-        <SummaryRow icon="📊" label="Default VAT" value={`${REGIONS[region].defaultVAT}%`} />
+        <SummaryRow icon="💱" label={t('common.taxSystem')} value={REGIONS[region].currency} />
+        <SummaryRow icon="🧾" label={t('common.taxSystem')} value={REGIONS[region].taxSystem} />
+        <SummaryRow icon="📝" label={t('common.invoice')} value={REGIONS[region].invoiceSystem} />
+        <SummaryRow icon="🆔" label={t('common.idType')} value={REGIONS[region].idType} />
+        <SummaryRow icon="📊" label={t('common.defaultVAT')} value={`${REGIONS[region].defaultVAT}%`} />
       </View>
     </View>
   );

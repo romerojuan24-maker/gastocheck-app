@@ -1,15 +1,17 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useCurrency } from '../hooks/useCurrency';
+import { useI18n } from '../hooks/useI18n';
 import { CURRENCIES } from '../lib/currency';
 import { BRAND } from '@gastocheck/shared';
 
 export function CurrencySwitcher() {
   const { currency, setCurrency, availableCurrencies } = useCurrency();
+  const { t } = useI18n();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>💱 Moneda / Currency</Text>
+      <Text style={styles.label}>{t('common.currency')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
         <View style={styles.buttonGroup}>
           {availableCurrencies.map(code => {
