@@ -97,10 +97,23 @@ eas build --platform android --profile preview --wait
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación en device |
 |-----|--------|--------|--|--|
-| **210** | **baf06ae** | **✅ ACTUAL FUNCIONAL** | **"OTA 210 · v0.1.72 · FlujoCheck fix"** | **14-jul-2026 confirmado ✅** |
+| **212** | **549998c** | **✅ ACTUAL FUNCIONAL** | **"OTA 212 · v0.1.72 · Wave 6 UI Screens"** | **14-jul-2026 publicado ✅** |
+| 211 | 99adff0 | ✅ Funcional | "OTA 211 · v0.1.72 · Wave 6/8 Backend" | Backend schema + triggers OK |
+| 210 | baf06ae | ✅ Funcional | "OTA 210 · v0.1.72 · FlujoCheck fix" | 14-jul-2026 confirmado ✅ |
 | 209 | 283e9de | ⚠️ Problematic | "OTA 209 · v0.1.72 · Wave 6/8" | Crash/revert to 208 |
 | 208 | c372b2f | ✅ Funcional | "OTA 208 · v0.1.72 · Suite Apps" | Canary verificado |
 | 206 | 1c4cbd7 | ✅ Base | "OTA 206 · v0.1.72" | Punto de rollback base |
+
+**OTA 212 (549998c) — Wave 6 UI Screens (FIX):**
+- ✅ Pantallas: /advisor/mis-tareas (operator), /advisor/supervisor/tareas (supervisor), /advisor/task-detail/[id]
+- ✅ FIXED: Removed router.replace() aggressive redirect that was disconnecting Supabase sessions
+- ✅ New screens available for role-based navigation without force-redirect
+
+**OTA 211 (99adff0) — Wave 6/8 Backend:**
+- ✅ Database schema: advisor_tasks, advisor_signal_queue, advisor_correlate_cooldown
+- ✅ Triggers: auto-publish de señales a través de Queue
+- ✅ Edge Function: process-advisor-queue (queue processor every 15s)
+- ✅ Cambio puro backend, bajo riesgo → FUNCIONA
 
 **OTA 210 (baf06ae) — FlujoCheck fix:**
 - ✅ Exporta CASH_FLOW_RISK_META + projectCashFlow correctamente
