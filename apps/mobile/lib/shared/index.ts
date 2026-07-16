@@ -16,7 +16,7 @@ export * from './ocr';
 export const BRAND = {
   navy:    '#0F172A',
   blue:    '#1565C0',
-  green:   '#00A650',  // GastoCheck
+  green:   '#00A650',  // GastoCheck (verde)
   white:   '#FFFFFF',
   gray:    '#F5F7FA',
   orange:  '#FF9800',
@@ -24,9 +24,19 @@ export const BRAND = {
   purple:  '#7B1FA2',
   csblue:  '#003DA5',  // CHECK SUITE (azul corporativo)
   cobra:   '#FF7A1A',  // CobraCheck (naranja)
+  flujo:   '#0066CC',  // FlujoCheck (azul)
+  factura: '#FF6B35',  // FacturaCheck (rojo-naranja)
 } as const;
 
 export * from './cobra';
+// NOTA: './cobracheck' y './routes' no se exportan aquí — colisionan con
+// símbolos de './cobra' (ej. CobraRoute) y nada en la app los usa todavía.
+// './gastocheck' se exporta selectivamente porque su propio `Receipt`
+// choca con el `Receipt` canónico de './types' (el que usa toda la app).
+export type {
+  Reembolso, ReceiptReembolso, Viatico, ReembolsoPendiente, ViaticoPendiente,
+  GastoCheckDashboard, GastoCheckAlert, ApproveReembolsoRequest, ApproveViaticRequest,
+} from './gastocheck';
 export * from './bancocheck';
 export * from './flujocheck';
 export * from './facturacheck';
@@ -34,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 172 · v1.1.72';
+export const APP_VERSION = 'OTA 234 · v0.1.89 · Audit Fixes - i18n mobile + tax calculation + validators';

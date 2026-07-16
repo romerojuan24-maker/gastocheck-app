@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BRAND } from '@gastocheck/shared';
 import { logError } from '../lib/logger';
+import i18n from '../lib/i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -12,12 +13,6 @@ interface State {
   message: string | null;
 }
 
-/**
- * Error boundary global — sin esto, cualquier error de render en
- * cualquier pantalla tumba la app entera con pantalla blanca/roja y
- * sin registrar nada. Captura, envía a Supabase (diagnostic_logs vía
- * logError, ya incluye la pantalla activa) y ofrece recuperación.
- */
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -40,15 +35,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const t = i18n.t.bind(i18n);
       return (
         <View style={styles.container}>
           <Text style={styles.icon}>⚠️</Text>
-          <Text style={styles.title}>Algo salió mal</Text>
+          <Text style={styles.title}>{t('validation.renderError')}</Text>
           <Text style={styles.message}>
-            Ocurrió un error inesperado. Ya se registró para revisión.
+            {t('validation.renderErrorMsg')}
           </Text>
           <TouchableOpacity style={styles.button} onPress={this.handleReset}>
-            <Text style={styles.buttonText}>Reintentar</Text>
+            <Text style={styles.buttonText}>{t('validation.retry')}</Text>
           </TouchableOpacity>
         </View>
       );

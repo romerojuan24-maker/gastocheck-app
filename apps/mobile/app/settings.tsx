@@ -150,10 +150,15 @@ export default function SettingsScreen() {
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Salir',
+          text: 'Cerrar sesión',
           style: 'destructive',
           onPress: async () => {
-            await supabase.auth.signOut();
+            try {
+              await supabase.auth.signOut();
+              router.replace('/login');
+            } catch (err: any) {
+              Alert.alert('Error', 'No se pudo cerrar sesión: ' + err.message);
+            }
           },
         },
       ],
@@ -285,7 +290,7 @@ export default function SettingsScreen() {
 
       {/* Cerrar sesión */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Salir</Text>
+        <Text style={styles.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
       {/* Modal: Crear empresa */}
@@ -332,6 +337,8 @@ export default function SettingsScreen() {
         {Updates.channel ? (
           <Text style={styles.versionId}>Canal: {Updates.channel}</Text>
         ) : null}
+        <Text style={styles.versionId}>Runtime: {Updates.runtimeVersion ?? '(embebido, sin runtime)'}</Text>
+        <Text style={styles.versionId}>Embebido: {Updates.isEmbeddedLaunch ? 'sí' : 'no'}</Text>
         {Updates.updateId ? (
           <Text style={styles.versionId}>
             ID: {Updates.updateId.slice(0, 8)}…

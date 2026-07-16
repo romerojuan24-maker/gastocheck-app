@@ -1,1 +1,4 @@
-export { useInventarioProducts, useInventarioAlerts, useInventarioMutations } from './useInventario'
+export {
+  useInventarioProducts, useInventarioAlerts, useInventarioMutations,
+  useInventarioMovements, useInventarioQuickMove,
+} from './useInventario'

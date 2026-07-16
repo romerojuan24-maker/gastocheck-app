@@ -1,33 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, ScrollViewComponent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { getSuiteAppsSession } from '../lib/suiteAppsAuth';
+import { SuiteAppsModal } from '../components/SuiteAppsModal';
 import TrialBanner from '../components/TrialBanner';
 import { getGlobalViewMode, setGlobalViewMode, type GlobalViewMode } from '../lib/viewMode';
 
 const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general'];
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
-const VIEW_MODE_OPTIONS: { mode: GlobalViewMode; label: string }[] = [
-  { mode: 'admin',       label: '👑 Admin' },
-  { mode: 'contador',    label: '📊 Contador' },
-  { mode: 'operational', label: '🛠 Operativo' },
+
+const DASHBOARD_TOP = [
+  { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
+  { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
+  { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/operador' },
+];
+
+const DASHBOARD_MIDDLE = [
+  { id: 'advisor',    icon: '🤖', label: 'Advisor',    route: '/advisor' },
+  { id: 'gastocheck', icon: '💸', label: 'GastoCheck', route: '/gastocheck' },
+  { id: 'cobracheck', icon: '💳', label: 'CobraCheck', route: '/cobracheck' },
+];
+
+const DASHBOARD_SUITE = [
+  { id: 'suite',      icon: '🔐', label: 'Suite Apps', route: '/suite-apps' },
+];
+
+const DASHBOARD_BOTTOM = [
+  { id: 'empresa',    icon: '🏢', label: 'Empresa',    route: '/empresas' },
+  { id: 'empleados',  icon: '👥', label: 'Empleados',  route: '/equipo' },
+  { id: 'finanzas',   icon: '💰', label: 'Finanzas',   route: '/administracion' },
+  { id: 'ajustes',    icon: '⚙️',  label: 'Ajustes',    route: '/settings' },
 ];
 
 export default function CheckSuiteHome() {
   const router      = useRouter();
   const navigation  = useNavigation();
+  const alertScrollRef = useRef<ScrollViewComponent>(null);
   const [loading,     setLoading]     = useState(true);
   const [userRole,    setUserRole]    = useState<string | null>(null);
   const [viewMode,    setViewMode]    = useState<GlobalViewMode>('admin');
   const [userEmail,   setUserEmail]   = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [insights,    setInsights]    = useState<{ id: string; title: string; body: string; severity: string }[]>([]);
+  const [alertIndex,  setAlertIndex]  = useState(0);
+  const [showSuiteAppsModal, setShowSuiteAppsModal] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -81,6 +105,17 @@ export default function CheckSuiteHome() {
             .eq('id', member.company_id)
             .maybeSingle();
           setCompanyName((co as any)?.name ?? null);
+
+          if (MANAGER_ROLES.includes(member.role)) {
+            const { data: insightList } = await supabase
+              .from('advisor_insights')
+              .select('id, title, body, severity')
+              .eq('company_id', member.company_id)
+              .not('status', 'in', '(RESOLVED,DISMISSED,EXPIRED)')
+              .order('priority_score', { ascending: false })
+              .limit(5);
+            setInsights((insightList as any) ?? []);
+          }
         }
       } finally {
         setLoading(false);
@@ -111,14 +146,6 @@ export default function CheckSuiteHome() {
         <View style={styles.circleTopRight} />
         <View style={styles.circleBottomLeft} />
 
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => router.push('/settings')}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 22, color: '#fff' }}>⚙️</Text>
-        </TouchableOpacity>
-
         <View style={styles.brandRow}>
           <View style={styles.checkMark}>
             <Text style={styles.checkMarkText}>✓</Text>
@@ -139,105 +166,76 @@ export default function CheckSuiteHome() {
           </TouchableOpacity>
         )}
 
-        {userRole && MANAGER_ROLES.includes(userRole) && (
-          <View style={styles.viewSwitcherCard}>
-            <Text style={styles.viewSwitcherTitle}>Vista del panel</Text>
-            <Text style={styles.viewSwitcherSub}>
-              Se aplica igual en todos los módulos (GastoCheck, CobraCheck, FlujoCheck, BancoCheck, FacturaCheck)
-            </Text>
-            <View style={styles.viewSwitcherRow}>
-              {VIEW_MODE_OPTIONS.map((o) => (
-                <TouchableOpacity
-                  key={o.mode}
-                  style={[styles.viewChip, viewMode === o.mode && styles.viewChipActive]}
-                  onPress={() => handleSelectViewMode(o.mode)}
-                >
-                  <Text style={[styles.viewChipText, viewMode === o.mode && { color: '#fff' }]}>{o.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* ── Grid de 3 iconos: Admin, Contador, Operador ── */}
+        <View style={styles.topGrid}>
+          {DASHBOARD_TOP.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.topIconBtn, item.id === 'operador' && styles.disabledBtn]}
+              onPress={() => item.id !== 'operador' && router.push(item.route as any)}
+              activeOpacity={item.id === 'operador' ? 1 : 0.7}
+              disabled={item.id === 'operador'}
+            >
+              <Text style={[styles.topIcon, item.id === 'operador' && styles.disabledIcon]}>{item.icon}</Text>
+              <Text style={[styles.topLabel, item.id === 'operador' && styles.disabledLabel]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        <TrialBanner onUpgrade={() => router.push('/settings')} />
+        {/* ── Botones individuales: Advisor, GastoCheck, CobraCheck ── */}
+        {DASHBOARD_MIDDLE.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.fullWidthBtn}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.fullWidthIcon}>{item.icon}</Text>
+            <Text style={styles.fullWidthLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
 
-        <Text style={styles.sectionLabel}>MÓDULOS</Text>
+        {/* ── Suite Apps ── */}
+        {DASHBOARD_SUITE.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.fullWidthBtn}
+            onPress={() => setShowSuiteAppsModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.fullWidthIcon}>{item.icon}</Text>
+            <Text style={styles.fullWidthLabel}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
 
-        {showGasto && (
-          <ModuleCard
-            icon="✓"
-            iconBg={BRAND.green}
-            title="GastoCheck"
-            subtitle="Control de gastos, anticipos y pólizas"
-            onPress={() => router.push('/gastocheck' as any)}
-          />
-        )}
-
-        {showCobra && (
-          <ModuleCard
-            icon="🎯"
-            iconBg={BRAND.cobra}
-            title="CobraCheck"
-            subtitle="Gestión de cobranza y rutas"
-            onPress={() => router.push('/cobracheck' as any)}
-          />
-        )}
-
-        {showMore && (
-          <ModuleCard
-            icon="👥"
-            iconBg={BRAND.purple ?? '#7B1FA2'}
-            title="Equipo"
-            subtitle="Miembros, roles e invitaciones — para todos los módulos"
-            onPress={() => router.push('/equipo' as any)}
-          />
-        )}
-
-        {/* ── Módulos complementarios (mandos / dev) ── */}
-        {showMore && (
-          <>
-            <Text style={styles.sectionLabel}>MÁS HERRAMIENTAS</Text>
-            <View style={styles.miniGrid}>
-              {/* DISABLED 2026-07-09: BancoCheck lógica deficiente, requiere revisión arquitectónica */}
-              {/* <MiniCard icon="🏦" label="BancoCheck"    onPress={() => router.push('/bancocheck' as any)} /> */}
-              <MiniCard icon="🧾" label="FacturaCheck"  onPress={() => router.push('/facturacheck' as any)} />
-              <MiniCard icon="💧" label="FlujoCheck"    onPress={() => router.push('/flujocheck' as any)} />
-              <MiniCard icon="📦" label="Inventario"    onPress={() => router.push('/inventariocheck' as any)} />
-            </View>
-          </>
-        )}
+        {/* ── Grid de 4 iconos abajo: Empresa, Empleados, Finanzas, Ajustes ── */}
+        <View style={styles.bottomGrid}>
+          {DASHBOARD_BOTTOM.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.bottomIconBtn}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.bottomIcon}>{item.icon}</Text>
+              <Text style={styles.bottomLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
+
+      <SuiteAppsModal
+        visible={showSuiteAppsModal}
+        onDismiss={() => setShowSuiteAppsModal(false)}
+        onSuccess={() => {
+          setShowSuiteAppsModal(false);
+          router.push('/suite-apps' as any);
+        }}
+      />
     </ScrollView>
   );
 }
 
-function ModuleCard({
-  icon, iconBg, title, subtitle, onPress,
-}: {
-  icon: string; iconBg: string; title: string; subtitle: string; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.moduleCard} onPress={onPress} activeOpacity={0.85}>
-      <View style={[styles.moduleIcon, { backgroundColor: iconBg }]}>
-        <Text style={styles.moduleIconText}>{icon}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.moduleTitle}>{title}</Text>
-        <Text style={styles.moduleSubtitle}>{subtitle}</Text>
-      </View>
-      <Text style={styles.moduleArrow}>›</Text>
-    </TouchableOpacity>
-  );
-}
-
-function MiniCard({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.miniCard} onPress={onPress} activeOpacity={0.85}>
-      <Text style={styles.miniIcon}>{icon}</Text>
-      <Text style={styles.miniLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.gray },
@@ -268,6 +266,7 @@ const styles = StyleSheet.create({
   brandTitle:    { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   brandTagline:  { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   versionText:   { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 14 },
+  settingsBtn:   { display: 'none' },
 
   companyPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -277,46 +276,65 @@ const styles = StyleSheet.create({
   companyPillText:   { fontSize: 13, fontWeight: '700', color: BRAND.navy },
   companyPillSwitch: { fontSize: 12, fontWeight: '700', color: BRAND.csblue },
 
-  viewSwitcherCard: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#E8EAF6',
-  },
-  viewSwitcherTitle: { fontSize: 14, fontWeight: '700', color: BRAND.navy, marginBottom: 2 },
-  viewSwitcherSub:   { fontSize: 11, color: '#78909C', marginBottom: 12, lineHeight: 15 },
-  viewSwitcherRow:   { flexDirection: 'row', gap: 8 },
-  viewChip: {
-    flex: 1, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#CFD8DC', backgroundColor: '#F5F7FA',
-  },
-  viewChipActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
-  viewChipText:   { fontSize: 11, fontWeight: '700', color: BRAND.navy },
-
   sectionLabel: {
     fontSize: 11, fontWeight: '800', color: '#90A4AE',
     letterSpacing: 1, marginTop: 18, marginBottom: 8,
   },
 
-  moduleCard: {
-    backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 6,
+  alertsLabel: {
+    fontSize: 11, fontWeight: '800', color: '#90A4AE',
+    letterSpacing: 1, marginBottom: 8,
   },
-  moduleIcon:     { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  moduleIconText: { fontSize: 26, color: '#fff', fontWeight: '900' },
-  moduleTitle:    { fontSize: 18, fontWeight: '800', color: BRAND.navy },
-  moduleSubtitle: { fontSize: 12, color: '#90A4AE', marginTop: 2 },
-  moduleArrow:    { fontSize: 26, color: BRAND.csblue },
+  alertCounter: {
+    fontSize: 11, fontWeight: '700', color: '#90A4AE',
+  },
 
-  miniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  miniCard: {
-    width: '47%', backgroundColor: '#fff', borderRadius: 14, padding: 16,
-    alignItems: 'center', gap: 6,
+  advisorCard: {
+    backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, marginTop: 0, marginBottom: 0,
+  },
+  advisorLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5, marginBottom: 6 },
+  advisorTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  advisorBody: { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 17 },
+  advisorLink: { fontSize: 12, fontWeight: '700', color: '#fff', marginTop: 10 },
+
+  topGrid: {
+    flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 16, marginTop: 4,
+  },
+  topIconBtn: {
+    flex: 1, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
     elevation: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4,
+    shadowOpacity: 0.06, shadowRadius: 3,
   },
-  miniIcon:  { fontSize: 28 },
-  miniLabel: { fontSize: 13, fontWeight: '700', color: BRAND.navy },
+  topIcon: { fontSize: 40, marginBottom: 4 },
+  topLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  disabledBtn: { opacity: 0.5, backgroundColor: '#f0f0f0' },
+  disabledIcon: { opacity: 0.6 },
+  disabledLabel: { opacity: 0.6, color: '#90A4AE' },
+
+  fullWidthBtn: {
+    backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
+  },
+  fullWidthIcon: { fontSize: 28 },
+  fullWidthLabel: { fontSize: 14, fontWeight: '600', color: BRAND.navy },
+
+  bottomGrid: {
+    flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 16,
+  },
+  bottomIconBtn: {
+    flex: 1, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 3,
+  },
+  bottomIcon: { fontSize: 28, marginBottom: 4 },
+  bottomLabel: { fontSize: 9, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
+  viewModeActive: { backgroundColor: BRAND.csblue, borderColor: BRAND.csblue },
 });

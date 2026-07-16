@@ -29,11 +29,20 @@ export const BRAND = {
 } as const;
 
 export * from './cobra';
+// NOTA: './cobracheck' y './routes' no se exportan aquí — colisionan con
+// símbolos de './cobra' (ej. CobraRoute) y nada en la app los usa todavía.
+// './gastocheck' se exporta selectivamente porque su propio `Receipt`
+// choca con el `Receipt` canónico de './types' (el que usa toda la app).
+export type {
+  Reembolso, ReceiptReembolso, Viatico, ReembolsoPendiente, ViaticoPendiente,
+  GastoCheckDashboard, GastoCheckAlert, ApproveReembolsoRequest, ApproveViaticRequest,
+} from './gastocheck';
 export * from './bancocheck';
 export * from './flujocheck';
 export * from './facturacheck';
 export * from './inventariocheck';
 export * from './advisor';
+export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 172 · v1.1.72';
+export const APP_VERSION = 'OTA 234 · v0.1.89 · Audit Fixes - i18n mobile + tax calculation + validators';

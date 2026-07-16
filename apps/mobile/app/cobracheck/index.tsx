@@ -7,7 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
-import { BRAND, APP_VERSION } from '@gastocheck/shared';
+import { BRAND, APP_VERSION, formatCurrency } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
 import { CompanySwitcher } from '../shared/components/CompanySwitcher';
@@ -41,6 +41,10 @@ export default function CobraCheckHome() {
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [userId,      setUserId]     = useState<string | null>(null);
 
+  const [totalCartera,     setTotalCartera]     = useState(0);
+  const [clientesEnRiesgo, setClientesEnRiesgo] = useState(0);
+  const [facturasVencidas, setFacturasVencidas] = useState(0);
+
   const [adminTab, setAdminTab] = useState(0); // default: Empresa
   const [contTab,  setContTab]  = useState(0); // default: Cobranza
   const [cobrTab,  setCobrTab]  = useState(0); // default: Mi Ruta
@@ -52,13 +56,21 @@ export default function CobraCheckHome() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) { setLoading(false); return; }
+      if (!user) {
+        console.warn('cobracheck: No user session');
+        setLoading(false);
+        return;
+      }
       setUserEmail(user.email ?? null);
       setUserId(user.id);
 
       const member = await getActiveMembership(user.id);
 
-      if (!member) { setLoading(false); return; }
+      if (!member) {
+        console.warn('cobracheck: No active membership for user', user.id);
+        setLoading(false);
+        return;
+      }
       setUserRole(member.role);
       setCompanyId(member.company_id);
 
@@ -74,6 +86,16 @@ export default function CobraCheckHome() {
           .from('companies').select('name')
           .eq('id', member.company_id).maybeSingle();
         setCompanyName((co as any)?.name ?? null);
+
+        const [{ data: clients }, { count: vencidas }] = await Promise.all([
+          supabase.from('cobra_clients').select('current_balance, risk_score')
+            .eq('company_id', member.company_id).eq('status', 'active'),
+          supabase.from('cobra_invoices').select('id', { count: 'exact', head: true })
+            .eq('company_id', member.company_id).eq('status', 'overdue'),
+        ]);
+        setTotalCartera((clients ?? []).reduce((s: number, c: any) => s + (c.current_balance ?? 0), 0));
+        setClientesEnRiesgo((clients ?? []).filter((c: any) => (c.risk_score ?? 0) >= 70).length);
+        setFacturasVencidas(vencidas ?? 0);
       }
     } catch (err) {
       console.error('cobracheck.loadData failed:', err instanceof Error ? err.message : err);
@@ -192,9 +214,8 @@ export default function CobraCheckHome() {
 
   const COBR_TABS = [
     { icon: '🗺️', label: 'Mi Ruta',   badge: 0 },
-    { icon: '⏰',  label: 'Historial', badge: 0 },
-    { icon: '💰',  label: 'Depósitos', badge: 0 },
-    { icon: '👤',  label: 'Perfil',    badge: 0 },
+    { icon: '📊', label: 'Reportes',  badge: 0 },
+    { icon: '👤', label: 'Perfil',    badge: 0 },
   ];
 
   if (isCobrador && !isAdmin) {
@@ -205,46 +226,38 @@ export default function CobraCheckHome() {
         <View style={{ flex: 1 }}>
           {cobrTab === 0 && (
             <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Mi Ruta de Hoy</Text>
+              <Text style={s.tabTitle}>Asignación de Cobranza</Text>
+
               <TouchableOpacity
                 style={[s.heroBtn, { backgroundColor: COBRA_COLOR }]}
                 onPress={() => router.push('/cobracheck/mi-ruta' as any)}
                 activeOpacity={0.88}
               >
                 <Text style={{ fontSize: 52 }}>🗺️</Text>
-                <Text style={s.heroBtnTitle}>Iniciar Mi Ruta</Text>
-                <Text style={s.heroBtnSub}>Registra recorrido y movimientos de cobranza</Text>
+                <Text style={s.heroBtnTitle}>Ver Mi Ruta de Hoy</Text>
+                <Text style={s.heroBtnSub}>Clientes asignados, dirección, GPS y captura de cobranza</Text>
               </TouchableOpacity>
+
               <NavCard icon="👥" title="Directorio de Clientes"
                 sub="Consulta datos, horarios y saldos de clientes"
                 onPress={() => router.push('/cobracheck/clientes' as any)} />
-              <NavCard icon="☎️" title="Clientes Prioritarios"
-                sub="Facturas vencidas con mayor urgencia"
-                onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
             </ScrollView>
           )}
           {cobrTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Historial</Text>
-              <BigCard icon="📋" title="Movimientos de Hoy"
-                sub="Cobros, promesas y no pagos registrados"
-                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/historial' as any)} />
-              <NavCard icon="📅" title="Tareas del Día"
-                sub="Clientes prioritarios asignados"
-                onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
+              <Text style={s.tabTitle}>Reportes</Text>
+              <BigCard icon="💰" title="Cobranza Efectiva"
+                sub="Lo que has cobrado, hoy/semana/mes"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/mis-reportes' as any)} />
+              <NavCard icon="🔁" title="No Cobranza y Reasignación"
+                sub="Clientes que no pagaron — reprograma la visita"
+                onPress={() => router.push('/cobracheck/mis-reportes' as any)} />
+              <NavCard icon="🏦" title="Depósitos con Relación"
+                sub="Bancarios, efectivo o documentos — vs. lo cobrado"
+                onPress={() => router.push('/cobracheck/depositos' as any)} />
             </ScrollView>
           )}
-          {cobrTab === 2 && (
-            <ScrollView contentContainerStyle={s.pad}>
-              <Text style={s.tabTitle}>Mis Depósitos</Text>
-              <EmptyComingSoon
-                icon="💰"
-                title="Fichas de Depósito"
-                sub="Próximamente: registra depósitos de efectivo y documentos con foto del comprobante"
-              />
-            </ScrollView>
-          )}
-          {cobrTab === 3 && <ProfileTab />}
+          {cobrTab === 2 && <ProfileTab />}
         </View>
         <BottomBar tabs={COBR_TABS} active={cobrTab} onSelect={setCobrTab} color={COBRA_COLOR} />
       </View>
@@ -270,15 +283,33 @@ export default function CobraCheckHome() {
           {contTab === 0 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Cobranza</Text>
-              <BigCard icon="📋" title="Plan de Cobranza"
-                sub="Facturas vencidas y por vencer hoy"
-                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
+
+              <BigCard icon="🗺️" title="Generar Ruta del Día"
+                sub="Asigna clientes a un cobrador para hoy"
+                bg={BRAND.navy} onPress={() => router.push('/cobracheck/generar-ruta' as any)} />
+              <NavCard icon="🏢" title="Alta de Clientes"
+                sub="Nuevo cliente con dirección y GPS"
+                onPress={() => router.push('/cobracheck/alta-cliente' as any)} />
+
+              <BigCard icon="🧾" title="Alta de Facturas"
+                sub="Por FacturaCheck (CFDI) o captura manual"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/factura-manual' as any)} />
+
+              <NavCard icon="📇" title="Relación CxC"
+                sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
+                onPress={() => router.push('/cobracheck/cartera-total' as any)} />
+
+              <NavCard icon="📑" title="Pólizas"
+                sub="Reporte cobrador, cobranza directa o transferencia"
+                onPress={() => router.push('/cobracheck/polizas' as any)} />
+
+              <NavCard icon="📈" title="Reportes"
+                sub="Cobranza del día/mes, por cliente y comisiones"
+                onPress={() => router.push('/cobracheck/reportes' as any)} />
+
               <NavCard icon="👥" title="Directorio de Clientes"
                 sub="Saldos, historial y condiciones de crédito"
                 onPress={() => router.push('/cobracheck/clientes' as any)} />
-              <NavCard icon="📋" title="Movimientos del Día"
-                sub="Cobros, promesas y no pagos de todos los cobradores"
-                onPress={() => router.push('/cobracheck/historial' as any)} />
             </ScrollView>
           )}
           {contTab === 1 && (
@@ -307,11 +338,15 @@ export default function CobraCheckHome() {
           {contTab === 3 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Reportes</Text>
-              <EmptyComingSoon
-                icon="📈"
-                title="Reportes de Cobranza"
-                sub="Próximamente: eficiencia por cobrador, historial por cliente, cuentas no cobradas y comisiones"
-              />
+              <BigCard icon="📈" title="Reportes de Cobranza"
+                sub="Cobranza del día/mes, por cliente y comisiones"
+                bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/reportes' as any)} />
+              <NavCard icon="📄" title="Relación de Facturas"
+                sub="Todas las facturas, filtrables por estado, con evidencia de pago"
+                onPress={() => router.push('/cobracheck/comprobantes' as any)} />
+              <NavCard icon="📇" title="Relación CxC"
+                sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
+                onPress={() => router.push('/cobracheck/cartera-total' as any)} />
             </ScrollView>
           )}
           {contTab === 4 && <ProfileTab />}
@@ -366,17 +401,18 @@ export default function CobraCheckHome() {
         {adminTab === 2 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Finanzas</Text>
-            <BigCard icon="💰" title="Cartera Total"
-              sub="Cuentas por cobrar, vencidas y al día"
-              bg={BRAND.navy} onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
-            <NavCard icon="📊" title="Movimientos del Equipo"
-              sub="Cobros, promesas y no pagos de todos los cobradores"
-              onPress={() => router.push('/cobracheck/historial' as any)} />
-            <EmptyComingSoon
-              icon="📈"
-              title="Reportes Financieros"
-              sub="Próximamente: análisis de cartera, eficiencia por cobrador y comisiones"
-            />
+            <BigCard icon="📇" title="Relación CxC"
+              sub="Cuentas por cobrar, filtrable por cliente o vencimiento"
+              bg={BRAND.navy} onPress={() => router.push('/cobracheck/cartera-total' as any)} />
+            <NavCard icon="📄" title="Relación de Facturas"
+              sub="Todas las facturas, filtrables por estado, con evidencia de pago"
+              onPress={() => router.push('/cobracheck/comprobantes' as any)} />
+            <NavCard icon="📑" title="Pólizas"
+              sub="Reporte cobrador, cobranza directa o transferencia"
+              onPress={() => router.push('/cobracheck/polizas' as any)} />
+            <NavCard icon="📈" title="Reportes de Cobranza"
+              sub="Día/mes, por cliente y comisiones"
+              onPress={() => router.push('/cobracheck/reportes' as any)} />
           </ScrollView>
         )}
 
@@ -384,20 +420,18 @@ export default function CobraCheckHome() {
         {adminTab === 3 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Cobranza</Text>
-            <BigCard icon="🎯" title="Plan de Cobranza"
-              sub="Facturas vencidas, rutas activas y cobradores en campo"
-              bg={COBRA_COLOR} onPress={() => router.push('/cobracheck/tareas-diarias' as any)} />
+            <BigCard icon="🗺️" title="Generar Ruta del Día"
+              sub="Asigna clientes a un cobrador para hoy"
+              bg={BRAND.navy} onPress={() => router.push('/cobracheck/generar-ruta' as any)} />
+            <NavCard icon="🏢" title="Alta de Clientes"
+              sub="Nuevo cliente con dirección y GPS"
+              onPress={() => router.push('/cobracheck/alta-cliente' as any)} />
+            <NavCard icon="🧾" title="Alta de Facturas"
+              sub="Por FacturaCheck (CFDI) o captura manual"
+              onPress={() => router.push('/cobracheck/factura-manual' as any)} />
             <NavCard icon="👥" title="Clientes"
               sub="Directorio, saldos y condiciones de crédito"
               onPress={() => router.push('/cobracheck/clientes' as any)} />
-            <NavCard icon="📋" title="Movimientos del Día"
-              sub="Cobros, promesas y no pagos de hoy"
-              onPress={() => router.push('/cobracheck/historial' as any)} />
-            <EmptyComingSoon
-              icon="🗺️"
-              title="Rutas Optimizadas con IA"
-              sub="Próximamente: genera rutas por zona, horario y distancia — con GPS en tiempo real de cada cobrador"
-            />
           </ScrollView>
         )}
 
@@ -467,6 +501,18 @@ function NavCard({ icon, title, sub, onPress, danger }: {
   );
 }
 
+function QuickBtn({ icon, title, value, onPress }: {
+  icon: string; title: string; value: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={s.quickBtn} onPress={onPress} activeOpacity={0.85}>
+      <Text style={{ fontSize: 24 }}>{icon}</Text>
+      <Text style={s.quickBtnValue}>{value}</Text>
+      <Text style={s.quickBtnTitle}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function EmptyComingSoon({ icon, title, sub }: { icon: string; title: string; sub: string }) {
   return (
     <View style={s.empty}>
@@ -510,10 +556,25 @@ const s = StyleSheet.create({
   pad:      { padding: 20, paddingBottom: 44 },
   tabTitle: { fontSize: 22, fontWeight: '800', color: BRAND.navy, marginBottom: 16 },
 
+  // KPI card
+  kpiCard:  { backgroundColor: BRAND.navy, borderRadius: 18, padding: 18, alignItems: 'center', marginBottom: 14 },
+  kpiValue: { fontSize: 26, fontWeight: '800', color: '#fff' },
+  kpiLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+
   // Hero button
   heroBtn:      { borderRadius: 24, padding: 30, alignItems: 'center', marginBottom: 16 },
   heroBtnTitle: { fontSize: 21, fontWeight: '800', color: '#fff', marginTop: 10 },
   heroBtnSub:   { fontSize: 13, color: 'rgba(255,255,255,0.76)', marginTop: 4, textAlign: 'center' },
+
+  // Quick-action grid (4 botones)
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  quickBtn: {
+    width: '47%', backgroundColor: '#fff', borderRadius: 16, padding: 14, alignItems: 'center',
+    borderWidth: 1, borderColor: '#F0F0F0', elevation: 1, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
+  },
+  quickBtnValue: { fontSize: 15, fontWeight: '800', color: BRAND.navy, marginTop: 6 },
+  quickBtnTitle: { fontSize: 11, color: '#90A4AE', marginTop: 2, textAlign: 'center' },
 
   // Big colored card
   bigCard:      { borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
