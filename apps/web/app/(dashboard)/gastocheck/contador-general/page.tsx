@@ -38,7 +38,7 @@ interface BuyerRow {
 interface RebRow {
   id: string
   employee_email: string
-  employee_id: string
+  name: string | null
   total: number
   status: string
   created_at: string
@@ -78,7 +78,7 @@ export default function ContadorGeneralPanel() {
       // Reembolsos
       const { data: rebAll } = await supabase
         .from('reembolsos')
-        .select('id, employee_id, employee_email, total, status, created_at')
+        .select('id, employee_id, employee_email, name, total, status, created_at')
         .eq('company_id', cid)
         .order('created_at', { ascending: false })
 
@@ -265,8 +265,9 @@ export default function ContadorGeneralPanel() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 truncate">
-                      {r.employee_email}
+                      {r.name ?? r.employee_email}
                     </p>
+                    <p className="text-sm text-slate-500 mt-0.5">{r.employee_email}</p>
                     <p className="text-xs text-slate-400 mt-1">{fmtDate(r.created_at)}</p>
                   </div>
                   <div className="text-right shrink-0 space-y-1">
