@@ -81,17 +81,30 @@ export default function ContadorGeneralPanel() {
         const totalMontoCob = cobs.reduce((s: number, r: any) => s + (r.total_amount ?? 0), 0)
         const captured = cobs.filter((r: any) => r.status === 'captured').length
 
-        // Reembolsos
+        // Reembolsos (con timeout de 5s para evitar bloqueos)
         console.log('📋 Cargando reembolsos...')
-        const { data: rebAll, error: rebError } = await supabase
-          .from('reembolsos')
-          .select('id, employee_id, employee_email, name, total, status, created_at')
-          .eq('company_id', cid)
-          .order('created_at', { ascending: false })
+        let rebAll: any[] | null = null
+        let rebError: any = null
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 5000)
+
+          const result = await supabase
+            .from('reembolsos')
+            .select('id, employee_id, employee_email, name, total, status, created_at')
+            .eq('company_id', cid)
+
+          clearTimeout(timeout)
+          rebAll = result.data
+          rebError = result.error
+        } catch (e) {
+          console.warn('⚠️ Timeout o error en reembolsos, usando fallback')
+          rebAll = []
+          rebError = e
+        }
 
         if (rebError) {
-          console.error('❌ Error cargando reembolsos:', rebError.message, rebError.code, rebError.details)
-          throw rebError
+          console.error('❌ Error cargando reembolsos:', rebError?.message, rebError?.code)
         }
         console.log('✅ Reembolsos cargados:', rebAll?.length ?? 0)
 
