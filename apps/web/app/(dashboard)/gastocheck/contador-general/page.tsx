@@ -76,11 +76,15 @@ export default function ContadorGeneralPanel() {
       const captured = cobs.filter((r: any) => r.status === 'captured').length
 
       // Reembolsos
-      const { data: rebAll } = await supabase
+      const { data: rebAll, error: rebError } = await supabase
         .from('reembolsos')
         .select('id, employee_id, employee_email, name, total, status, created_at')
         .eq('company_id', cid)
         .order('created_at', { ascending: false })
+
+      if (rebError) {
+        console.error('❌ Error cargando reembolsos:', rebError.message, rebError.code)
+      }
 
       const rebs = (rebAll ?? []) as any[]
       const rebPendientes = rebs.filter((r: any) => r.status === 'pending_auth')
