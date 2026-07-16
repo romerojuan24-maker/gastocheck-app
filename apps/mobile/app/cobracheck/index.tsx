@@ -56,13 +56,21 @@ export default function CobraCheckHome() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) { setLoading(false); return; }
+      if (!user) {
+        console.warn('cobracheck: No user session');
+        setLoading(false);
+        return;
+      }
       setUserEmail(user.email ?? null);
       setUserId(user.id);
 
       const member = await getActiveMembership(user.id);
 
-      if (!member) { setLoading(false); return; }
+      if (!member) {
+        console.warn('cobracheck: No active membership for user', user.id);
+        setLoading(false);
+        return;
+      }
       setUserRole(member.role);
       setCompanyId(member.company_id);
 
