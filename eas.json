@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "promptToConfigurePushNotifications": false
+  },
+  "build": {
+    "production": {
+      "channel": "production",
+      "distribution": "store"
+    },
+    "preview": {
+      "channel": "preview",
+      "distribution": "internal"
+    },
+    "development": {
+      "channel": "development",
+      "distribution": "internal"
+    }
+  },
+  "submit": {
+    "production": {},
+    "preview": {}
+  },
+  "update": {
+    "production": {
+      "channel": "production",
+      "minimum_ios_runtime_version": "48.0.0",
+      "minimum_android_runtime_version": "48.0.0"
+    },
+    "preview": {
+      "channel": "preview"
+    },
+    "development": {
+      "channel": "development"
+    }
+  }
+}
