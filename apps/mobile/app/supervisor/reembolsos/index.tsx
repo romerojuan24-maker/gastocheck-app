@@ -101,9 +101,23 @@ export default function ReembolsosContadorScreen() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.warn('reembolsos-contador: No user session');
+        setReembolsos([]);
+        setAccounts([]);
+        setLoading(false);
+        return;
+      }
+
       const m = await getActiveMembership(user.id);
-      if (!m) return;
+      if (!m) {
+        console.warn('reembolsos-contador: No active membership');
+        setReembolsos([]);
+        setAccounts([]);
+        setLoading(false);
+        return;
+      }
+
       setCompanyId(m.company_id);
 
       let q = supabase.from('reembolsos')
@@ -114,7 +128,10 @@ export default function ReembolsosContadorScreen() {
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
 
       const { data, error } = await q;
-      if (error) logError('REEMBOLSOS-CONTADOR', `loadReembolsos error: ${error.message}`, { statusFilter });
+      if (error) {
+        console.error('reembolsos-contador: loadReembolsos error:', error.message);
+        logError('REEMBOLSOS-CONTADOR', `loadReembolsos error: ${error.message}`, { statusFilter });
+      }
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
