@@ -140,6 +140,7 @@ export default function BatchDetailScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     const currentUser = session?.user;
     if (!currentUser) { Alert.alert('Error', 'Sesión expirada'); return; }
+    if (!batch) { Alert.alert('Error', 'Lote no encontrado'); return; }
     const { error } = await supabase
       .from('receipt_batch_items')
       .insert({ batch_id, receipt_id, company_id: batch.company_id, added_by: currentUser.id });

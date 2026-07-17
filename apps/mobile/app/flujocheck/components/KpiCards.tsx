@@ -1,13 +1,14 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { formatCurrency, CASH_FLOW_RISK_META } from '@gastocheck/shared'
+import type { RiskStatus } from '../types'
 
 interface Props {
   currentBalance: number
   income: number
   expense: number
   projected: number
-  risk: 'green' | 'yellow' | 'red'
+  risk: RiskStatus
 }
 
 export function KpiCards({ currentBalance, income, expense, projected, risk }: Props) {

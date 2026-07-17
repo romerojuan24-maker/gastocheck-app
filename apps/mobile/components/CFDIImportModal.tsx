@@ -4,14 +4,14 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import { parseCFDI, type CFDIData } from '@gastocheck/shared';
+import { parseCfdiXml, type CfdiData } from '@gastocheck/shared';
 import { useI18n } from '../hooks/useI18n';
 import { BRAND } from '@gastocheck/shared';
 
 interface CFDIImportModalProps {
   visible: boolean;
   onDismiss: () => void;
-  onSuccess: (data: CFDIData) => void;
+  onSuccess: (data: CfdiData) => void;
   mode: 'gasto' | 'cobra'; // gasto = receptor, cobra = emisor
 }
 
@@ -69,14 +69,14 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
   const handleXMLProcessing = async (
     file: any,
     mode: 'gasto' | 'cobra',
-    onSuccess: (data: CFDIData) => void,
+    onSuccess: (data: CfdiData) => void,
     onDismiss: () => void,
     t: any,
     setLoading: (loading: boolean) => void
   ) => {
     try {
       const xmlContent = await FileSystem.readAsStringAsync(file.uri);
-      const cfdiData = parseCFDI(xmlContent);
+      const cfdiData = parseCfdiXml(xmlContent);
 
       if (!cfdiData) {
         Alert.alert(t('common.error'), t('cfdi.parseError'));

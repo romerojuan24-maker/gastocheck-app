@@ -188,7 +188,7 @@ export default function ReceiptDetailScreen() {
         if (!isReject) return resolve('');
         Alert.prompt('Motivo de rechazo', 'Escribe el motivo (opcional)', [
           { text: 'Cancelar', onPress: () => resolve(null), style: 'cancel' },
-          { text: 'Rechazar', onPress: (v) => resolve(v ?? '') },
+          { text: 'Rechazar', onPress: (v: string | undefined) => resolve(v ?? '') },
         ]);
       });
 

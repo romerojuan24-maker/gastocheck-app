@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { CFDIImportModal } from './CFDIImportModal';
 import { useI18n } from '../hooks/useI18n';
-import { type CFDIData, BRAND } from '@gastocheck/shared';
+import { type CfdiData, BRAND } from '@gastocheck/shared';
 
 interface GastoCheckCFDIIntegrationProps {
   visible: boolean;
@@ -23,7 +23,7 @@ export function GastoCheckCFDIIntegration({
   onDismiss,
   onCFDILoaded,
 }: GastoCheckCFDIIntegrationProps) {
-  const handleCFDISuccess = (cfdiData: CFDIData) => {
+  const handleCFDISuccess = (cfdiData: CfdiData) => {
     // Mapear datos CFDI al formato de GastoCheck
     const concepto = cfdiData.conceptos
       .map(c => c.descripcion)

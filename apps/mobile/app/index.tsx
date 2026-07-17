@@ -266,7 +266,6 @@ const styles = StyleSheet.create({
   brandTitle:    { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   brandTagline:  { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   versionText:   { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 14 },
-  settingsBtn:   { display: 'none' },
 
   companyPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

@@ -219,7 +219,7 @@ export default function RutasEquipoScreen() {
       <View style={[styles.header, { paddingTop: 52 }]}>
         <Text style={styles.headerTitle}>🗺 Rutas del equipo</Text>
         <View style={{ marginTop: 12 }}>
-          <DatePickerField value={fecha} onChange={d => setFecha(d)} />
+          <DatePickerField label="Fecha" value={fecha} onChange={d => setFecha(d)} />
         </View>
       </View>
 

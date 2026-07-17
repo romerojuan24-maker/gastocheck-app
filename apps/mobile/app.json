@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CHECK SUITE",
-    "slug": "statika-agro",
+    "slug": "gastocheck",
     "scheme": "gastocheck",
     "version": "0.1.85",
     "runtimeVersion": "0.1.85",
@@ -51,7 +51,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "d42f38bc-817a-4bc2-af54-71ee626d26c9"
+        "projectId": "11c09583-5e21-46ad-8116-a2e13994570e"
       },
       "router": {
         "origin": false
@@ -59,7 +59,7 @@
     },
     "owner": "juan.romero",
     "updates": {
-      "url": "https://u.expo.dev/d42f38bc-817a-4bc2-af54-71ee626d26c9"
+      "url": "https://u.expo.dev/11c09583-5e21-46ad-8116-a2e13994570e"
     }
   }
 }

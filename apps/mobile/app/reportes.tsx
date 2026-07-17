@@ -577,6 +577,7 @@ export default function ReportesScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.filterLabel}>Desde</Text>
             <DatePickerField
+              label="Desde"
               value={fechaInicio}
               onChange={(d) => { setFechaInicio(d); }}
             />
@@ -584,6 +585,7 @@ export default function ReportesScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.filterLabel}>Hasta</Text>
             <DatePickerField
+              label="Hasta"
               value={fechaFin}
               onChange={(d) => { setFechaFin(d); }}
             />

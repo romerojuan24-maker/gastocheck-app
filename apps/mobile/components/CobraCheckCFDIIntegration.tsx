@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { CFDIImportModal } from './CFDIImportModal';
 import { useI18n } from '../hooks/useI18n';
-import { type CFDIData, BRAND } from '@gastocheck/shared';
+import { type CfdiData, BRAND } from '@gastocheck/shared';
 
 interface CobraCheckCFDIIntegrationProps {
   visible: boolean;
@@ -24,7 +24,7 @@ export function CobraCheckCFDIIntegration({
   onDismiss,
   onCFDILoaded,
 }: CobraCheckCFDIIntegrationProps) {
-  const handleCFDISuccess = (cfdiData: CFDIData) => {
+  const handleCFDISuccess = (cfdiData: CfdiData) => {
     // Mapear datos CFDI al formato de CobraCheck
     const descripcion = cfdiData.conceptos
       .map(c => c.descripcion)
@@ -32,14 +32,14 @@ export function CobraCheckCFDIIntegration({
       .substring(0, 200);
 
     onCFDILoaded({
-      cliente: cfdiData.nombre_receptor || cfdiData.rfc_receptor,
-      rfc_cliente: cfdiData.rfc_receptor,
+      cliente: (cfdiData as any).nombre_receptor || (cfdiData as any).rfc_receptor,
+      rfc_cliente: (cfdiData as any).rfc_receptor,
       monto: cfdiData.total,
       iva: cfdiData.iva,
       fecha: cfdiData.fecha,
       descripcion,
       cfdi_uuid: cfdiData.uuid,
-      folio: cfdiData.folio || cfdiData.serie || '',
+      folio: (cfdiData as any).folio || (cfdiData as any).serie || '',
     });
 
     onDismiss();

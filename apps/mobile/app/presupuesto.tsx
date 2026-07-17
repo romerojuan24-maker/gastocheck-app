@@ -160,7 +160,7 @@ export default function PresupuestoScreen() {
         <Text style={styles.headerTitle}>💰 Presupuestos</Text>
         <Text style={styles.headerSub}>Límites de gasto mensuales por empleado</Text>
         <View style={{ marginTop: 12 }}>
-          <DatePickerField value={periodo} onChange={p => setPeriodo(p.slice(0, 7) + '-01')} />
+          <DatePickerField label="Periodo" value={periodo} onChange={p => setPeriodo(p.slice(0, 7) + '-01')} />
         </View>
         <Text style={styles.periodLabel}>{periodLabel}</Text>
       </View>
