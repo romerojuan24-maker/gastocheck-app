@@ -136,14 +136,19 @@ export default function ReembolsosContadorScreen() {
 
       // Cargar catálogo de cuentas
       const { data: accts, error: acctsErr } = await supabase.from('accounting_accounts')
-        .select('id, code, name').eq('company_id', m.company_id)
-        .eq('active', true).order('code');
+        .select('id, code, name')
+        .eq('company_id', m.company_id)
+        .eq('active', true)
+        .order('code');
       if (acctsErr) {
         console.error('reembolsos-contador: loadAccounts error:', acctsErr.message);
         logError('REEMBOLSOS-CONTADOR', `loadAccounts error: ${acctsErr.message}`, { company_id: m.company_id });
-        Alert.alert('⚠️ Advertencia', 'No se pudieron cargar las cuentas contables. Revisa tu conexión.');
+      } else if (accts && accts.length > 0) {
+        setAccounts(accts);
+      } else {
+        console.warn('reembolsos-contador: No accounting accounts found');
+        logError('REEMBOLSOS-CONTADOR', 'No hay cuentas contables configuradas', { company_id: m.company_id });
       }
-      setAccounts(accts ?? []);
     } finally {
       setLoading(false);
     }

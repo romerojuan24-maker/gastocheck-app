@@ -32,6 +32,7 @@ export default function FacturaManualScreen() {
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
   const [folio,     setFolio]     = useState('');
   const [amount,    setAmount]    = useState('');
+  const [tax,       setTax]       = useState('');
   const [issueDate, setIssueDate] = useState(todayStr());
   const [dueDate,   setDueDate]   = useState('');
 
@@ -75,6 +76,7 @@ export default function FacturaManualScreen() {
 
     setFolio(data.folio);
     setAmount(String(data.monto));
+    setTax(String(data.iva || 0));
     setIssueDate(data.fecha);
     setShowCfdiModal(false);
   }
@@ -96,13 +98,15 @@ export default function FacturaManualScreen() {
 
     setSaving(true);
     try {
+      const taxNum = tax ? parseFloat(tax) : 0;
+      const subtotal = amountNum - taxNum;
       const { error } = await supabase.from('cobra_invoices').insert({
         company_id: companyId,
         client_id:  selectedClient.id,
         folio:      folio.trim() || `MAN-${Date.now().toString().slice(-6)}`,
         amount:     amountNum,
-        subtotal:   amountNum,
-        tax:        0,
+        subtotal:   subtotal > 0 ? subtotal : amountNum,
+        tax:        taxNum,
         issue_date: issueDate,
         due_date:   dueDate,
         status:     'pending',
@@ -159,6 +163,9 @@ export default function FacturaManualScreen() {
 
       <Text style={styles.fieldLabel}>Monto</Text>
       <TextInput style={styles.input} value={amount} onChangeText={setAmount} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+
+      <Text style={styles.fieldLabel}>IVA (opcional)</Text>
+      <TextInput style={styles.input} value={tax} onChangeText={setTax} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
 
       <Text style={styles.fieldLabel}>Fecha de emisión</Text>
       <DatePickerField label="Fecha de emisión" value={issueDate} onChange={setIssueDate} />
