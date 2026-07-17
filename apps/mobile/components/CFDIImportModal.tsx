@@ -24,7 +24,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       setLoading(true);
 
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/xml',
+        type: ['application/xml', 'application/pdf'],
         copyToCacheDirectory: false,
       });
 
@@ -34,6 +34,47 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       }
 
       const file = result.assets[0];
+      const fileName = file.name?.toLowerCase() ?? '';
+
+      // Validar extensión del archivo
+      if (!fileName.endsWith('.xml') && !fileName.endsWith('.pdf')) {
+        Alert.alert(t('common.error'), 'Solo se aceptan archivos XML o PDF');
+        setLoading(false);
+        return;
+      }
+
+      // Si es PDF, mostrar alerta que se requiere XML para procesamiento automático
+      if (fileName.endsWith('.pdf')) {
+        Alert.alert(
+          '⚠️ Archivo PDF',
+          'Se recomienda usar archivos XML para procesamiento automático. Los PDF requieren captura manual de datos.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Continuar', onPress: () => handleXMLProcessing(file, mode, onSuccess, onDismiss, t, setLoading) }
+          ]
+        );
+        return;
+      }
+
+      // Si es XML, procesar directamente
+      await handleXMLProcessing(file, mode, onSuccess, onDismiss, t, setLoading);
+    } catch (error) {
+      Alert.alert(t('common.error'), t('validation.fileSaveError') + ': ' + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función auxiliar para procesar XML
+  const handleXMLProcessing = async (
+    file: any,
+    mode: 'gasto' | 'cobra',
+    onSuccess: (data: CFDIData) => void,
+    onDismiss: () => void,
+    t: any,
+    setLoading: (loading: boolean) => void
+  ) => {
+    try {
       const xmlContent = await FileSystem.readAsStringAsync(file.uri);
       const cfdiData = parseCFDI(xmlContent);
 
@@ -43,9 +84,15 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
         return;
       }
 
-      // Validar que sea el tipo correcto
+      // Validar tipo de comprobante según el modo
       if (mode === 'gasto' && cfdiData.tipo_comprobante !== 'I') {
-        Alert.alert(t('common.error'), t('cfdi.vendorInvoice'));
+        Alert.alert(t('common.error'), 'Este CFDI no es una factura de compra (debe ser tipo Ingreso/factura emitida por proveedor)');
+        setLoading(false);
+        return;
+      }
+
+      if (mode === 'cobra' && cfdiData.tipo_comprobante !== 'E') {
+        Alert.alert(t('common.error'), 'Este CFDI no es una factura emitida por tu empresa (debe ser tipo Egreso/factura emitida por ti)');
         setLoading(false);
         return;
       }
@@ -53,7 +100,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       onSuccess(cfdiData);
       onDismiss();
     } catch (error) {
-      Alert.alert(t('common.error'), t('validation.fileSaveError') + ': ' + (error as Error).message);
+      Alert.alert(t('common.error'), 'Error al procesar XML: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -61,7 +108,11 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
 
   const title = mode === 'gasto'
     ? t('cfdi.selectFile')
-    : t('cfdi.selectIssuedFile');
+    : 'Importar Factura Emitida';
+
+  const description = mode === 'gasto'
+    ? t('cfdi.selectVendorXml')
+    : 'Carga el XML de facturas que emitió tu empresa. También puedes usar PDF, pero se requiere captura manual de datos.';
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -69,11 +120,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
         <View style={styles.container}>
           <Text style={styles.title}>{title}</Text>
 
-          <Text style={styles.description}>
-            {mode === 'gasto'
-              ? t('cfdi.selectVendorXml')
-              : t('cfdi.selectIssuedXml')}
-          </Text>
+          <Text style={styles.description}>{description}</Text>
 
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -87,7 +134,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
                 onPress={handlePickFile}
                 activeOpacity={0.7}
               >
-                <Text style={styles.importBtnText}>{t('cfdi.selectXml')}</Text>
+                <Text style={styles.importBtnText}>📄 Seleccionar XML o PDF</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -101,7 +148,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
           )}
 
           <Text style={styles.hint}>
-            {t('cfdi.autoFillHint')}
+            💡 XML se procesa automáticamente. PDF requiere captura manual.
           </Text>
         </View>
       </View>

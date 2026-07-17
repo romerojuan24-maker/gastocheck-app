@@ -135,9 +135,14 @@ export default function ReembolsosContadorScreen() {
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
-      const { data: accts } = await supabase.from('accounting_accounts')
+      const { data: accts, error: acctsErr } = await supabase.from('accounting_accounts')
         .select('id, code, name').eq('company_id', m.company_id)
         .eq('active', true).order('code');
+      if (acctsErr) {
+        console.error('reembolsos-contador: loadAccounts error:', acctsErr.message);
+        logError('REEMBOLSOS-CONTADOR', `loadAccounts error: ${acctsErr.message}`, { company_id: m.company_id });
+        Alert.alert('⚠️ Advertencia', 'No se pudieron cargar las cuentas contables. Revisa tu conexión.');
+      }
       setAccounts(accts ?? []);
     } finally {
       setLoading(false);
