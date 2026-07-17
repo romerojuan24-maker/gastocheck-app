@@ -56,100 +56,136 @@ export default function ContadorGeneralPanel() {
 
   useEffect(() => {
     const load = async () => {
-      const u = await getSessionUser()
-      if (!u) { router.push('/login'); return }
-      if (!['owner', 'admin', 'accountant', 'contador_general'].includes(u.role ?? '')) {
-        router.replace('/gastocheck')
-        return
-      }
-      const cid = u.company_id
+      try {
+        console.log('📊 Iniciando carga de contador-general...')
+        const u = await getSessionUser()
+        if (!u) { router.push('/login'); return }
+        if (!['owner', 'admin', 'accountant', 'contador_general'].includes(u.role ?? '')) {
+          console.warn('⚠️ Rol insuficiente:', u.role)
+          router.replace('/gastocheck')
+          return
+        }
+        const cid = u.company_id
+        console.log('✅ Usuario autenticado, company_id:', cid)
 
-      // Comprobantes capturados
-      const { data: cobData } = await supabase
-        .from('receipts')
-        .select('id, total_amount, status, employee_id, uploaded_by')
-        .eq('company_id', cid)
-        .neq('status', 'deleted')
-
-      const cobs = cobData ?? []
-      const totalMontoCob = cobs.reduce((s: number, r: any) => s + (r.total_amount ?? 0), 0)
-      const captured = cobs.filter((r: any) => r.status === 'captured').length
-
-      // Reembolsos
-      const { data: rebAll } = await supabase
-        .from('reembolsos')
-        .select('id, employee_id, employee_email, name, total, status, created_at')
-        .eq('company_id', cid)
-        .order('created_at', { ascending: false })
-
-      const rebs = (rebAll ?? []) as any[]
-      const rebPendientes = rebs.filter((r: any) => r.status === 'pending_auth')
-      const rebMontoP = rebPendientes.reduce((s: number, r: any) => s + (r.total ?? 0), 0)
-
-      // Pólizas cerradas
-      const { data: polData } = await supabase
-        .from('policies')
-        .select('id, opening_balance')
-        .eq('company_id', cid)
-        .eq('status', 'closed')
-
-      const pols = polData ?? []
-      const polizasMonto = pols.reduce((s: number, p: any) => s + (p.opening_balance ?? 0), 0)
-
-      // Viáticos
-      const { data: viatData } = await supabase
-        .from('viaticos')
-        .select('id, status')
-        .eq('company_id', cid)
-
-      const viats = viatData ?? []
-
-      setStats({
-        totalComprobantes: cobs.length,
-        totalMontoCob,
-        rebPendientes: rebPendientes.length,
-        rebMontoP,
-        polizasCerradas: pols.length,
-        polizasMonto,
-        viaticosActivos: viats.filter((v: any) => v.status === 'draft').length,
-        viaticosEnviados: viats.filter((v: any) => v.status === 'submitted').length,
-      })
-
-      // Reembolsos para tab
-      setReb(rebs as RebRow[])
-
-      // Compradores (agrupar comprobantes por employee_id)
-      const buyerMap: Record<string, BuyerRow> = {}
-      for (const r of cobs as any[]) {
-        const eid = r.employee_id ?? r.uploaded_by ?? 'unknown'
-        if (!buyerMap[eid]) buyerMap[eid] = { employee_id: eid, employee_email: '', count: 0, total: 0, captured: 0 }
-        buyerMap[eid].count++
-        buyerMap[eid].total += r.total_amount ?? 0
-        if (r.status === 'captured') buyerMap[eid].captured++
-      }
-
-      // Enriquecer con email
-      if (Object.keys(buyerMap).length > 0) {
-        const { data: members } = await supabase
-          .from('company_members')
-          .select('user_id, profiles(email)')
+        // Comprobantes capturados
+        console.log('📥 Cargando comprobantes...')
+        const { data: cobData } = await supabase
+          .from('receipts')
+          .select('id, total_amount, status, employee_id, uploaded_by')
           .eq('company_id', cid)
-          .in('user_id', Object.keys(buyerMap))
+          .neq('status', 'deleted')
 
-        for (const m of (members ?? []) as any[]) {
-          if (buyerMap[m.user_id]) {
-            buyerMap[m.user_id].employee_email = m.profiles?.email ?? m.user_id.slice(0, 8)
+        const cobs = cobData ?? []
+        console.log('✅ Comprobantes cargados:', cobs.length)
+        const totalMontoCob = cobs.reduce((s: number, r: any) => s + (r.total_amount ?? 0), 0)
+        const captured = cobs.filter((r: any) => r.status === 'captured').length
+
+        // Reembolsos (con timeout de 5s para evitar bloqueos)
+        console.log('📋 Cargando reembolsos...')
+        let rebAll: any[] | null = null
+        let rebError: any = null
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 5000)
+
+          const result = await supabase
+            .from('reembolsos')
+            .select('id, employee_id, employee_email, name, total, status, created_at')
+            .eq('company_id', cid)
+
+          clearTimeout(timeout)
+          rebAll = result.data
+          rebError = result.error
+        } catch (e) {
+          console.warn('⚠️ Timeout o error en reembolsos, usando fallback')
+          rebAll = []
+          rebError = e
+        }
+
+        if (rebError) {
+          console.error('❌ Error cargando reembolsos:', rebError?.message, rebError?.code)
+        }
+        console.log('✅ Reembolsos cargados:', rebAll?.length ?? 0)
+
+        const rebs = (rebAll ?? []) as any[]
+        const rebPendientes = rebs.filter((r: any) => r.status === 'pending_auth')
+        const rebMontoP = rebPendientes.reduce((s: number, r: any) => s + (r.total ?? 0), 0)
+
+        // Pólizas cerradas
+        console.log('📒 Cargando pólizas...')
+        const { data: polData } = await supabase
+          .from('policies')
+          .select('id, opening_balance')
+          .eq('company_id', cid)
+          .eq('status', 'closed')
+
+        const pols = polData ?? []
+        console.log('✅ Pólizas cargadas:', pols.length)
+        const polizasMonto = pols.reduce((s: number, p: any) => s + (p.opening_balance ?? 0), 0)
+
+        // Viáticos
+        console.log('✈️ Cargando viáticos...')
+        const { data: viatData } = await supabase
+          .from('viaticos')
+          .select('id, status')
+          .eq('company_id', cid)
+
+        const viats = viatData ?? []
+        console.log('✅ Viáticos cargados:', viats.length)
+
+        setStats({
+          totalComprobantes: cobs.length,
+          totalMontoCob,
+          rebPendientes: rebPendientes.length,
+          rebMontoP,
+          polizasCerradas: pols.length,
+          polizasMonto,
+          viaticosActivos: viats.filter((v: any) => v.status === 'draft').length,
+          viaticosEnviados: viats.filter((v: any) => v.status === 'submitted').length,
+        })
+
+        // Reembolsos para tab
+        setReb(rebs as RebRow[])
+
+        // Compradores (agrupar comprobantes por employee_id)
+        console.log('👥 Procesando compradores...')
+        const buyerMap: Record<string, BuyerRow> = {}
+        for (const r of cobs as any[]) {
+          const eid = r.employee_id ?? r.uploaded_by ?? 'unknown'
+          if (!buyerMap[eid]) buyerMap[eid] = { employee_id: eid, employee_email: '', count: 0, total: 0, captured: 0 }
+          buyerMap[eid].count++
+          buyerMap[eid].total += r.total_amount ?? 0
+          if (r.status === 'captured') buyerMap[eid].captured++
+        }
+
+        // Enriquecer con email
+        if (Object.keys(buyerMap).length > 0) {
+          const { data: members } = await supabase
+            .from('company_members')
+            .select('user_id, profiles(email)')
+            .eq('company_id', cid)
+            .in('user_id', Object.keys(buyerMap))
+
+          for (const m of (members ?? []) as any[]) {
+            if (buyerMap[m.user_id]) {
+              buyerMap[m.user_id].employee_email = m.profiles?.email ?? m.user_id.slice(0, 8)
+            }
           }
         }
+
+        setBuyers(
+          Object.values(buyerMap)
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 20)
+        )
+
+        console.log('🎉 Contador-general cargado exitosamente')
+        setLoading(false)
+      } catch (err) {
+        console.error('💥 Error fatal en contador-general:', err)
+        setLoading(false)
       }
-
-      setBuyers(
-        Object.values(buyerMap)
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 20)
-      )
-
-      setLoading(false)
     }
     load()
   }, [router])

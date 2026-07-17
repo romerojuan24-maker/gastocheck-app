@@ -35,6 +35,11 @@ export interface Movement {
   unpaid_reason?: string
   promise_date?: string
   notes?: string
+  proof_documents?: Array<{
+    file_url: string
+    file_name: string
+    uploaded_at: string
+  }>
 }
 
 export interface DailyCash {

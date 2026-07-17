@@ -9,6 +9,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native'
+import { FileUploader } from './FileUploader'
 import type { RouteClient, Movement, ScannerResult } from '../types'
 
 interface MovementFormProps {
@@ -36,6 +37,8 @@ export function MovementForm({
   const [reason, setReason] = useState('')
   const [promiseDate, setPromiseDate] = useState('')
   const [notes, setNotes] = useState('')
+  const [proofDocuments, setProofDocuments] = useState<Array<{ file_url: string; file_name: string; uploaded_at: string }>>([])
+  const [movementId] = useState(`movement_${Date.now()}`)
 
   const handleSubmit = () => {
     if (!amount) {
@@ -51,6 +54,7 @@ export function MovementForm({
       unpaid_reason: status === 'unpaid' ? reason : undefined,
       promise_date: status === 'promise' ? promiseDate : undefined,
       notes: notes || undefined,
+      proof_documents: proofDocuments.length > 0 ? proofDocuments : undefined,
     }
 
     onSubmit(data)
@@ -216,6 +220,21 @@ export function MovementForm({
               onChangeText={setNotes}
               placeholderTextColor="#475569"
             />
+
+            {status === 'paid' && (
+              <>
+                <Text style={styles.formLabel}>Comprobante de Pago</Text>
+                <FileUploader
+                  movementId={movementId}
+                  onFileUploaded={(fileUrl, fileName) => {
+                    setProofDocuments([
+                      ...proofDocuments,
+                      { file_url: fileUrl, file_name: fileName, uploaded_at: new Date().toISOString() },
+                    ])
+                  }}
+                />
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.detailActions}>
