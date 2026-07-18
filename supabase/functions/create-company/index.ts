@@ -53,6 +53,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Garantizar que profiles existe para el usuario (precondición de company_members)
+    const { error: profileErr } = await admin
+      .from('profiles')
+      .upsert({ id: user.id }, { onConflict: 'id' });
+
+    if (profileErr) {
+      return Response.json(
+        { error: `Error garantizando perfil: ${profileErr.message}` },
+        { status: 500, headers: CORS },
+      );
+    }
+
     // Crear empresa con trial
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
@@ -86,7 +98,12 @@ Deno.serve(async (req) => {
       });
 
     if (memberErr) {
-      return Response.json({ error: memberErr.message }, { status: 500, headers: CORS });
+      // Compensación: eliminar empresa si company_members falla
+      await admin.from('companies').delete().eq('id', company.id);
+      return Response.json(
+        { error: `Error creando membresía: ${memberErr.message}` },
+        { status: 500, headers: CORS },
+      );
     }
 
     return Response.json({

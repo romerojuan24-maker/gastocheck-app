@@ -81,7 +81,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 3. Crear empresa con trial de 30 días ────────────────────────────────
+    // ── 3. Crear/upsert perfil de usuario ────────────────────────────────────
+    // Precondición para company_members: debe existir fila en profiles
+    const { error: profileErr } = await admin
+      .from('profiles')
+      .upsert({ id: user.id }, { onConflict: 'id' });
+
+    if (profileErr) {
+      await admin.auth.admin.deleteUser(user.id);
+      return Response.json(
+        { error: `Error creando perfil: ${profileErr.message}` },
+        { status: 500, headers: CORS },
+      );
+    }
+
+    // ── 4. Crear empresa con trial de 30 días ────────────────────────────────
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: company, error: compErr } = await admin
@@ -105,7 +119,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 4. Crear miembro dueño (rol 'admin' = acceso total) ──────────────────
+    // ── 5. Crear miembro dueño (rol 'admin' = acceso total) ──────────────────
     const { error: memberErr } = await admin
       .from('company_members')
       .insert({
@@ -116,19 +130,32 @@ Deno.serve(async (req) => {
       });
 
     if (memberErr) {
+      // Compensación: eliminar empresa si la membresía falla
+      await admin.from('companies').delete().eq('id', company.id);
       await admin.auth.admin.deleteUser(user.id);
       return Response.json(
-        { error: memberErr.message },
+        { error: `Error creando membresía: ${memberErr.message}` },
         { status: 500, headers: CORS },
       );
     }
 
-    // ── 5. Registrar dispositivo para prevención de abuso de trial ───────────
+    // ── 6. Registrar dispositivo para prevención de abuso de trial ───────────
     if (device_id) {
-      await admin.from('trial_devices').insert({
+      const { error: deviceErr } = await admin.from('trial_devices').insert({
         device_id,
         company_id: company.id,
       });
+
+      if (deviceErr) {
+        // Compensación: eliminar empresa y membresía si trial_devices falla
+        await admin.from('company_members').delete().eq('company_id', company.id);
+        await admin.from('companies').delete().eq('id', company.id);
+        await admin.auth.admin.deleteUser(user.id);
+        return Response.json(
+          { error: `Error registrando dispositivo: ${deviceErr.message}` },
+          { status: 500, headers: CORS },
+        );
+      }
     }
 
     return Response.json({

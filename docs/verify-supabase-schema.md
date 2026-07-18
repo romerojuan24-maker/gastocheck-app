@@ -55,19 +55,19 @@ WHERE table_schema = 'public'
   AND table_name = 'company_members'
   AND column_name = 'role';
 
--- E. Políticas RLS sobre company_members
+-- E. Políticas RLS sobre companies y company_members
 SELECT
   schemaname,
   tablename,
   policyname,
-  roles,
+  roles AS postgres_roles,
   cmd,
   qual,
   with_check
 FROM pg_policies
 WHERE schemaname = 'public'
-  AND tablename = 'company_members'
-ORDER BY policyname;
+  AND tablename IN ('companies', 'company_members')
+ORDER BY tablename, policyname;
 
 -- F. Confirmar que RLS está habilitado en tablas críticas
 SELECT
@@ -107,9 +107,18 @@ WHERE n.nspname = 'public'
 - **Otro:** Tipo diverge del esperado ⚠️
 
 ### Query E: Políticas RLS
-**Buscar:** ¿Existen políticas? ¿Incluyen `'admin'` en roles?
-- **Sí:** RLS reconoce admin ✅
-- **No:** RLS incompleto ⚠️
+**Nota importante:** `roles` contiene roles PostgreSQL (`authenticated`, `anon`, `public`), NO roles de negocio (`admin`, `owner`).
+
+**Revisar:** 
+- ¿Existen políticas FOR INSERT/UPDATE/SELECT/DELETE?
+- Examinar `qual` y `with_check` para lógica que valida roles de aplicación
+- Buscar funciones auxiliares invocadas (ej: `auth.uid()`, `current_user_company_id()`)
+- Determinar si la lógica permite acceso a `admin`
+
+**Incompleto si:**
+- No hay políticas
+- RLS deshabilitado
+- `qual`/`with_check` evalúan solo `auth.uid()` sin validar role de aplicación
 
 ### Query F: Estado de RLS
 **Buscar:** `rls_enabled = true` para companies y company_members
@@ -136,8 +145,12 @@ Queries A-F muestran:
 - **PERO:** Esto solo confirma compatibilidad estática
 - Falta: prueba end-to-end, flujo atómico, atomicidad de inserciones
 
-**ADM-001:** Puede reclasificarse de E2 a E3 (integración inspeccionada)  
-**Siguiente paso:** Ejecutar prueba end-to-end
+**ADM-001:** Permanece E2 (schema compatible, integración no verificada)
+- Queries A-F confirman compatibilidad estática
+- Falta: código frontend conectado, Edge Function invocada, persistencia real
+- E3 requiere: inspección código-BD-persistencia
+- E4 requiere: ejecución real exitosa
+**Siguiente paso:** Ejecutar prueba end-to-end (si A-F es normal)
 
 ### Escenario: `admin` NO aparece en Query A ⚠️
 - **Diagnóstico requerido:**

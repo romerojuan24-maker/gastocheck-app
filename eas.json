@@ -10,7 +10,9 @@
     },
     "preview": {
       "channel": "preview",
-      "distribution": "internal"
+      "distribution": "internal",
+      "node": "20.11.0",
+      "npm": "10.2.4"
     },
     "development": {
       "channel": "development",
@@ -20,18 +22,5 @@
   "submit": {
     "production": {},
     "preview": {}
-  },
-  "update": {
-    "production": {
-      "channel": "production",
-      "minimum_ios_runtime_version": "48.0.0",
-      "minimum_android_runtime_version": "48.0.0"
-    },
-    "preview": {
-      "channel": "preview"
-    },
-    "development": {
-      "channel": "development"
-    }
   }
 }
