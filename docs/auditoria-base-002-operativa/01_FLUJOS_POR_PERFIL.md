@@ -1,106 +1,228 @@
-# AUDITORÍA BASE 002 — MATRIZ COMPLETA DE 51 FLUJOS
-**Análisis exhaustivo de operatividad por flujo, con evidencia verificada**
+# AUDITORÍA BASE 002 — MATRIZ DEPURADA CON NIVELES DE EVIDENCIA
+**Reclasificación aplicando metodología E0-E5**
+
+---
+
+## METODOLOGÍA DE EVIDENCIA
+
+| Nivel | Descripción | Ejemplo |
+|-------|-------------|---------|
+| **E0** | Solo nombre o documentación | "Existe una función edge_function_name.ts" |
+| **E1** | Tabla, ruta o componente existe | "Tabla `companies` creada en migración" o "Ruta `/configuracion` visible en Next.js" |
+| **E2** | Frontend O backend inspeccionado aisladamente | "Edge Function `xml-parse` valida RFC" pero sin probar desde UI, O "componente React existe" pero sin verificar llamada a API |
+| **E3** | Frontend conectado a backend Y persistencia verificada | "UI llama Edge Function → datos persisten en BD", pero sin probar permisos, estados finales, responsables siguientes |
+| **E4** | Flujo end-to-end probado | "Usuario A crea gasto → status:captured → se guarda → aparece en listado de B → B puede autorizar" |
+| **E5** | Probado con permisos, errores, auditoría | E4 + "usuario sin permisos rechazado" + "usuario C no ve gastos de empresa D" + "audit_log registra acciones" |
+
+**Regla de clasificación:**
+- **E0-E3:** PARCIAL, NO VERIFICABLE, NO IMPLEMENTADO, o SIN CIERRE
+- **E4-E5:** COMPLETO
 
 ---
 
 ## ADMINISTRADOR / OWNER (12 FLUJOS)
 
-| ID | Flujo | Ruta inicial | Pantalla | Acción | Componente | Backend | Tabla | Estado inicial | Estado final | Responsable siguiente | Cierre | Categoría | Evidencia |
-|----|-------|--------------|----------|--------|-----------|---------|-------|----------------|--------------|----------------------|--------|-----------|-----------|
-| ADM-001 | Crear empresa | POST /api/auth/register-company | Onboarding | Completar nombre | `create-company` Edge Function | `supabase/functions/create-company/index.ts:59-69` | companies, company_members | — | trial_ends_at:30d | admin (role asignado) | ✅ trial límite | COMPLETO | Archivo: create-company/index.ts líneas 59-69, inserta con plan='basico' y trial, retorna ok:true |
-| ADM-002 | Configurar empresa | `/configuracion` | Settings form | Editar datos | Formulario React | NO VERIFICABLE | companies | — | — | — | NO VERIFICABLE | PARCIAL | Ruta existe en apps/web/app/(dashboard)/configuracion/page.tsx pero operación no verificada del código |
-| ADM-003 | Invitar usuarios | `/configuracion` > Invitar | Modal + email | Enviar invitación | `invite-gastador` Edge Function | `supabase/functions/invite-gastador/index.ts` | invitations | — | token generado, expires 14d | Usuario invitado | ✅ token único | COMPLETO | Función genera token, inserta en invitations table, email enviado (NO VERIFICABLE si SMTP) |
-| ADM-004 | Cambiar roles | `/configuracion` > Miembros | Lista editable | Seleccionar rol + guardar | NO VERIFICABLE | NO VERIFICABLE | company_members | role anterior | role nuevo | — | ✅ UPDATE (presumido) | PARCIAL | Componente existe pero lógica de update no verificada en código |
-| ADM-005 | Desactivar usuarios | `/configuracion` > Miembros | Lista editable | Cambiar status:disabled | NO VERIFICABLE | NO VERIFICABLE | company_members | status:active | status:disabled | — | ✅ Bloquea acceso (RLS) | PARCIAL | Status existe en enum pero endpoint update no verificado |
-| ADM-006 | Visualizar posición dinero | `/hoy` | KPI dashboard | Carga datos | `dashboard-consolidado` Edge Function | `supabase/functions/dashboard-consolidado/index.ts` | policies, advances, expenses | — | KPI dinámico | — | ✅ Real-time | COMPLETO | Función consulta balances: opening + sum(advances) - sum(authorized expenses) |
-| ADM-007 | Revisar pendientes | `/pendientes` | Listado | Cargar | NO VERIFICABLE | NO VERIFICABLE | expenses, policies | — | — | — | NO VERIFICABLE | PARCIAL | Ruta existe pero lógica no verificada |
-| ADM-008 | Autorizar operaciones | `/gastocheck` > Comprobantes | Lista + modal | Seleccionar gasto + "Autorizar" | `authorize-expense` Edge Function | `supabase/functions/authorize-expense/index.ts:54-88` | expenses, expense_audit | status:pending_auth | status:authorized + authorized_by + authorized_at | Contador (siguiente revisión) | ✅ Audit registrado | COMPLETO | Archivo: authorize-expense/index.ts líneas 54-88, UPDATE expenses, INSERT expense_audit con action='authorize' |
-| ADM-009 | Consultar cuentas por cobrar | `/cobracheck/facturas` | Lista de facturas | Filtrar | NO VERIFICABLE | NO VERIFICABLE | invoices_sent, accounts_receivable | — | — | — | NO VERIFICABLE | PARCIAL | Tablas creadas (cobracheck_complete_impl.sql) pero queries no verificadas |
-| ADM-010 | Consultar cuentas por pagar | `/gastocheck/cuentas-por-pagar` | Lista de pendientes | Filtrar | NO VERIFICABLE | NO VERIFICABLE | accounts_payable | — | — | — | NO VERIFICABLE | PARCIAL | Tabla creada (20260624000001_accounts_payable.sql) pero endpoint no verificado |
-| ADM-011 | Cerrar periodos | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe ruta, componente ni función para cierre de periodo |
-| ADM-012 | Exportar información | API call | Botón "Descargar" | Click + esperar | `export-excel` o `export-zip` | `supabase/functions/export-excel/index.ts` + `export-zip/index.ts` | report_exports | — | temp file URL | Usuario descarga | ✅ URL temporal | PARCIAL | Funciones existen pero no testeadas end-to-end; genera Excel pero formato no verificado |
+| ID | Flujo | Reclasificación | Nivel | Razón |
+|----|-------|-----------------|-------|-------|
+| ADM-001 | Crear empresa | PARCIAL | E2 | Edge Function inspeccionada aisladamente. NO probado: rol `admin` en enum (auditoría técnica dice que falta). NO probado: si `admin` puede ser asignado sin error BD. Contradicción no resuelta. |
+| ADM-002 | Configurar empresa | NO VERIFICABLE | E1 | Solo existe ruta; backend no inspeccionado |
+| ADM-003 | Invitar usuarios | PARCIAL | E3 | Edge Function probada (crea token, inserta invitación). PERO: envío de email NO VERIFICABLE (dependencia SMTP desconocida). Flujo incompleto sin email confirmado. |
+| ADM-004 | Cambiar roles | NO VERIFICABLE | E1 | Solo componente existe; lógica UPDATE no verificada. Punto de entrada desconocido. |
+| ADM-005 | Desactivar usuarios | NO VERIFICABLE | E1 | Enum existe; endpoint UPDATE no verificado |
+| ADM-006 | Visualizar posición dinero | PARCIAL | E3 | Edge Function probada (calcula saldo). PERO: frontend render y cálculo exacto no inspeccionados. Presume SELECT OK pero no verificado permiso. |
+| ADM-007 | Revisar pendientes | NO VERIFICABLE | E1 | Ruta existe; lógica de query NO inspeccionada |
+| ADM-008 | Autorizar operaciones | PARCIAL | E3 | Edge Function inspeccionada (UPDATE expenses, INSERT audit). PERO: punto de entrada desde UI NO verificado. ¿Quién ve "Autorizar" botón? ¿Permisos correctos? |
+| ADM-009 | Consultar cuentas por cobrar | NO VERIFICABLE | E1 | Tablas existen; queries no verificadas en código |
+| ADM-010 | Consultar cuentas por pagar | NO VERIFICABLE | E1 | Tabla existe; endpoint no verificado |
+| ADM-011 | Cerrar periodos | NO IMPLEMENTADO | E0 | No existe ruta, componente, función |
+| ADM-012 | Exportar información | PARCIAL | E2 | Edge Functions existen; formato Excel no verificado, cierre no claro |
+
+**Subtotal Administrador (verificado desde filas):**
+- COMPLETO: 0 | PARCIAL: 5 | NO VERIFICABLE: 6 | NO IMPLEMENTADO: 1 | SIN CIERRE: 0
+- Total: 12 ✓
 
 ---
 
 ## CONTADOR (14 FLUJOS)
 
-| ID | Flujo | Ruta inicial | Pantalla | Acción | Componente | Backend | Tabla | Estado inicial | Estado final | Responsable siguiente | Cierre | Categoría | Evidencia |
-|----|-------|--------------|----------|--------|-----------|---------|-------|----------------|--------------|----------------------|--------|-----------|-----------|
-| CNT-001 | Importar XML | Upload area | Arrastrar archivo | `POST /api` | File handler | `supabase/functions/xml-parse/index.ts:27-100` | cfdi_data | — | uuid:UUID, validated:true | Detección de duplicados | ✅ UUID validado | COMPLETO | Archivo: xml-parse/index.ts líneas 27-100, valida UUID, RFC, matemática fiscal |
-| CNT-002 | Importar PDF | Upload area | Arrastrar o seleccionar | Procesar | Viewer + extractor | NO VERIFICABLE | — | — | — | — | NO VERIFICABLE | PARCIAL | No existe extractor PDF verificado en código |
-| CNT-003 | Validar CFDI | Listado XML | Botón "Validar" | Click | `validate-cfdi` Edge Function | `supabase/functions/validate-cfdi/index.ts` o `validate-cfdi-real/index.ts` | cfdi_data | uuid presente | validated:true/false + warnings | — | ✅ status guardado | COMPLETO | Funciones existen; validan RFC, formato, matemática según xxe-protection en línea 31-42 |
-| CNT-004 | Relacionar documento | Manual | Formulario editable | Seleccionar gasto + guardar | Dropdown selector | NO VERIFICABLE | expense_attachments | expense_id:null | expense_id:asignado | — | ✅ UPDATE | PARCIAL | Lógica de relación no verificada; presume UPDATE expense_attachments.expense_id |
-| CNT-005 | Detectar duplicados | Automático al subir | Alerta | Sistema compara | `check-duplicate` Edge Function | `supabase/functions/check-duplicate/index.ts` | cfdi_data | uuid nuevo | uuid existente: true/false | — | ✅ Alerta mostrada | COMPLETO | Función consulta cfdi_data.uuid y retorna error 409 si existe (línea 61-67 en xml-parse) |
-| CNT-006 | Clasificar gasto | `/gastocheck/polizas` | Selector de categoría | Elegir + guardar | Dropdown | NO VERIFICABLE | expenses | category_id:null | category_id:asignado | — | ✅ UPDATE | PARCIAL | Clasificación asume UPDATE expenses.category_id pero no verificado |
-| CNT-007 | Registrar compra directa | API post | Formulario | Completar + enviar | `guardar-gasto-integrado` | `supabase/functions/guardar-gasto-integrado/index.ts` | expenses | — | status:captured | Comprador (revisión) | ⚠️ NO CLARO | PARCIAL | Función existe pero flujo de captura manual no completamente verificado |
-| CNT-008 | Registrar CxP | `/gastocheck/cuentas-por-pagar` | Formulario | Agregar proveedor + monto + vencimiento | NO VERIFICABLE | NO VERIFICABLE | accounts_payable | — | creado con status:pending | Tesorería (pago) | ❌ SIN CIERRE CLARO | PARCIAL | Tabla existe pero no está claro cómo se "paga" y se cierra |
-| CNT-009 | Registrar CxC | `/cobracheck/facturas` | Formulario + importar | Emitir o importar factura | NO VERIFICABLE | NO VERIFICABLE | invoices_sent | — | created | Cobranza (seguimiento) | ❌ SIN CIERRE CLARO | PARCIAL | Tabla existe pero flujo de "cierre" de CxC no verificado |
-| CNT-010 | Registrar pago | API `/cobracheck/registrar-pago` | Formulario o manual | Registrar monto + fecha + método | NO VERIFICABLE | `supabase/functions/registrar-pago-automatico/index.ts` (si aplica) | payment_receipts | — | created con amount + date | Aplicación (siguiente) | ⚠️ PARCIAL | PARCIAL | Tabla existe pero no claro si es automático o manual, y qué dispara el siguiente paso |
-| CNT-011 | Aplicar pago | Manual o automático | Selector de CxC | Seleccionar + "Aplicar" | `arrastrar-pago` Edge Function | `supabase/functions/arrastrar-pago/index.ts` | accounts_receivable (presume) | saldo:X | saldo:X-pago | — | ✅ UPDATE saldo | PARCIAL | Función existe pero ¿es automática al registrar o manual después? No está claro |
-| CNT-012 | Conciliar | `/bancocheck/conciliacion` | Dashboard de matching | Click "Reconciliar" | `reconciliar-automatico` Edge Function | `supabase/functions/reconciliar-automatico/index.ts` | reconciliations | — | status:reconciled | — | ✅ Guardado | PARCIAL | Función existe pero matching exacto vs. tolerancia de diff no verificado |
-| CNT-013 | Cerrar operación | Implied | — | Trigger tras CxP pagada / CxC cobrada | `close-policy` Edge Function | `supabase/functions/close-policy/index.ts` | policies | status:open | status:closed | — | ✅ status:closed + closing_balance | COMPLETO | Si se invoca, cierra política correctamente; pero ¿cuándo se invoca? ¿Quién llama? |
-| CNT-014 | Generar info contable | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe ruta, función ni reporte contable |
+| ID | Flujo | Reclasificación | Nivel | Razón |
+|----|-------|-----------------|-------|-------|
+| CNT-001 | Importar XML | PARCIAL | E2 | Edge Function inspeccionada (parsea XML, valida RFC/UUID). PERO: punto de entrada desde UI (upload handler) NO inspeccionado. ¿Quién invoca `xml-parse`? ¿Permisos? |
+| CNT-002 | Importar PDF | NO VERIFICABLE | E1 | Viewer presume; extractor NO existe verificado |
+| CNT-003 | Validar CFDI | PARCIAL | E2 | Edge Function inspeccionada (valida estructura local). PERO: NO se verifica con SAT. NO se verifica si `validated:true` bloquea o permite siguiente paso. Validación parcial. |
+| CNT-004 | Relacionar documento | NO VERIFICABLE | E1 | Dropdown existe; UPDATE logic NO inspeccionado |
+| CNT-005 | Detectar duplicados | PARCIAL | E2 | Edge Function inspeccionada (compara UUID, retorna 409). PERO: flujo "mostrar alerta" y "acción usuario ante duplicado" NO verificados |
+| CNT-006 | Clasificar gasto | NO VERIFICABLE | E1 | Dropdown existe; UPDATE no verificado; permisos desconocidos |
+| CNT-007 | Registrar compra directa | PARCIAL | E2 | Edge Function existe; flujo desde UI y validaciones NO inspeccionados |
+| CNT-008 | Registrar CxP | SIN CIERRE | E1 | Tabla existe; forma de pagar NO clara; cierre NO definido |
+| CNT-009 | Registrar CxC | SIN CIERRE | E1 | Tabla existe; forma de cerrar NO definida |
+| CNT-010 | Registrar pago | PARCIAL | E1 | Tabla existe; ¿quién invoca? ¿automático o manual? NO claro |
+| CNT-011 | Aplicar pago | PARCIAL | E2 | Edge Function existe; ¿cuándo se invoca? ¿automático? ¿manual? ¿qué dispara cierre? NO claro |
+| CNT-012 | Conciliar | PARCIAL | E2 | Edge Function existe; matching logic (exacto vs. tolerancia) NO verificado |
+| CNT-013 | Cerrar operación | NO VERIFICABLE | E2 | Edge Function inspeccionada Y funciona correctamente. PERO: ¿quién la invoca? ¿cuándo? ¿automático o admin manual? NO VERIFICADO. Función existe; flujo operativo NO. |
+| CNT-014 | Generar info contable | NO IMPLEMENTADO | E0 | No existe |
+
+**Subtotal Contador (verificado desde filas):**
+- COMPLETO: 0 | PARCIAL: 7 | NO VERIFICABLE: 4 | NO IMPLEMENTADO: 1 | SIN CIERRE: 2
+- Total: 14 ✓
 
 ---
 
 ## COMPRADOR (12 FLUJOS)
 
-| ID | Flujo | Ruta inicial | Pantalla | Acción | Componente | Backend | Tabla | Estado inicial | Estado final | Responsable siguiente | Cierre | Categoría | Evidencia |
-|----|-------|--------------|----------|--------|-----------|---------|-------|----------------|--------------|----------------------|--------|-----------|-----------|
-| CPR-001 | Recibir anticipo | NO EXISTE (visual only) | Dashboard | Ver monto | Mostrar dinero | Lectura de BD | policies.opening_balance | — | — | — | — | NO IMPLEMENTADO | No existe "recepción" de anticipo; solo visualización de saldo. No hay confirmación o acción |
-| CPR-002 | Registrar compra | `/mobile` o web | Formulario compra | Completar monto + proveedor + fecha | Form component | `guardar-gasto-integrado` | expenses | — | status:captured | Comprador (OCR/upload) | ✅ status:captured | COMPLETO | Datos guardados en expenses table, crea registro listo para documentos |
-| CPR-003 | Fotografía de ticket | `/gastocheck/escanear` | Cámara / upload | Capturar o seleccionar | Camera handler | `ocr-extract` Edge Function | expense_attachments + ocr_raw | — | monto/fecha/proveedor extraído | Confirmación | ✅ confidence:high/medium/low | COMPLETO | Archivo: ocr-extract/index.ts línea 11, usa Gemini 2.5 Flash para OCR |
-| CPR-004 | Subir ticket | Mobile o web | Upload | Arrastrar o select | File uploader | `submit-receipt` | expense_attachments, storage | — | file guardado + storage_path | Validación OCR | ✅ mime validado | COMPLETO | Archivo: submit-receipt/index.ts, sube a storage con RLS |
-| CPR-005 | Subir XML | Upload área | Drag-drop o selector | Select XML + enviar | XML handler | `xml-parse` | cfdi_data | — | parsed + validated | Contador (revisión) | ✅ UUID verificado | COMPLETO | Archivo: xml-parse/index.ts, parsea y detecta duplicados |
-| CPR-006 | Subir PDF | Upload área | Drag-drop | Select PDF + enviar | PDF handler | NO VERIFICABLE | storage (presume) | — | — | — | ❌ NO VERIFICABLE | PARCIAL | No existe extractor PDF específico en código |
-| CPR-007 | Confirmar datos | Manual review | Lista de campos extraídos | "Confirmar" o editar | Edit/confirm form | NO VERIFICABLE | — | extracted:tentative | extracted:confirmed | — | ⚠️ MANUAL | PARCIAL | OCR da confidence pero NO HAY automatización para high-confidence; siempre requiere manual |
-| CPR-008 | Corregir datos | Manual edit | Editar campos | Cambiar + guardar | Update form | UPDATE expenses | expenses | status:captured | status:captured (sin cambio) | — | ✅ UPDATE | PARCIAL | Solo permite edit si status in ('captured','pending_auth','observed'); no reutiliza OCR |
-| CPR-009 | Solicitar reembolso | Implied workflow | — | Trigger tras authorización | `reembolsos-workflow` | `supabase/functions/reembolsos-workflow/index.ts` | reembolsos | expense:authorized | reembolso:created | Tesorería | ⚠️ PRESUME | PARCIAL | Función existe pero ¿cuándo se dispara? ¿Automático o manual? No está claro |
-| CPR-010 | Atender rechazo | Rejection flow | Notificación | "Corrección requerida: [motivo]" | Edit form + re-upload | UPDATE expenses | expenses | status:observed (rejected) | status:captured (restart) | Comprador (re-intenta) | ✅ status:observed + rejection_reason | PARCIAL | Flujo es: reject → observed → capture nuevamente, pero es DUPLICIDAD de captura |
-| CPR-011 | Volver a enviar | Re-upload workflow | Upload again | Arrastrar nuevo archivo | File uploader | `submit-receipt` | expense_attachments | expense_id:anterior | expense_id:mismo (reemplaza) | Contador | ✅ Nuevo archivo | PARCIAL | **DUPLICIDAD**: Reuploada TODO el documento, no reutiliza extracción anterior |
-| CPR-012 | Consultar saldo | `/gastocheck/cajas-chicas` | Dashboard | Visualizar | Query | SELECT policies WHERE holder_id = user_id | policies | — | saldo:opening + advances - authorized | — | ✅ Real-time | COMPLETO | Cálculo: opening_balance + sum(advances) - sum(authorized expenses) |
+| ID | Flujo | Reclasificación | Nivel | Razón |
+|----|-------|-----------------|-------|-------|
+| CPR-001 | Recibir anticipo | NO IMPLEMENTADO | E1 | Dashboard MUESTRA saldo (lectura); NO hay acción confirmable. Usuario solo ve, no "recibe" activamente. |
+| CPR-002 | Registrar compra | PARCIAL | E2 | Edge Function inspeccionada. PERO: ¿punto de entrada real en UI? ¿formulario existe? ¿permisos? NO verificados. |
+| CPR-003 | Fotografía de ticket | PARCIAL | E2 | Edge Function inspeccionada (llama Gemini 2.5). PERO: ¿cámara realmente invoca esta función? ¿frontend handler? NO verificado. |
+| CPR-004 | Subir ticket | PARCIAL | E2 | `submit-receipt` inspeccionada; RLS presume correcto; flujo desde UI NO verificado |
+| CPR-005 | Subir XML | PARCIAL | E2 | `xml-parse` inspeccionada; flujo desde UI NO verificado; permisos desconocidos |
+| CPR-006 | Subir PDF | NO VERIFICABLE | E1 | Extractor NO existe; solo storage presume |
+| CPR-007 | Confirmar datos | PARCIAL | E1 | Formulario presume; automatización para `confidence:high` NO existe |
+| CPR-008 | Corregir datos | PARCIAL | E2 | UPDATE presume; condiciones de estado (`captured`, `pending_auth`, `observed`) inspeccionadas; UX flujo NO probado |
+| CPR-009 | Solicitar reembolso | NO VERIFICABLE | E1 | Función existe; ¿quién la invoca? ¿cuándo? ¿trigger automático? NO VERIFICABLE |
+| CPR-010 | Atender rechazo | PARCIAL | E2 | Status transition (`observed` → `captured`) inspeccionada; duplicidad OCR identificada; flujo completo NO probado |
+| CPR-011 | Volver a enviar | PARCIAL | E2 | Duplicidad OCR verificada (re-procesa); flujo completo NO probado end-to-end |
+| CPR-012 | Consultar saldo | PARCIAL | E3 | Cálculo formulado (opening + advances - authorized); PERO: ¿query realmente ejecutada? ¿permisos? ¿UI muestra datos? NO verificados |
+
+**Subtotal Comprador (verificado desde filas):**
+- COMPLETO: 0 | PARCIAL: 9 | NO VERIFICABLE: 2 | NO IMPLEMENTADO: 1 | SIN CIERRE: 0
+- Total: 12 ✓
 
 ---
 
 ## RESPONSABLE DE COBRANZA (13 FLUJOS)
 
-| ID | Flujo | Ruta inicial | Pantalla | Acción | Componente | Backend | Tabla | Estado inicial | Estado final | Responsable siguiente | Cierre | Categoría | Evidencia |
-|----|-------|--------------|----------|--------|-----------|---------|-------|----------------|--------------|----------------------|--------|-----------|-----------|
-| CBR-001 | Consultar cartera | `/cobracheck/facturas` | Lista de facturas | Filtrar por estado | NO VERIFICABLE | NO VERIFICABLE (presume SELECT) | invoices_sent, accounts_receivable | — | — | — | NO VERIFICABLE | PARCIAL | Tablas existen (cobracheck_complete_impl.sql) pero queries específicas no verificadas en Edge Functions |
-| CBR-002 | Identificar vencidos | `/cobracheck/facturas` | Columna "Vencimiento" | Filtrar due_date < today | Implied sorting | NO VERIFICABLE | accounts_receivable | — | — | — | ⚠️ PRESUME | PARCIAL | No hay Edge Function específica para calcular edad de cuenta; asume cálculo en frontend |
-| CBR-003 | Priorizar clientes | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe funcionalidad de priorización (scoring, categorización A/B/C) |
-| CBR-004 | Registrar llamada | `/cobracheck/routes` | Actividades | "Registrar llamada" + fecha + nota | Form + save | NO VERIFICABLE | collection_movements (presume) | — | activity:logged | Seguimiento | ⚠️ PRESUME | PARCIAL | No existe interfaz clara; presume que collection_movements tabla existe pero sin UI |
-| CBR-005 | Registrar WhatsApp | Webhook inbound | Mensaje recibido | Sistema captura | WhatsApp webhook | `cobra-whatsapp-webhook` | — | — | activity:whatsapp_received | — | ✅ Logged (presume) | PARCIAL | Archivo: cobra-whatsapp-webhook/index.ts existe pero NO HAY UI para cobranza. Solo webhook inbound |
-| CBR-006 | Registrar correo | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe funcionalidad para registrar emails |
-| CBR-007 | Registrar promesa | Manual entry | Form | Completar: cliente + monto + fecha comprometida | Promise form | NO VERIFICABLE | collection_movements (presume) | — | promise:registered + fecha | Seguimiento (reminder) | ⚠️ PRESUME | PARCIAL | No verificado si inserta en tabla separada o en collection_movements |
-| CBR-008 | Fecha prometida | Calendario | Selector | Elegir fecha | Date picker | NO VERIFICABLE | collection_movements | promise_date:null | promise_date:asignada | — | ✅ Guardada | PARCIAL | Presume guardar en collection_movements pero no verificado |
-| CBR-009 | Incumplimiento | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe lógica para marcar incumplimiento de promesa |
-| CBR-010 | Pago parcial | Manual entry | Form o bancario | Monto < saldo | `arrastrar-pago` | `supabase/functions/arrastrar-pago/index.ts` | payment_receipts, accounts_receivable | saldo:X | saldo:X - pago_parcial | Seguimiento (saldo pendiente) | ✅ Saldo actualizado (presume) | PARCIAL | Función aplica pago pero ¿automáticamente o manual? Y ¿actualiza accounts_receivable.saldo? |
-| CBR-011 | Aplicar pago | Manual | Selector CxC | "Aplicar a factura X" | Dropdown selector | `arrastrar-pago` | accounts_receivable | saldo:X | saldo:0 (si total) | Cierre (siguiente) | ✅ status:paid (presume) | PARCIAL | Función existe pero ¿dispara cierre? ¿Manual o automático? |
-| CBR-012 | Escalar caso | NO EXISTE | — | — | — | — | — | — | — | — | — | NO IMPLEMENTADO | No existe funcionalidad de escalamiento (reassign, notify, category) |
-| CBR-013 | Cerrar cuenta | Implied | — | Trigger tras pago total | — | — | accounts_receivable | status:open | status:closed | — | ✅ status:closed (presume) | PARCIAL | No hay lógica explícita verificada para cierre automático cuando saldo = 0 |
+| ID | Flujo | Reclasificación | Nivel | Razón |
+|----|-------|-----------------|-------|-------|
+| CBR-001 | Consultar cartera | NO VERIFICABLE | E1 | Tablas existen; queries NO verificadas |
+| CBR-002 | Identificar vencidos | NO VERIFICABLE | E1 | Cálculo `due_date < today` presume; NO probado en código |
+| CBR-003 | Priorizar clientes | NO IMPLEMENTADO | E0 | No existe |
+| CBR-004 | Registrar llamada | NO VERIFICABLE | E1 | Tabla presume; UI NO existe verificada |
+| CBR-005 | Registrar WhatsApp | PARCIAL | E1 | Webhook inspeccionada (inbound); UI cobranza NO existe |
+| CBR-006 | Registrar correo | NO IMPLEMENTADO | E0 | No existe |
+| CBR-007 | Registrar promesa | NO VERIFICABLE | E1 | Tabla presume; flujo NO verificado |
+| CBR-008 | Fecha prometida | NO VERIFICABLE | E1 | Campo presume; lógica NO verificada |
+| CBR-009 | Incumplimiento | NO IMPLEMENTADO | E0 | No existe |
+| CBR-010 | Pago parcial | PARCIAL | E1 | Edge Function existe; ¿flujo real invocable? ¿permisos? ¿saldo actualiza? NO verificado |
+| CBR-011 | Aplicar pago | PARCIAL | E1 | Edge Function existe; ¿cuándo se invoca? ¿manual o auto? ¿cierre? NO VERIFICABLE |
+| CBR-012 | Escalar caso | NO IMPLEMENTADO | E0 | No existe |
+| CBR-013 | Cerrar cuenta | SIN CIERRE | E1 | Transición presume; lógica NO verificada |
+
+**Subtotal Cobranza (verificado desde filas):**
+- COMPLETO: 0 | PARCIAL: 3 | NO VERIFICABLE: 5 | NO IMPLEMENTADO: 4 | SIN CIERRE: 1
+- Total: 13 ✓
 
 ---
 
-## RESUMEN DE CATEGORÍAS
+## RESUMEN DEPURADO (Conteos Automatizados Verificados)
 
-### Por perfil
+### Flujos por categoría (51 total)
 
-**Administrador:** 4 COMPLETO | 7 PARCIAL | 0 SIN CIERRE | 1 NO IMPLEMENTADO → 33.3% operativo
+| Categoría | Cantidad | % |
+|-----------|----------|------|
+| COMPLETO | 0 | 0% |
+| PARCIAL | 24 | 47.1% |
+| NO VERIFICABLE | 17 | 33.3% |
+| SIN CIERRE | 3 | 5.9% |
+| NO IMPLEMENTADO | 7 | 13.7% |
+| **TOTAL** | **51** | **100%** |
 
-**Contador:** 5 COMPLETO | 8 PARCIAL | 0 SIN CIERRE | 1 NO IMPLEMENTADO → 35.7% operativo
+### Flujos por nivel de evidencia (51 total)
 
-**Comprador:** 6 COMPLETO | 5 PARCIAL | 0 SIN CIERRE | 1 NO IMPLEMENTADO → 50% operativo
+Nota: Categoría y Evidencia son dimensiones independientes.
 
-**Cobranza:** 2 COMPLETO | 8 PARCIAL | 0 SIN CIERRE | 3 NO IMPLEMENTADO → 15.4% operativo
+| Nivel | Cantidad | Descripción |
+|-------|----------|-------------|
+| E0 | 6 | Solo nombre/documentación |
+| E1 | 25 | Componente/tabla/ruta existe, sin inspección lógica |
+| E2 | 16 | Código inspeccionado aisladamente, sin flujo completo |
+| E3 | 4 | Frontend → Backend → Persistencia, sin permisos/auditoría/cierre |
+| E4 | 0 | Flujo end-to-end probado |
+| E5 | 0 | Con permisos, auditoría, errores probados |
+| **TOTAL** | **51** | **100%** |
 
-### Total
+### Operatividad demostrada
 
-**Flujos completos: 17 / 51 = 33.3%**  
-**Flujos parciales: 28 / 51 = 54.9%**  
-**Flujos sin cierre: 0 / 51 = 0%**  
-**Flujos no implementados: 6 / 51 = 11.8%**  
+| Métrica | Cálculo | Valor |
+|---------|---------|-------|
+| **Flujos operativos probados** | E4 + E5 | **0 / 51 = 0%** |
+| Implementación conectada | E3 + E4 + E5 | 4 / 51 = **7.8%** |
+| Existencia técnica | E1 + E2 + E3 + E4 + E5 | 50 / 51 = **98.0%** |
+| Requiere verificación/fix | PARCIAL + NO VERIFICABLE + SIN CIERRE | 44 / 51 = **86.3%** |
 
-**Operatividad completa = 17 / 51 = 33.3%**  
-**Necesita corrección = 34 / 51 = 66.7%**
+---
+
+## CONTRADICCIONES VERIFICADAS
+
+### 1. Rol `admin` en ADM-001 — ERROR CONFIRMADO
+
+**Definición del enum (supabase/migrations/20260606000001_init.sql:9):**
+```sql
+create type member_role as enum ('owner','supervisor','spender','office','accountant');
+```
+
+**Uso en create-company (supabase/functions/create-company/index.ts:84):**
+```typescript
+role: 'admin'  // ← Intenta insertar valor que NO está en enum
+```
+
+**Resultado:** Error 500 en BD cuando se intenta crear empresa. El flujo ADM-001 **FALLA EN PRODUCCIÓN**.
+
+**Opciones para corregir:**
+1. Agregar `'admin'` al enum: `('owner','supervisor','spender','office','accountant','admin')`
+2. Cambiar create-company para usar `'owner'` o `'supervisor'` en lugar de `'admin'`
+
+**Reclasificación:** ADM-001 → BLOQUEADO (E2), No probado end-to-end, fallaría en primera ejecución
+
+**Acción requerida:** Corregir enum O cambiar role asignado ANTES de lanzar.
+
+### 2. CNT-013: Función correcta pero flujo desconocido
+
+**Afirmación anterior:** CNT-013 clasifica como COMPLETO: "Si se invoca, cierra política correctamente"
+
+**Problema:** "¿cuándo se invoca? ¿Quién llama?" NO está resuelto
+
+**Resolución:**
+- `close-policy/index.ts` probada en aislamiento: UPDATE policies, calcula closing_balance ✅
+- PERO: No existe ningún código que LA INVOQUE verificado
+- No hay trigger, ni scheduler, ni endpoint POST desde UI
+- Flujo operativo = E0 (función existe pero cómo se usa es desconocido)
+
+**Reclasificación:** CNT-013 → NO VERIFICABLE (E2)
+
+### 3. ADM-003: Email no verificado pero clasificado completo
+
+**Afirmación anterior:** ADM-003 COMPLETO: "email enviado (NO VERIFICABLE si SMTP)"
+
+**Problema:** Si email NO SE VERIFICA, el flujo NO está completo. Invitación sin confirmación no es operativa.
+
+**Resolución:**
+- `invite-gastador/index.ts` crea token ✅
+- Token se inserta en `invitations` ✅
+- Email se presume enviado por Supabase Auth pero NO VERIFICADO
+
+**Reclasificación:** ADM-003 → PARCIAL (E3, bloqueado por SMTP)
+
+---
+
+## CONTRADICCIONES IDENTIFICADAS SIN RESOLVER AÚN
+
+1. **¿Quién ve qué?** Muchos flujos no verifican permisos ni RLS correctas
+2. **¿Cuándo se dispara?** Workflows "implied" (CPR-009 reembolsos, CNT-013 cierre) sin código invocador identificado
+3. **¿Quién actúa después?** Responsable siguiente presume pero no probado (notificaciones, UI, permisos)
+4. **¿Cierre automatizado o manual?** CxP, CxC, Pólizas SIN DEFINICIÓN clara
+
+---
+
+## PRÓXIMA ACCIÓN
+
+**NO INICIAR CORRECCIONES TODAVÍA.**
+
+1. Resolver contradicción enum 'admin': agregar a `member_role` enum o cambiar ADM-001
+2. Identificar qué código invoca funciones "implied": CNT-013, CPR-009, etc.
+3. Definir cierre explícito para CxP (5 flujos), CxC (5 flujos), Pólizas
+4. Especificar: ¿Manual o automático? ¿Quién? ¿Cuándo?
+
+Después de eso, matriz puede re-evaluarse con E3-E4 potenciales.
 
