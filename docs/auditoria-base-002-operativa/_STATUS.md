@@ -110,20 +110,30 @@
 
 ---
 
-## CIFRAS FINALES VERIFICADAS
+## CIFRAS DEPURADAS (POST-VALIDACIÓN)
 
-| Métrica | Valor | Método |
-|---------|-------|--------|
-| Flujos totales evaluados | 51 | Matriz 01_FLUJOS_POR_PERFIL.md |
-| Flujos COMPLETO | 17 | 33.3% |
-| Flujos PARCIAL | 28 | 54.9% |
-| Flujos SIN CIERRE | 0 | 0% (pero 5 procesos sin cierre encontrados) |
-| Flujos NO IMPLEMENTADO | 6 | 11.8% |
-| Bloqueadores operativos | 5 | Matriz OP-001 a OP-005 |
-| Fricciones altas | 8 | Matriz FR-001 a FR-008 |
-| Duplicidades | 4 | Matriz DUP-001 a DUP-004 |
-| Inconsistencias web/mobile | 10 | Tabla en 06_INCONSISTENCIAS_WEB_MOVIL.md |
-| Automatizaciones faltantes | 8 | Matriz 05_AUTOMATIZACIONES_FALTANTES.md |
+⚠️ **CORRECCIÓN CRÍTICA:** Anterior afirmación de "33.3% completo" confundía "código existe" con "flujo probado"
+
+| Métrica | Valor anterior | Valor corregido |
+|---------|----------------|-----------------|
+| Flujos COMPLETO (E4+E5) | 17 (33.3%) | **0 (0%)** ⚠️ |
+| Flujos PARCIAL (E3) | 28 (54.9%) | **23 (45.1%)** |
+| Flujos NO VERIFICABLE (E1-E2) | 0 | **17 (33.3%)** |
+| Flujos SIN CIERRE | 0 | **5 (9.8%)** |
+| Flujos NO IMPLEMENTADO | 6 (11.8%) | **6 (11.8%)** |
+| **Operatividad realmente probada** | 33.3% | **0%** |
+| **Implementación conectada (E3+)** | — | **9 / 51 = 17.6%** |
+
+### Niveles de evidencia
+
+| Nivel | Cantidad | Descripción |
+|-------|----------|-------------|
+| E0 | 9 | Solo nombre o documentación |
+| E1 | 18 | Componente/tabla/ruta existe, sin inspección lógica |
+| E2 | 15 | Código inspeccionado aisladamente, sin flujo completo |
+| E3 | 9 | Frontend→Backend→Persistencia, sin permisos/auditoría/cierre |
+| E4 | 0 | Flujo end-to-end probado (NO EXISTE) |
+| E5 | 0 | Con permisos + auditoría + errores (NO EXISTE) |
 
 ---
 

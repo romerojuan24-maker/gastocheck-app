@@ -157,21 +157,39 @@ Esta auditoría rastrea cada flujo como un usuario real lo recorría:
 
 ---
 
-## CÁLCULO CORRECTO DE OPERATIVIDAD
+## CÁLCULO DEPURADO DE OPERATIVIDAD
 
 **Flujos totales evaluados: 51**
 
+### Por categoría
+
 | Categoría | Cantidad | Porcentaje |
 |-----------|----------|-----------|
-| COMPLETO | 17 | 33.3% |
-| PARCIAL | 28 | 54.9% |
-| SIN CIERRE | 0 | 0% |
-| NO IMPLEMENTADO | 6 | 11.8% |
-| NO VERIFICABLE | 0 | 0% |
+| COMPLETO (E4+E5) | 0 | 0% |
+| PARCIAL (E3) | 23 | 45.1% |
+| NO VERIFICABLE (E1-E2) | 17 | 33.3% |
+| NO IMPLEMENTADO (E0) | 6 | 11.8% |
+| SIN CIERRE | 5 | 9.8% |
 
-**Operatividad completa = 17 / 51 = 33.3%**
-**Cobertura verificable = (17 + 28 + 6) / 51 = 51 / 51 = 100% (evaluados)**
-**Flujos que requieren corrección = 28 + 6 = 34 / 51 = 66.7%**
+### Por nivel de evidencia
+
+| Nivel | Cantidad | Descripción |
+|-------|----------|-------------|
+| E0 | 9 | Solo nombre o documentación |
+| E1 | 18 | Componente/tabla/ruta existe sin inspección lógica |
+| E2 | 15 | Código inspeccionado aisladamente, sin flujo completo |
+| E3 | 9 | Frontend → Backend → Persistencia, sin permisos/auditoría |
+| E4 | 0 | Flujo end-to-end probado |
+| E5 | 0 | Con permisos, auditoría, errores probados |
+
+### Operatividad demostrada
+
+- **Flujos operativos realmente probados = 0 / 51 = 0%** ⚠️
+- **Implementación conectada (E3+E4+E5) = 9 / 51 = 17.6%**
+- **Existencia técnica (E1+E2+E3+E4+E5) = 42 / 51 = 82.4%**
+- **Pendiente clarificación o fix = 34 / 51 = 66.7%**
+
+**CONCLUSIÓN:** Hay código que existe y algunas partes están conectadas, pero NINGÚN flujo ha sido probado end-to-end. El 33.3% anterior confundía "Edge Function existe" con "flujo operativo funciona".
 
 ---
 
