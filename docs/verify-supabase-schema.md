@@ -1,96 +1,170 @@
 # Verificación del schema en Supabase
 
-## Ejecutar estas 3 consultas SQL en Supabase SQL Editor
+## Instrucciones generales
 
-**Instrucciones:**
-1. Acceder a [supabase.com](https://supabase.com) → Tu proyecto
+1. Acceder a [supabase.com](https://supabase.com) → Tu proyecto Supabase correcto
 2. Click en "SQL Editor" (sidebar izquierdo)
-3. Crear query nueva
-4. Copiar CADA consulta abajo y ejecutar individualmente
-5. Guardar resultados literales
+3. Ejecutar el bloque de consultas completo abajo (puedes copiar todo junto)
+4. Guardar resultados literales de CADA consulta
+5. NO asumir columnas ni aplicar migraciones sin diagnosticar primero
 
 ---
 
-## Query 1: Verificar estado del enum `member_role`
+## Bloque de consultas — Ejecutar todo junto
 
 ```sql
+-- A. Valores reales del enum member_role
 SELECT
+  n.nspname AS enum_schema,
   t.typname AS enum_name,
   e.enumlabel AS enum_value,
-  e.enumsortorder AS sort_order
+  e.enumsortorder
 FROM pg_type t
-JOIN pg_enum e ON t.oid = e.enumtypid
+JOIN pg_enum e ON e.enumtypid = t.oid
+JOIN pg_namespace n ON n.oid = t.typnamespace
 WHERE t.typname = 'member_role'
 ORDER BY e.enumsortorder;
-```
 
-**Esperado:** Debe incluir `'admin'` en la lista de valores.
-
-**Resultado actual:** [EJECUTAR Y PEGAR AQUÍ]
-
----
-
-## Query 2: Verificar historial de migraciones
-
-```sql
+-- B. Estructura real de tabla de migraciones (sin asumir columnas)
 SELECT
-  version,
-  description,
-  installed_on,
-  success
+  column_name,
+  data_type,
+  ordinal_position
+FROM information_schema.columns
+WHERE table_schema = 'supabase_migrations'
+  AND table_name = 'schema_migrations'
+ORDER BY ordinal_position;
+
+-- C. Registro de migración 20260609000001 (sin asumir columnas)
+SELECT *
 FROM supabase_migrations.schema_migrations
-WHERE version = '20260609000001'
-ORDER BY version DESC;
-```
+WHERE version = '20260609000001';
 
-**Esperado:** Debe mostrar que la migración fue instalada exitosamente.
-
-**Resultado actual:** [EJECUTAR Y PEGAR AQUÍ]
-
----
-
-## Query 3: Verificar tipo de columna `company_members.role`
-
-```sql
+-- D. Tipo real de company_members.role
 SELECT
   table_schema,
   table_name,
   column_name,
   data_type,
+  udt_schema,
   udt_name,
-  is_nullable
+  is_nullable,
+  column_default
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND table_name = 'company_members'
   AND column_name = 'role';
+
+-- E. Políticas RLS sobre company_members
+SELECT
+  schemaname,
+  tablename,
+  policyname,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename = 'company_members'
+ORDER BY policyname;
+
+-- F. Confirmar que RLS está habilitado en tablas críticas
+SELECT
+  n.nspname AS schema_name,
+  c.relname AS table_name,
+  c.relrowsecurity AS rls_enabled,
+  c.relforcerowsecurity AS rls_forced
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('companies', 'company_members');
 ```
 
-**Esperado:** `udt_name` debe ser `'member_role'` (enum type).
+---
 
-**Resultado actual:** [EJECUTAR Y PEGAR AQUÍ]
+## Qué significa cada resultado
+
+### Query A: Enum member_role
+**Buscar:** ¿Aparece `'admin'` en la lista?
+- **Sí:** Migración 20260609 se ejecutó ✅
+- **No:** Migración está pendiente o falló ⚠️
+
+### Query B: Estructura de schema_migrations
+**Observar:** Columnas reales (probablemente solo `version`, `name`, `installed_on`, etc.)
+- Usá esta información para Query C, no asumas columnas
+
+### Query C: Migración 20260609000001
+**Buscar:** ¿Existe una fila con `version = '20260609000001'`?
+- **Sí:** Migración fue registrada (puede estar pendiente o completada)
+- **No:** Migración no está en historial
+
+**Nota:** La existencia de la fila indica registro. No confundas con "aplicada correctamente".
+
+### Query D: Tipo de company_members.role
+**Buscar:** `udt_name = 'member_role'` (enum type)
+- **Correcto:** Columna es del tipo enum ✅
+- **Otro:** Tipo diverge del esperado ⚠️
+
+### Query E: Políticas RLS
+**Buscar:** ¿Existen políticas? ¿Incluyen `'admin'` en roles?
+- **Sí:** RLS reconoce admin ✅
+- **No:** RLS incompleto ⚠️
+
+### Query F: Estado de RLS
+**Buscar:** `rls_enabled = true` para companies y company_members
+- **Ambas sí:** RLS está activo ✅
+- **Alguna no:** RLS incompleto ⚠️
 
 ---
 
-## Clasificación según resultados
+## Diagnóstico según resultados
 
-### Caso A: Queries 1-3 muestran `'admin'` + migración aplicada ✅
-- **Conclusión:** Schema está correcto. `create-company` debería funcionar.
-- **ADM-001:** Reclasificar a E3 o E4 según prueba end-to-end.
-- **Acción:** Ejecutar prueba real de create-company.
+### Escenario NORMAL ✅
+Queries A-F muestran:
+- A: `'admin'` presente en enum
+- B: schema_migrations tabla tiene estructura estándar
+- C: versión 20260609000001 existe
+- D: company_members.role es enum type
+- E: Existen políticas RLS que mencionan admin
+- F: RLS está habilitado en ambas tablas
 
-### Caso B: Query 1 NO muestra `'admin'` ❌
-- **Conclusión:** Migración no fue aplicada o falló.
-- **ADM-001:** Permanece E2, Pendiente Verificación.
-- **Acción:** Aplicar migración `20260609000001_enum_roles.sql` manualmente en Supabase.
+**Conclusión:**
+- La migración posterior sí agrega `'admin'`
+- El enum es compatible con `create-company`
+- Las políticas reconocen `admin`
+- **PERO:** Esto solo confirma compatibilidad estática
+- Falta: prueba end-to-end, flujo atómico, atomicidad de inserciones
 
-### Caso C: Query 2 falla o muestra fila incompleta ⚠️
-- **Conclusión:** Histórico de migraciones corrupto o inconsistente.
-- **ADM-001:** E2, Bloqueado por divergencia BD/historial.
-- **Acción:** Investigar estado de Supabase y backups.
+**ADM-001:** Puede reclasificarse de E2 a E3 (integración inspeccionada)  
+**Siguiente paso:** Ejecutar prueba end-to-end
+
+### Escenario: `admin` NO aparece en Query A ⚠️
+- **Diagnóstico requerido:**
+  1. ¿Query C muestra fila con versión 20260609000001?
+     - Sí: Migración en historial pero no aplicada. Posibles causas: rollback manual, BD clonada sin migración, error en ejecución
+     - No: Migración nunca fue ejecutada
+  2. Comparar con historial de migraciones posteriores
+     - ¿20260610+, 20260611+, etc. existen y se ejecutaron?
+     - Si las posteriores se ejecutaron, ¿por qué 20260609 no?
+
+**NO aplicar migración automáticamente.** Primera acción: diagnosticar divergencia.
+
+**Posibles remedios (después de diagnóstico):**
+- Si migración nunca ejecutó: aplicar manualmente desde Supabase Migration UI
+- Si hay divergencia: contactar Supabase support o restaurar desde backup
+- Si BD fue clonada: ejecutar migraciones pendientes en el clone
+
+**ADM-001:** Permanece E2, Bloqueado por divergencia schema/historial
+
+### Escenario: RLS deshabilitado o incompleto (Query E/F) ⚠️
+- **Impacto:** create-company puede insertar empresa, pero RLS puede bloquear lectura posterior
+- **Diagnóstico:** ¿Qué roles están en las políticas? ¿Incluyen 'admin'?
+- **ADM-001:** E2, Riesgo de seguridad / permisos incorrectos
 
 ---
 
-## Prueba end-to-end de `create-company` (Caso A)
+## Prueba end-to-end de `create-company` (Solo después de diagnóstico normal)
 
 Si las queries confirman que `'admin'` existe y la migración se aplicó:
 
@@ -136,15 +210,48 @@ LIMIT 1;
 
 ---
 
-## Documentar hallazgos
+## Después de ejecutar las consultas
 
-Una vez ejecutadas las 3 consultas, crear documento:
-`docs/supabase-verification-results.md`
+### Documentar resultados
+
+Crear archivo: `docs/supabase-verification-results.md`
 
 Con:
-- Fecha y hora de verificación
-- Resultados literales de cada query
-- Caso (A/B/C)
-- Conclusión sobre ADM-001
-- Próximos pasos
+- Fecha, hora, proyecto Supabase, entorno
+- Resultados literales de cada query (A-F)
+- Diagnóstico: ¿escenario NORMAL, NO APARECE, o RLS INCOMPLETO?
+- Clasificación final de ADM-001: E2 vs E3
+- Próximos pasos confirmados
+
+### ADM-001 — Clasificación final según diagnóstico
+
+**E2 (Pendiente verificación)** si:
+- Enum `admin` NO aparece
+- Historial de migraciones tiene divergencia
+- RLS está deshabilitado o incompleto
+
+**E3 (Integración inspeccionada)** si:
+- Enum tiene `admin`
+- Migración 20260609 está registrada y aplicada
+- RLS está habilitado y reconoce `admin`
+- Tipos de columna son correctos
+
+**E4+ (End-to-end probado)** si:
+- E3 + prueba real de create-company exitosa
+- Empresa y membresía creadas correctamente
+- Trial_ends_at asignado correctamente
+- Usuario puede ver empresa (RLS)
+- Usuario NO puede ver otra empresa
+
+### Lo que esta verificación NO confirma
+
+Aunque E3 o E4 se alcancen, quedan pendientes:
+
+- ¿Es `admin` el rol correcto para creador de empresa?
+- ¿Están documentadas las diferencias entre `admin`, `owner`, `superadmin`?
+- ¿El resto del sistema distingue estos roles correctamente?
+- ¿Qué pasa si la inserción en company_members falla tras crear empresa? (inconsistencia)
+- ¿Las políticas RLS permiten que `admin` ejecute todas las acciones esperadas?
+
+Estas preguntas son **posteriores** a esta verificación.
 
