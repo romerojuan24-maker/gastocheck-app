@@ -184,12 +184,12 @@ Esta auditoría rastrea cada flujo como un usuario real lo recorría:
 
 ### Operatividad demostrada
 
-- **Flujos operativos realmente probados = 0 / 51 = 0%** ⚠️
-- **Implementación conectada (E3+E4+E5) = 9 / 51 = 17.6%**
-- **Existencia técnica (E1+E2+E3+E4+E5) = 42 / 51 = 82.4%**
-- **Pendiente clarificación o fix = 34 / 51 = 66.7%**
+- **Flujos operativos realmente probados (E4+E5) = 0 / 51 = 0%** ⚠️
+- **Integración conectada inspeccionada (E3+E4+E5) = 4 / 51 = 7.8%**
+- **Existencia técnica (E1+E2+E3) = 45 / 51 = 88.2%** (25 E1 + 16 E2 + 4 E3)
+- **Requiere verificación/fix (PARCIAL + NO VERIFICABLE + SIN CIERRE) = 44 / 51 = 86.3%**
 
-**CONCLUSIÓN:** Hay código que existe y algunas partes están conectadas, pero NINGÚN flujo ha sido probado end-to-end. El 33.3% anterior confundía "Edge Function existe" con "flujo operativo funciona".
+**CONCLUSIÓN:** 88.2% del código existe técnicamente. 7.8% está conectado (inspeccionado pero no probado). 0% probado end-to-end. El 33.3% anterior confundía "Edge Function existe" con "flujo operativo funciona".
 
 ---
 

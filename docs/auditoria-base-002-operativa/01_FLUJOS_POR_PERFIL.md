@@ -24,7 +24,7 @@
 
 | ID | Flujo | Reclasificación | Nivel | Razón |
 |----|-------|-----------------|-------|-------|
-| ADM-001 | Crear empresa | PARCIAL | E2 | Edge Function inspeccionada aisladamente. NO probado: rol `admin` en enum (auditoría técnica dice que falta). NO probado: si `admin` puede ser asignado sin error BD. Contradicción no resuelta. |
+| ADM-001 | Crear empresa | BLOQUEADO | E2 | Error confirmado: `create-company` intenta insertar `role:'admin'` pero enum `member_role` solo contiene `['owner','supervisor','spender','office','accountant']`. Fallará en BD con constraint violation. Requiere: (1) revisar todas migraciones posteriores, (2) decidir si usar `owner` o agregar `admin` al enum, (3) corregir e integración. |
 | ADM-002 | Configurar empresa | NO VERIFICABLE | E1 | Solo existe ruta; backend no inspeccionado |
 | ADM-003 | Invitar usuarios | PARCIAL | E3 | Edge Function probada (crea token, inserta invitación). PERO: envío de email NO VERIFICABLE (dependencia SMTP desconocida). Flujo incompleto sin email confirmado. |
 | ADM-004 | Cambiar roles | NO VERIFICABLE | E1 | Solo componente existe; lógica UPDATE no verificada. Punto de entrada desconocido. |
@@ -147,8 +147,8 @@ Nota: Categoría y Evidencia son dimensiones independientes.
 | Métrica | Cálculo | Valor |
 |---------|---------|-------|
 | **Flujos operativos probados** | E4 + E5 | **0 / 51 = 0%** |
-| Implementación conectada | E3 + E4 + E5 | 4 / 51 = **7.8%** |
-| Existencia técnica | E1 + E2 + E3 + E4 + E5 | 50 / 51 = **98.0%** |
+| Integración conectada inspeccionada | E3 + E4 + E5 | 4 / 51 = **7.8%** |
+| Existencia técnica | E1 + E2 + E3 = 25 + 16 + 4 | 45 / 51 = **88.2%** |
 | Requiere verificación/fix | PARCIAL + NO VERIFICABLE + SIN CIERRE | 44 / 51 = **86.3%** |
 
 ---

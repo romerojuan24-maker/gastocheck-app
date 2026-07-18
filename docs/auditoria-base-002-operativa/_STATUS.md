@@ -121,8 +121,9 @@
 | Flujos NO VERIFICABLE (E1-E2) | 0 | **17 (33.3%)** |
 | Flujos SIN CIERRE | 0 | **5 (9.8%)** |
 | Flujos NO IMPLEMENTADO | 6 (11.8%) | **6 (11.8%)** |
-| **Operatividad realmente probada** | 33.3% | **0%** |
-| **Implementación conectada (E3+)** | — | **9 / 51 = 17.6%** |
+| **Operatividad probada (E4+E5)** | 33.3% | **0%** |
+| **Integración conectada (E3+)** | — | **4 / 51 = 7.8%** |
+| **Existencia técnica (E1+E2+E3)** | — | **45 / 51 = 88.2%** |
 
 ### Niveles de evidencia
 
