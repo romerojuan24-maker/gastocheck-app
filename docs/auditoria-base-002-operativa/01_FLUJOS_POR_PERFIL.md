@@ -24,7 +24,7 @@
 
 | ID | Flujo | Reclasificación | Nivel | Razón |
 |----|-------|-----------------|-------|-------|
-| ADM-001 | Crear empresa | BLOQUEADO | E2 | Error confirmado: `create-company` intenta insertar `role:'admin'` pero enum `member_role` solo contiene `['owner','supervisor','spender','office','accountant']`. Fallará en BD con constraint violation. Requiere: (1) revisar todas migraciones posteriores, (2) decidir si usar `owner` o agregar `admin` al enum, (3) corregir e integración. |
+| ADM-001 | Crear empresa | PENDIENTE VERIFICACIÓN | E2 | `create-company` intenta `role:'admin'`. Enum inicial (20260606) no lo tenía. Pero migración posterior `20260609000001_enum_roles.sql` LO AGREGA. Estado depende de BD objetivo: si migración aplicada → OK; si no → fallará. NO cambiar código hasta verificar esquema real. Consultar `pg_type`/`pg_enum` en Supabase. |
 | ADM-002 | Configurar empresa | NO VERIFICABLE | E1 | Solo existe ruta; backend no inspeccionado |
 | ADM-003 | Invitar usuarios | PARCIAL | E3 | Edge Function probada (crea token, inserta invitación). PERO: envío de email NO VERIFICABLE (dependencia SMTP desconocida). Flujo incompleto sin email confirmado. |
 | ADM-004 | Cambiar roles | NO VERIFICABLE | E1 | Solo componente existe; lógica UPDATE no verificada. Punto de entrada desconocido. |

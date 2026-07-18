@@ -138,14 +138,19 @@
 
 ---
 
-## PLAN DE CORRECCIÓN
+## INVESTIGACIÓN TÉCNICA: ADM-001
 
-**Fase 1 — Bloqueadores operativos:** 24-32 horas (1 semana)  
-**Fase 2 — Fricciones altas:** 10-13 horas (3-4 días)  
-**Fase 3 — Verificabilidad:** 6-8 horas (2 días)  
-**Fase 4 — Inconsistencias:** 9-12 horas + X (2-3 días)  
+**Hallazgo:** Migración `20260609000001_enum_roles.sql` agrega `'admin'`, `'operator'`, `'superadmin'` al enum.
 
-**Total:** 49-65 horas = 2-3 semanas (si 1 dev FT)
+**Estado:** No es un error en el código. Es una verificación de BD requerida.
+
+**Pasos:**
+1. Verificar enum real en Supabase con: `SELECT ... FROM pg_enum WHERE typname = 'member_role'`
+2. Verificar historial migraciones: `SELECT * FROM supabase_migrations.schema_migrations WHERE version = '20260609000001'`
+3. Probar create-company con usuario real o test en BD staging
+4. Clasificar ADM-001 según resultado (E2/E3/E4/E5)
+
+**NO CAMBIAR CÓDIGO TODAVÍA** — Solo verificación de BD.
 
 ---
 

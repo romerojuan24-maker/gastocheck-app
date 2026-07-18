@@ -189,7 +189,17 @@ Esta auditoría rastrea cada flujo como un usuario real lo recorría:
 - **Existencia técnica (E1+E2+E3) = 45 / 51 = 88.2%** (25 E1 + 16 E2 + 4 E3)
 - **Requiere verificación/fix (PARCIAL + NO VERIFICABLE + SIN CIERRE) = 44 / 51 = 86.3%**
 
-**CONCLUSIÓN:** 88.2% del código existe técnicamente. 7.8% está conectado (inspeccionado pero no probado). 0% probado end-to-end. El 33.3% anterior confundía "Edge Function existe" con "flujo operativo funciona".
+### CORRECCIÓN CRÍTICA: ADM-001
+
+La auditoría inicial reportó error porque el enum inicial (20260606) no contenía `'admin'`. 
+
+Sin embargo, la migración posterior `20260609000001_enum_roles.sql` LO AGREGA explícitamente.
+
+**Estado correcto:** El código está diseñado correctamente. El estado operativo depende de que la migración esté aplicada en la BD objetivo.
+
+**No cambiar el código.** Verificar estado de BD y aplicar migración si es necesario.
+
+**CONCLUSIÓN:** 88.2% del código existe técnicamente. 7.8% está conectado (inspeccionado pero no probado). 0% probado end-to-end. La auditoría estática debe siempre verificar todas las migraciones antes de reportar error en schema.
 
 ---
 
