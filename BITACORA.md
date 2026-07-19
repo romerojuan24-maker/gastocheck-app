@@ -93,6 +93,68 @@ eas build --platform android --profile preview --wait
 
 ---
 
+## ✅ OTA PUBLISH RUNBOOK
+
+**ANTES DE PUBLICAR (checklist obligatorio):**
+
+- [ ] **runtimeVersion matches:** Verifica que `apps/mobile/app.json` runtimeVersion **coincida** con el binario en device
+  - Si no coincide: necesitas `eas build` primero, no solo `eas update`
+  - Para revisar device: Settings → About → "Embebido" y versión mostrada
+  
+- [ ] **APP_VERSION sincronizado:** 
+  - Edita SOLO `packages/shared/src/index.ts` (fuente única)
+  - Ejecuta: `npm run sync-shared-version` (copia a `apps/mobile/lib/shared/`)
+  - Verifica que ambos archivos sean idénticos
+
+- [ ] **Feature flags reviewed:** Abre `apps/mobile/app/config/features.ts`
+  - Verifica que los módulos que querés que se vean estén en `true`
+  - Si cambios pueden afectar otros módulos, considera rollout gradual
+  
+- [ ] **No uncommitted changes:** `git status` debe mostrar clean en apps/mobile/
+
+**PUBLICAR OTA:**
+
+```bash
+cd apps/mobile
+eas update --branch preview --message "OTA NNN · descripción de cambios"
+```
+
+Espera confirmación: `✔ Published!` y nota el Update ID
+
+**VERIFICAR EN DEVICE (5-10 minutos):**
+
+1. Abre CHECK SUITE
+2. Settings → Check connection (o fuerza actualización manual)
+3. App debería mostrar notificación de actualización
+4. Aceptar, esperar descarga (~1-5 min), recargar
+5. Verifica APP_VERSION en Settings (debe ser la nueva)
+6. Verifica "Embebido: no" (OTA descargado, no compilado en APK)
+
+**TROUBLESHOOTING:**
+
+| Síntoma | Causa | Solución |
+|---------|-------|----------|
+| "No updates available" | runtimeVersion mismatch | Nueva APK (eas build), no OTA |
+| Cambios de código no visibles | Vendored copy out of sync | `npm run sync-shared-version` |
+| Error "expo-sharing not found" | Dependencia faltante | `pnpm add expo-sharing` |
+| EAS build falla, OTA no | Problema EAS cloud (no del código) | Rollback: `eas update --branch preview --message "ROLLBACK"` |
+
+**EMERGENCY ROLLBACK:**
+
+Si una OTA causa problemas:
+
+```bash
+# Opción 1: Rollback rápido (5 minutos)
+git reset --hard 497cd8d    # Último conocido-bueno
+cd apps/mobile
+eas update --branch preview --message "ROLLBACK to OTA 225"
+
+# Opción 2: Esperar + debugg (más tiempo)
+# Fijar el problema, commit, publicar OTA nueva
+```
+
+---
+
 ## 📊 HISTORIAL — ROLLBACK POINTS (desde más reciente)
 
 | OTA | Commit | Estado | APP_VERSION (canary) | Última confirmación |
