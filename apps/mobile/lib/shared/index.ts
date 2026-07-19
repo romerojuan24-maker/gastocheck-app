@@ -47,4 +47,4 @@ export * from './cfdi-parser';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 228 · v0.1.83 · Bug Fixes (Reembolsos + CobraCheck)';
+export const APP_VERSION = 'OTA 229 · v0.1.84 · Company Profiles Fix';
