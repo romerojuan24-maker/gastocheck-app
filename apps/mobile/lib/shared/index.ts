@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 225 · v0.1.80 · Suite Apps Redesign';
+export const APP_VERSION = 'OTA 229 · v0.1.84 · Company Profiles + i18n + Regional + CFDI';
