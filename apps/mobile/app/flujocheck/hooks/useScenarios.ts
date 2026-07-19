@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { projectCashFlow } from '@gastocheck/shared'
-import type { CashFlowItem, RiskStatus } from '../types'
+import type { CashFlowItem } from '../types'
 
 export interface CashFlowScenario {
   id: string
@@ -180,7 +180,7 @@ export async function computeAndSaveScenarioProjection(
   baselineItems: CashFlowItem[],
   scenarioItems: CashFlowItem[],
   horizonDays: number = 30
-): Promise<{ balance: number; risk: RiskStatus }> {
+): Promise<{ balance: number; risk: 'green' | 'yellow' | 'red' }> {
   const combined = [...baselineItems, ...scenarioItems]
   const { balance, risk } = projectCashFlow(currentBalance, combined as any, horizonDays)
 

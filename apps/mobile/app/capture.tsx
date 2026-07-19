@@ -12,7 +12,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import DatePickerField from '../components/DatePickerField';
-import { GastoCheckCFDIIntegration, GastoCheckImportButton } from '../components/GastoCheckCFDIIntegration';
 import { supabase } from '../lib/supabase';
 import { getActiveMembership } from '../lib/membership';
 import {
@@ -115,9 +114,6 @@ export default function CaptureScreen() {
   const [categoryName, setCategoryName] = useState<string>('');
   const [showCatModal, setShowCatModal] = useState(false);
   const [categories,   setCategories]   = useState<{ id: string; name: string; parent_name?: string }[]>([]);
-
-  // Modal de importación CFDI
-  const [showCfdiModal, setShowCfdiModal] = useState(false);
 
   // Auto-categoría sugerida por proveedor (legacy — ya no se usa para el UI, solo para preselección)
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
@@ -386,35 +382,6 @@ export default function CaptureScreen() {
     const asset = res.assets[0];
     setPhoto({ uri: asset.uri, base64: asset.base64 });
     setStep('preview');
-  }
-
-  // ── Importar CFDI desde modal ──────────────────────────────────────────
-
-  function handleCfdiImported(data: {
-    proveedor: string;
-    rfc_proveedor: string;
-    total: number;
-    iva: number;
-    fecha: string;
-    concepto: string;
-    cfdi_uuid?: string;
-  }) {
-    setProveedor(data.proveedor);
-    setRfc(data.rfc_proveedor);
-    setTotal(String(data.total));
-    setIva(String(data.iva));
-    setFecha(data.fecha);
-    setDescription(data.concepto);
-    if (data.cfdi_uuid) {
-      setExtracted(prev => ({
-        ...(prev || {}),
-        fiscalUuid: data.cfdi_uuid,
-      }) as any);
-    }
-    setIsXml(true);
-    setShowCfdiModal(false);
-    const cat = suggestCategoryFromProvider(data.proveedor);
-    setSuggestedCategory(cat);
   }
 
   // ── Subir XML/CFDI ─────────────────────────────────────────────────────────
@@ -807,13 +774,7 @@ export default function CaptureScreen() {
     const dupMeta   = DUPLICATE_STATUS_META[dupResult.duplicate_status];
 
     return (
-      <>
-        <GastoCheckCFDIIntegration
-          visible={showCfdiModal}
-          onDismiss={() => setShowCfdiModal(false)}
-          onCFDILoaded={handleCfdiImported}
-        />
-        <Modal visible animationType="slide" transparent>
+      <Modal visible animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={[styles.modalIcon]}>{dupMeta?.icon ?? '⚠'}</Text>
@@ -876,7 +837,6 @@ export default function CaptureScreen() {
           </View>
         </View>
       </Modal>
-      </>
     );
   }
 
@@ -884,13 +844,7 @@ export default function CaptureScreen() {
 
   if (step === 'preview' && photo) {
     return (
-      <>
-        <GastoCheckCFDIIntegration
-          visible={showCfdiModal}
-          onDismiss={() => setShowCfdiModal(false)}
-          onCFDILoaded={handleCfdiImported}
-        />
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
         {/* Foto con pinch-to-zoom via ScrollView */}
         <ScrollView
           style={{ flex: 1 }}
@@ -947,8 +901,7 @@ export default function CaptureScreen() {
             </TouchableOpacity>
           </View>
         )}
-        </View>
-      </>
+      </View>
     );
   }
 
@@ -956,15 +909,9 @@ export default function CaptureScreen() {
 
   if (step === 'confirm' && photo) {
     return (
-      <>
-        <GastoCheckCFDIIntegration
-          visible={showCfdiModal}
-          onDismiss={() => setShowCfdiModal(false)}
-          onCFDILoaded={handleCfdiImported}
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}>
       <ScrollView style={{ backgroundColor: BRAND.gray, flex: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title}>Confirma los datos</Text>
@@ -1003,8 +950,6 @@ export default function CaptureScreen() {
         )}
 
         <View style={styles.form}>
-          <GastoCheckImportButton onPress={() => setShowCfdiModal(true)} />
-
           <Field label="Proveedor / Emisor" value={proveedor}
             onChangeText={(v) => { setProveedor(v); setSuggestedCategory(suggestCategoryFromProvider(v)); }} />
           <Field label="RFC Emisor (si lo tiene)"  value={rfc}        onChangeText={setRfc} />
@@ -1320,21 +1265,14 @@ export default function CaptureScreen() {
         </Modal>
 
       </ScrollView>
-        </KeyboardAvoidingView>
-      </>
+      </KeyboardAvoidingView>
     );
   }
 
   // ── Paso: Cámara ───────────────────────────────────────────────────────────
 
   return (
-    <>
-      <GastoCheckCFDIIntegration
-        visible={showCfdiModal}
-        onDismiss={() => setShowCfdiModal(false)}
-        onCFDILoaded={handleCfdiImported}
-      />
-      <View style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Capturar comprobante</Text>
         <Text style={styles.subtitle}>Toma foto clara del ticket o recibo</Text>
@@ -1375,8 +1313,7 @@ export default function CaptureScreen() {
       <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()} disabled={busy}>
         <Text style={styles.cancelBtnText}>Cancelar</Text>
       </TouchableOpacity>
-      </View>
-    </>
+    </View>
   );
 }
 

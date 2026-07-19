@@ -2,7 +2,6 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "skipLibCheck": true,
     "paths": {
       "@gastocheck/shared": ["./lib/shared/index.ts"]
     }

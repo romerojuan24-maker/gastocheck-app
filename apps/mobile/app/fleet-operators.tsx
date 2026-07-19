@@ -70,7 +70,7 @@ export default function FleetOperatorsScreen() {
         `)
         .eq('company_id', member.company_id);
 
-      let opList: any[] = (opData ?? []).map((item: any) => item.operator).filter(Boolean);
+      let opList = (opData ?? []).map((item: any) => item.operator).filter(Boolean) as typeof opList;
       if (filter !== 'all') {
         opList = opList.filter((op: any) => op.status === filter);
       }

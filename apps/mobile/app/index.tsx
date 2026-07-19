@@ -171,13 +171,12 @@ export default function CheckSuiteHome() {
           {DASHBOARD_TOP.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={[styles.topIconBtn, item.id === 'operador' && styles.disabledBtn]}
-              onPress={() => item.id !== 'operador' && router.push(item.route as any)}
-              activeOpacity={item.id === 'operador' ? 1 : 0.7}
-              disabled={item.id === 'operador'}
+              style={styles.topIconBtn}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.7}
             >
-              <Text style={[styles.topIcon, item.id === 'operador' && styles.disabledIcon]}>{item.icon}</Text>
-              <Text style={[styles.topLabel, item.id === 'operador' && styles.disabledLabel]}>{item.label}</Text>
+              <Text style={styles.topIcon}>{item.icon}</Text>
+              <Text style={styles.topLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -200,7 +199,7 @@ export default function CheckSuiteHome() {
           <TouchableOpacity
             key={item.id}
             style={styles.fullWidthBtn}
-            onPress={() => setShowSuiteAppsModal(true)}
+            onPress={() => router.push(item.route as any)}
             activeOpacity={0.7}
           >
             <Text style={styles.fullWidthIcon}>{item.icon}</Text>
@@ -266,6 +265,7 @@ const styles = StyleSheet.create({
   brandTitle:    { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   brandTagline:  { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   versionText:   { fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 14 },
+  settingsBtn:   { display: 'none' },
 
   companyPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -308,9 +308,6 @@ const styles = StyleSheet.create({
   },
   topIcon: { fontSize: 40, marginBottom: 4 },
   topLabel: { fontSize: 11, fontWeight: '600', color: BRAND.navy, textAlign: 'center' },
-  disabledBtn: { opacity: 0.5, backgroundColor: '#f0f0f0' },
-  disabledIcon: { opacity: 0.6 },
-  disabledLabel: { opacity: 0.6, color: '#90A4AE' },
 
   fullWidthBtn: {
     backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,

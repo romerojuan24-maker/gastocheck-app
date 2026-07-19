@@ -34,17 +34,12 @@ const ROLE_META: Record<string, { label: string; icon: string; color: string; de
 function invitableRolesFor(userRole: string | null, hasGastoCheck: boolean, hasCobraCheck: boolean): string[] {
   const roles: string[] = [];
   if (userRole && ADMIN_TIER.includes(userRole)) {
-    // Admin puede invitar otros admins y contadores
     roles.push('admin', 'contador_general', 'accountant');
-    // Admin puede invitar operativos según módulos activos
-    if (hasGastoCheck) roles.push('spender');
-    if (hasCobraCheck) roles.push('collector');
   } else if (userRole && CONTADOR_TIER.includes(userRole)) {
-    // Contador puede invitar otros contadores y operativos
     roles.push('accountant', 'contador_general');
-    if (hasGastoCheck) roles.push('spender');
-    if (hasCobraCheck) roles.push('collector');
   }
+  if (hasGastoCheck) roles.push('spender');
+  if (hasCobraCheck) roles.push('collector');
   return roles;
 }
 

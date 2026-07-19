@@ -234,8 +234,8 @@ export async function loadFacturaCheckDashboard(company_id: string): Promise<Fac
   // C. Por tipo de CFDI
   const cfdi_by_type = (cfdis || [])
     .reduce(
-      (acc: Array<{ type: CFDIType; count: number; total: number }>, c: any) => {
-        const existing = acc.find((t: any) => t.type === c.cfdi_type)
+      (acc, c) => {
+        const existing = acc.find((t) => t.type === c.cfdi_type)
         if (existing) {
           existing.count++
           existing.total += c.total
@@ -267,7 +267,7 @@ export async function loadFacturaCheckDashboard(company_id: string): Promise<Fac
       },
       [] as Array<{ channel: DistributionChannel; count: number; successes: number }>,
     )
-    .map((c: any) => ({
+    .map((c) => ({
       ...c,
       success_rate: c.count > 0 ? (c.successes / c.count) * 100 : 0,
     }))

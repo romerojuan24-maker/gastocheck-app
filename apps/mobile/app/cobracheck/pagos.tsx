@@ -179,19 +179,17 @@ export default function PagosPage() {
 
       // Actualizar cliente en Contador si la cantidad pagada es diferente
       if (movimiento.require_photo && online) {
-        try {
-          await supabase.from('contador_movements').insert({
-            company_id: user.company_id,
-            source_module: 'cobracheck',
-            source_id: selectedClient.id,
-            amount: movimiento.amount,
-            movement_type: 'income',
-            description: `Pago de ${selectedClient.name} - Diferencia detectada: ${formatCurrency(movimiento.amount)} vs ${formatCurrency(movimiento.expected_amount)}`,
-            reference_photo: photoUrl,
-          });
-        } catch {
+        await supabase.from('contador_movements').insert({
+          company_id: user.company_id,
+          source_module: 'cobracheck',
+          source_id: selectedClient.id,
+          amount: movimiento.amount,
+          movement_type: 'income',
+          description: `Pago de ${selectedClient.name} - Diferencia detectada: ${formatCurrency(movimiento.amount)} vs ${formatCurrency(movimiento.expected_amount)}`,
+          reference_photo: photoUrl,
+        }).catch(() => {
           // Si no existe la tabla, continuar sin error
-        }
+        })
       }
 
       Alert.alert(
@@ -265,7 +263,7 @@ export default function PagosPage() {
           {!selectedClient && (
             <View style={styles.clientsSection}>
               <Text style={styles.clientsTitle}>Selecciona un cliente</Text>
-              {clientes.map((c: ClientePago) => (
+              {clientes.map(c => (
                 <TouchableOpacity
                   key={c.id}
                   style={[styles.clientCard, selectedClient?.id === c.id && styles.clientCardSelected]}

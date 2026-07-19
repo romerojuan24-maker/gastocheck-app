@@ -7,7 +7,6 @@ import { supabase } from '../lib/supabase';
 import { BRAND } from '@gastocheck/shared';
 import { initLogger, setCurrentScreen } from '../lib/logger';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import '../lib/i18n';
 
 // Captura console.* al buffer local; console.warn/error también se envían
 // automáticamente a Supabase diagnostic_logs con la pantalla activa

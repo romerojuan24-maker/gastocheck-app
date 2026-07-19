@@ -4,7 +4,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
   ActivityIndicator, TextInput, Modal, ScrollView, Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useSearchParams } from 'expo-router';
 import { BRAND, RECEIPT_STATUS_META, DUPLICATE_STATUS_META } from '@gastocheck/shared';
 import type { ReceiptStatus, DuplicateStatus } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
@@ -56,7 +56,7 @@ const money = (n: number) =>
 
 export default function ReceiptSearchScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useSearchParams();
 
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [loading, setLoading] = useState(false);

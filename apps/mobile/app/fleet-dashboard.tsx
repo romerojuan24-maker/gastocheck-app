@@ -144,8 +144,8 @@ export default function FleetDashboardScreen() {
         // Mantenimiento preventivo
         const maintenanceAlerts = predictMaintenance(
           vk.vehicle.current_km ?? 0,
-          (vk.vehicle as any).last_oil_change_km ?? 0,
-          (vk.vehicle as any).last_inspection_km ?? 0,
+          vk.vehicle.last_oil_change_km ?? 0,
+          vk.vehicle.last_inspection_km ?? 0,
         );
         maintenanceAlerts.forEach((ma) => {
           ma.vehicle_id = vk.vehicle.id;

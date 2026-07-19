@@ -101,23 +101,9 @@ export default function ReembolsosContadorScreen() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.warn('reembolsos-contador: No user session');
-        setReembolsos([]);
-        setAccounts([]);
-        setLoading(false);
-        return;
-      }
-
+      if (!user) return;
       const m = await getActiveMembership(user.id);
-      if (!m) {
-        console.warn('reembolsos-contador: No active membership');
-        setReembolsos([]);
-        setAccounts([]);
-        setLoading(false);
-        return;
-      }
-
+      if (!m) return;
       setCompanyId(m.company_id);
 
       let q = supabase.from('reembolsos')
@@ -128,27 +114,14 @@ export default function ReembolsosContadorScreen() {
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
 
       const { data, error } = await q;
-      if (error) {
-        console.error('reembolsos-contador: loadReembolsos error:', error.message);
-        logError('REEMBOLSOS-CONTADOR', `loadReembolsos error: ${error.message}`, { statusFilter });
-      }
+      if (error) logError('REEMBOLSOS-CONTADOR', `loadReembolsos error: ${error.message}`, { statusFilter });
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
-      const { data: accts, error: acctsErr } = await supabase.from('accounting_accounts')
-        .select('id, code, name')
-        .eq('company_id', m.company_id)
-        .eq('active', true)
-        .order('code');
-      if (acctsErr) {
-        console.error('reembolsos-contador: loadAccounts error:', acctsErr.message);
-        logError('REEMBOLSOS-CONTADOR', `loadAccounts error: ${acctsErr.message}`, { company_id: m.company_id });
-      } else if (accts && accts.length > 0) {
-        setAccounts(accts);
-      } else {
-        console.warn('reembolsos-contador: No accounting accounts found');
-        logError('REEMBOLSOS-CONTADOR', 'No hay cuentas contables configuradas', { company_id: m.company_id });
-      }
+      const { data: accts } = await supabase.from('accounting_accounts')
+        .select('id, code, name').eq('company_id', m.company_id)
+        .eq('active', true).order('code');
+      setAccounts(accts ?? []);
     } finally {
       setLoading(false);
     }

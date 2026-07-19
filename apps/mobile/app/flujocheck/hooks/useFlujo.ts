@@ -32,7 +32,7 @@ export function useFlujoBalance(companyId: string) {
 
 export function useFlujoItems(companyId: string) {
   const [items, setItems] = useState<CashFlowItem[]>([])
-  const [risk, setRisk] = useState<RiskStatus>('healthy')
+  const [risk, setRisk] = useState<'green' | 'yellow' | 'red'>('green')
   const [projected, setProjected] = useState(0)
   const [loading, setLoading] = useState(false)
 
