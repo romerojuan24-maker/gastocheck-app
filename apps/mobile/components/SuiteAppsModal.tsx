@@ -22,7 +22,7 @@ export function SuiteAppsModal({ visible, onDismiss, onSuccess }: SuiteAppsModal
 
     setLoading(true);
     try {
-      const isValid = await validateSuiteAppsPassword(password);
+      const isValid = await validateSuiteAppsPassword(password.trim());
       if (!isValid) {
         Alert.alert('Acceso denegado', 'Contraseña incorrecta');
         return;
