@@ -106,7 +106,7 @@ export default function ReembolsosContadorScreen() {
       if (!m) return;
       setCompanyId(m.company_id);
 
-      let q = supabase.from('reembolsos')
+      let q = supabase.from('reimbursements')
         .select('id, employee_id, employee_email, status, total, notes, created_at')
         .eq('company_id', m.company_id)
         .order('created_at', { ascending: false });
@@ -262,7 +262,7 @@ ${movs}
       if (polErr) throw new Error(polErr.message);
 
       // 2. Cerrar reembolso y ligar póliza
-      await supabase.from('reembolsos').update({
+      await supabase.from('reimbursements').update({
         status:            'closed',
         linked_policy_id:  pol.id,
       }).eq('id', selected.id);
