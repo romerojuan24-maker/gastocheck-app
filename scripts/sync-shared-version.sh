@@ -1,26 +1,19 @@
 #!/bin/bash
-# Script: Sincronizar APP_VERSION de packages/shared a apps/mobile/lib/shared
-# Uso: npm run sync-shared-version
+# Sync APP_VERSION from packages/shared/src/ to apps/mobile/lib/shared/
+# Run after editing packages/shared/src/index.ts
 
 SOURCE="packages/shared/src/index.ts"
-TARGET="apps/mobile/lib/shared/index.ts"
+DEST="apps/mobile/lib/shared/index.ts"
 
 if [ ! -f "$SOURCE" ]; then
-  echo "❌ ERROR: $SOURCE no existe"
+  echo "❌ Source file not found: $SOURCE"
   exit 1
 fi
 
-if [ ! -f "$TARGET" ]; then
-  echo "❌ ERROR: $TARGET no existe"
+if [ ! -f "$DEST" ]; then
+  echo "❌ Destination file not found: $DEST"
   exit 1
 fi
 
-# Copiar el archivo completo
-cp "$SOURCE" "$TARGET"
-
-if [ $? -eq 0 ]; then
-  echo "✅ APP_VERSION sincronizada: $SOURCE → $TARGET"
-else
-  echo "❌ Error al sincronizar"
-  exit 1
-fi
+cp "$SOURCE" "$DEST"
+echo "✅ Synced $SOURCE → $DEST"
