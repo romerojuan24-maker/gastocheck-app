@@ -283,4 +283,64 @@ Luego retry cambios más pequeños desde esa base limpia.
 
 ---
 
-**Última actualización:** 2026-07-15 · **OTA actual:** 217 (UI Redesign - icon-only format)
+---
+
+## 📊 MONITORING OTA (Phase 3)
+
+**Verificar estado de OTAs publicadas sin esperar en device:**
+
+```bash
+# Ver últimas 10 OTAs
+bash scripts/monitor-ota.sh
+```
+
+**Salida esperada:**
+```
+📊 OTA Monitoring — CHECK SUITE
+
+🔍 Últimas OTAs publicadas en preview channel:
+
+Platform: android
+Published: 2026-07-18T15:30:00.000Z
+Update ID: abc123...
+Platform: android
+Published: 2026-07-18T14:20:00.000Z
+Update ID: def456...
+```
+
+**Interpretar:**
+- Si `Update ID` aparece = OTA publicada exitosamente en Expo CDN
+- Si falta = OTA falló durante publicación
+- Si aparece pero device no la recibe en 10 min = runtimeVersion mismatch
+
+---
+
+## 🤖 AUTOMATIZAR OTA (Opcional)
+
+**En lugar de publicar manualmente, usar GitHub Actions:**
+
+1. Ve a: GitHub → Actions → "Publish OTA"
+2. Click "Run workflow"
+3. Ingresa:
+   - **message:** `OTA 230 · Fix bug description`
+   - **branch:** `preview` (o `production`)
+4. Click "Run workflow"
+5. Espera confirmación (5-10 minutos)
+
+**Ventajas:**
+- ✅ APP_VERSION auto-sincronizado antes de publicar
+- ✅ Previene publicar con código desincronizado
+- ✅ GitHub registry preserva historial de OTAs
+- ✅ No necesita credenciales en terminal (EAS_TOKEN en secrets)
+
+**Setup requerido (primera vez):**
+1. Crea token en https://expo.dev/ → Account → Personal access tokens
+2. Copia el token
+3. GitHub → Settings → Secrets → New repository secret
+4. Nombre: `EAS_TOKEN`
+5. Valor: (pega el token)
+6. Listo — GitHub Actions puede publicar OTAs
+
+---
+
+**Última actualización:** 2026-07-18 · **OTA actual:** 225 (Recovery Base + Automation)

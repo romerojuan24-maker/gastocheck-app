@@ -1,0 +1,83 @@
+name: Publish OTA
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'OTA message (e.g., OTA 230 · Fix bug)'
+        required: true
+        type: string
+      branch:
+        description: 'OTA branch (preview or production)'
+        required: false
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify APP_VERSION is synced
+        run: |
+          diff packages/shared/src/index.ts apps/mobile/lib/shared/index.ts
+          if [ $? -ne 0 ]; then
+            echo "❌ APP_VERSION not synced! Run: npm run sync-shared-version"
+            exit 1
+          fi
+          echo "✅ APP_VERSION verified synced"
+
+      - name: Get APP_VERSION
+        id: version
+        run: |
+          VERSION=$(grep "export const APP_VERSION" packages/shared/src/index.ts | grep -oP "'\K[^']+")
+          echo "app_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing: $VERSION"
+
+      - name: Publish OTA
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          cd apps/mobile
+          eas update --branch ${{ inputs.branch }} --message "${{ inputs.message }}"
+
+      - name: Report success
+        run: |
+          echo "✅ OTA Published Successfully"
+          echo ""
+          echo "📋 Details:"
+          echo "  App Version: ${{ steps.version.outputs.app_version }}"
+          echo "  Message: ${{ inputs.message }}"
+          echo "  Branch: ${{ inputs.branch }}"
+          echo ""
+          echo "⏱️  Device update: 5-10 minutes"
+          echo "🔍 Verify: Settings → About → APP_VERSION should change"
+
+      - name: Create GitHub Release (optional)
+        if: inputs.branch == 'production'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.app_version }}
+          release_name: ${{ inputs.message }}
+          draft: false
+          prerelease: false
