@@ -10,7 +10,8 @@
   "scripts": {
     "web": "npm run dev -w apps/web",
     "mobile": "npm run start -w apps/mobile",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "sync-shared-version": "bash scripts/sync-shared-version.sh"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

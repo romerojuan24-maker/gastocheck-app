@@ -45,4 +45,6 @@ export * from './advisor';
 export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 234 · v0.1.89 · Audit Fixes - i18n mobile + tax calculation + validators';
+// ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
+// Después de cambiar, ejecutar: npm run sync-shared-version
+export const APP_VERSION = 'OTA 225 · v0.1.80 · Suite Apps Redesign (Recovery)';

@@ -1,0 +1,29 @@
+#!/bin/sh
+# pre-commit hook: Validaciones antes de commit
+
+# 1. Si packages/shared/src/index.ts cambió, sincronizar a apps/mobile/lib/shared/
+if git diff --cached --name-only | grep -q "packages/shared/src/index.ts"; then
+  echo "📦 packages/shared/src/index.ts modificado — sincronizando..."
+  bash scripts/sync-shared-version.sh
+  git add apps/mobile/lib/shared/index.ts
+  echo "✅ Sync completado, agregado a commit"
+fi
+
+# 2. Advertencia si runtimeVersion cambió sin un "eas build" reciente
+if git diff --cached apps/mobile/app.json | grep -q "runtimeVersion"; then
+  echo ""
+  echo "⚠️  ADVERTENCIA: runtimeVersion en app.json fue modificado"
+  echo "   Recuerda: Cambiar runtimeVersion requiere un nuevo APK (eas build)"
+  echo "   Si olvidaste hacer el build, presiona Ctrl+C para cancelar"
+  echo ""
+  sleep 2
+fi
+
+# 3. Advertencia si projectId o slug cambiaron
+if git diff --cached apps/mobile/app.json | grep -qE "projectId|slug|updates.url"; then
+  echo ""
+  echo "🚨 CRÍTICO: Configuración EAS cambió (projectId/slug/updates.url)"
+  echo "   Verifica que esto es intencional antes de continuar"
+  echo ""
+  sleep 2
+fi
