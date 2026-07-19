@@ -14,11 +14,12 @@ const DEMO_PASSWORD = 'Demo2026!';
 const REGISTER_FN   = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/register-company`;
 
 export default function LoginScreen() {
-  const [tab,       setTab]       = useState<Tab>('login');
-  const [email,     setEmail]     = useState('');
-  const [password,  setPassword]  = useState('');
-  const [company,   setCompany]   = useState('');
-  const [loading,   setLoading]   = useState(false);
+  const [tab,         setTab]         = useState<Tab>('login');
+  const [email,       setEmail]       = useState('');
+  const [password,    setPassword]    = useState('');
+  const [company,     setCompany]     = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // ── Iniciar sesión ──────────────────────────────────────────────────────────
 
@@ -230,16 +231,25 @@ export default function LoginScreen() {
           <Text style={styles.label}>
             {tab === 'register' ? 'Contraseña (mín. 8 caracteres) *' : 'Contraseña *'}
           </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor="#B0BEC5"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            returnKeyType="done"
-            onSubmitEditing={canSubmit ? (tab === 'login' ? handleLogin : handleRegister) : undefined}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="••••••••"
+              placeholderTextColor="#B0BEC5"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              returnKeyType="done"
+              onSubmitEditing={canSubmit ? (tab === 'login' ? handleLogin : handleRegister) : undefined}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={styles.btn}
@@ -315,6 +325,21 @@ const styles = StyleSheet.create({
   input:          {
     borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10,
     padding: 13, fontSize: 15, color: BRAND.navy, backgroundColor: BRAND.gray,
+  },
+  passwordContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10,
+    paddingRight: 12, backgroundColor: BRAND.gray,
+  },
+  passwordInput: {
+    flex: 1, paddingHorizontal: 13, paddingVertical: 13,
+    fontSize: 15, color: BRAND.navy,
+  },
+  eyeBtn: {
+    padding: 8, justifyContent: 'center', alignItems: 'center',
+  },
+  eyeIcon: {
+    fontSize: 18,
   },
   btn:            { backgroundColor: BRAND.blue, borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
   btnDisabled:    { opacity: 0.5 },
