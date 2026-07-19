@@ -4,7 +4,7 @@ const SUITE_APPS_KEY = '@gastocheck_suite_apps_session';
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 export async function validateSuiteAppsPassword(password: string): Promise<boolean> {
-  return password === 'suite1';
+  return password.toLowerCase().trim() === 'suite1';
 }
 
 export async function setSuiteAppsSession(): Promise<void> {
