@@ -42,9 +42,6 @@ export * from './flujocheck';
 export * from './facturacheck';
 export * from './inventariocheck';
 export * from './advisor';
-export * from './cfdi-parser';
 
 // Versión de la app — actualizar con cada OTA
-// ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
-// Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 230 · v0.1.85 · Audit Fixes + Full Feature Complete';
+export const APP_VERSION = 'OTA 206 · v0.1.72';
