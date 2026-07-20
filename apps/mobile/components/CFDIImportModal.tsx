@@ -3,10 +3,13 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Alert,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+// v19 de expo-file-system movió readAsStringAsync al subpath /legacy
+import * as FileSystem from 'expo-file-system/legacy';
 import { parseCfdiXml, type CfdiData } from '@gastocheck/shared';
-import { useI18n } from '../hooks/useI18n';
 import { BRAND } from '@gastocheck/shared';
+
+// NO usar useI18n/react-i18next aquí: i18next nunca se inicializa en la app
+// (lib/i18n.ts es huérfano) y useTranslation() truena la pantalla completa.
 
 interface CFDIImportModalProps {
   visible: boolean;
@@ -17,15 +20,14 @@ interface CFDIImportModalProps {
 
 export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImportModalProps) {
   const [loading, setLoading] = useState(false);
-  const { t } = useI18n();
 
   const handlePickFile = async () => {
     try {
       setLoading(true);
 
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/xml', 'application/pdf'],
-        copyToCacheDirectory: false,
+        type: ['application/xml', 'text/xml', 'application/pdf'],
+        copyToCacheDirectory: true,
       });
 
       if (result.canceled) {
@@ -36,63 +38,50 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       const file = result.assets[0];
       const fileName = file.name?.toLowerCase() ?? '';
 
-      // Validar extensión del archivo
       if (!fileName.endsWith('.xml') && !fileName.endsWith('.pdf')) {
-        Alert.alert(t('common.error'), 'Solo se aceptan archivos XML o PDF');
+        Alert.alert('Error', 'Solo se aceptan archivos XML o PDF');
         setLoading(false);
         return;
       }
 
-      // Si es PDF, mostrar alerta que se requiere XML para procesamiento automático
       if (fileName.endsWith('.pdf')) {
         Alert.alert(
           '⚠️ Archivo PDF',
           'Se recomienda usar archivos XML para procesamiento automático. Los PDF requieren captura manual de datos.',
           [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Continuar', onPress: () => handleXMLProcessing(file, mode, onSuccess, onDismiss, t, setLoading) }
+            { text: 'Cancelar', style: 'cancel', onPress: () => setLoading(false) },
+            { text: 'Continuar', onPress: () => handleXMLProcessing(file) },
           ]
         );
         return;
       }
 
-      // Si es XML, procesar directamente
-      await handleXMLProcessing(file, mode, onSuccess, onDismiss, t, setLoading);
+      await handleXMLProcessing(file);
     } catch (error) {
-      Alert.alert(t('common.error'), t('validation.fileSaveError') + ': ' + (error as Error).message);
-    } finally {
+      Alert.alert('Error', 'No se pudo leer el archivo: ' + (error as Error).message);
       setLoading(false);
     }
   };
 
-  // Función auxiliar para procesar XML
-  const handleXMLProcessing = async (
-    file: any,
-    mode: 'gasto' | 'cobra',
-    onSuccess: (data: Omit<CfdiData, 'expense_id'>) => void,
-    onDismiss: () => void,
-    t: any,
-    setLoading: (loading: boolean) => void
-  ) => {
+  const handleXMLProcessing = async (file: { uri: string }) => {
     try {
       const xmlContent = await FileSystem.readAsStringAsync(file.uri);
       const cfdiData = parseCfdiXml(xmlContent);
 
-      if (!cfdiData) {
-        Alert.alert(t('common.error'), t('cfdi.parseError'));
+      if (!cfdiData || !cfdiData.rfc_emisor) {
+        Alert.alert('Error', 'El archivo no es un CFDI válido o no se pudo leer.');
         setLoading(false);
         return;
       }
 
-      // Validar tipo de comprobante según el modo
       if (mode === 'gasto' && cfdiData.tipo_comprobante !== 'I') {
-        Alert.alert(t('common.error'), 'Este CFDI no es una factura de compra (debe ser tipo Ingreso/factura emitida por proveedor)');
+        Alert.alert('Error', 'Este CFDI no es una factura de compra (debe ser tipo Ingreso/factura emitida por proveedor)');
         setLoading(false);
         return;
       }
 
       if (mode === 'cobra' && cfdiData.tipo_comprobante !== 'I') {
-        Alert.alert(t('common.error'), 'Este CFDI no es una factura de venta (debe ser tipo Ingreso/factura emitida por ti a tu cliente)');
+        Alert.alert('Error', 'Este CFDI no es una factura de venta (debe ser tipo Ingreso/factura emitida por ti a tu cliente)');
         setLoading(false);
         return;
       }
@@ -100,18 +89,16 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       onSuccess(cfdiData);
       onDismiss();
     } catch (error) {
-      Alert.alert(t('common.error'), 'Error al procesar XML: ' + (error as Error).message);
+      Alert.alert('Error', 'Error al procesar XML: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const title = mode === 'gasto'
-    ? t('cfdi.selectFile')
-    : 'Importar Factura Emitida';
+  const title = mode === 'gasto' ? 'Importar CFDI de Compra' : 'Importar Factura Emitida';
 
   const description = mode === 'gasto'
-    ? t('cfdi.selectVendorXml')
+    ? 'Carga el XML de la factura que te emitió tu proveedor.'
     : 'Carga el XML de facturas que emitió tu empresa. También puedes usar PDF, pero se requiere captura manual de datos.';
 
   return (
@@ -125,7 +112,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={BRAND.navy} />
-              <Text style={styles.loadingText}>{t('cfdi.importing')}</Text>
+              <Text style={styles.loadingText}>Importando…</Text>
             </View>
           ) : (
             <View style={styles.buttonContainer}>
@@ -142,7 +129,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
                 onPress={onDismiss}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           )}

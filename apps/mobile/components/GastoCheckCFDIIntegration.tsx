@@ -1,7 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { CFDIImportModal } from './CFDIImportModal';
-import { useI18n } from '../hooks/useI18n';
 import { type CfdiData, BRAND } from '@gastocheck/shared';
 
 interface GastoCheckCFDIIntegrationProps {
@@ -55,7 +54,6 @@ export function GastoCheckCFDIIntegration({
 
 // Botón para abrir el modal
 export function GastoCheckImportButton({ onPress }: { onPress: () => void }) {
-  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={styles.importButton}
@@ -64,8 +62,8 @@ export function GastoCheckImportButton({ onPress }: { onPress: () => void }) {
     >
       <Text style={styles.importIcon}>📄</Text>
       <View>
-        <Text style={styles.importLabel}>{t('gastocheck.importXml')}</Text>
-        <Text style={styles.importHint}>{t('gastocheck.importHint')}</Text>
+        <Text style={styles.importLabel}>Importar CFDI (XML)</Text>
+        <Text style={styles.importHint}>Carga la factura de tu proveedor</Text>
       </View>
     </TouchableOpacity>
   );
