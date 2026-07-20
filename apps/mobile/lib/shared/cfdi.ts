@@ -63,9 +63,14 @@ export function parseCfdiXml(xml: string): Omit<CfdiData, 'expense_id'> {
   }
 
   return {
-    uuid:         attr('TimbreFiscalDigital', 'UUID'),
-    rfc_emisor:   attr('Emisor',       'Rfc'),
-    rfc_receptor: attr('Receptor',     'Rfc'),
+    uuid:             attr('TimbreFiscalDigital', 'UUID'),
+    rfc_emisor:       attr('Emisor',       'Rfc'),
+    nombre_emisor:    attr('Emisor',       'Nombre'),
+    rfc_receptor:     attr('Receptor',     'Rfc'),
+    nombre_receptor:  attr('Receptor',     'Nombre'),
+    folio:            attr('Comprobante', 'Folio'),
+    serie:            attr('Comprobante', 'Serie'),
+    tipo_comprobante: attr('Comprobante', 'TipoDeComprobante'),
     subtotal:     num(attr('Comprobante', 'SubTotal')),
     descuento,
     iva,

@@ -11,7 +11,7 @@ import { BRAND } from '@gastocheck/shared';
 interface CFDIImportModalProps {
   visible: boolean;
   onDismiss: () => void;
-  onSuccess: (data: CfdiData) => void;
+  onSuccess: (data: Omit<CfdiData, 'expense_id'>) => void;
   mode: 'gasto' | 'cobra'; // gasto = receptor, cobra = emisor
 }
 
@@ -69,7 +69,7 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
   const handleXMLProcessing = async (
     file: any,
     mode: 'gasto' | 'cobra',
-    onSuccess: (data: CfdiData) => void,
+    onSuccess: (data: Omit<CfdiData, 'expense_id'>) => void,
     onDismiss: () => void,
     t: any,
     setLoading: (loading: boolean) => void
@@ -91,8 +91,8 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
         return;
       }
 
-      if (mode === 'cobra' && cfdiData.tipo_comprobante !== 'E') {
-        Alert.alert(t('common.error'), 'Este CFDI no es una factura emitida por tu empresa (debe ser tipo Egreso/factura emitida por ti)');
+      if (mode === 'cobra' && cfdiData.tipo_comprobante !== 'I') {
+        Alert.alert(t('common.error'), 'Este CFDI no es una factura de venta (debe ser tipo Ingreso/factura emitida por ti a tu cliente)');
         setLoading(false);
         return;
       }

@@ -24,7 +24,7 @@ export function CobraCheckCFDIIntegration({
   onDismiss,
   onCFDILoaded,
 }: CobraCheckCFDIIntegrationProps) {
-  const handleCFDISuccess = (cfdiData: CfdiData) => {
+  const handleCFDISuccess = (cfdiData: Omit<CfdiData, 'expense_id'>) => {
     // Mapear datos CFDI al formato de CobraCheck
     const descripcion = cfdiData.conceptos
       .map(c => c.descripcion)
@@ -32,14 +32,14 @@ export function CobraCheckCFDIIntegration({
       .substring(0, 200);
 
     onCFDILoaded({
-      cliente: (cfdiData as any).nombre_receptor || (cfdiData as any).rfc_receptor,
-      rfc_cliente: (cfdiData as any).rfc_receptor,
+      cliente: cfdiData.nombre_receptor || cfdiData.rfc_receptor,
+      rfc_cliente: cfdiData.rfc_receptor,
       monto: cfdiData.total,
       iva: cfdiData.iva,
       fecha: cfdiData.fecha,
       descripcion,
       cfdi_uuid: cfdiData.uuid,
-      folio: (cfdiData as any).folio || (cfdiData as any).serie || '',
+      folio: cfdiData.folio || cfdiData.serie || '',
     });
 
     onDismiss();

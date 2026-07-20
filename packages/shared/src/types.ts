@@ -167,7 +167,12 @@ export interface CfdiData {
   expense_id: string;
   uuid: string;
   rfc_emisor: string;
+  nombre_emisor: string;
   rfc_receptor: string;
+  nombre_receptor: string;
+  folio: string;
+  serie: string;
+  tipo_comprobante: string;
   subtotal: number;
   descuento: number;
   iva: number;

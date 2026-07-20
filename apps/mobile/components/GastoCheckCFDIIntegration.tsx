@@ -23,7 +23,7 @@ export function GastoCheckCFDIIntegration({
   onDismiss,
   onCFDILoaded,
 }: GastoCheckCFDIIntegrationProps) {
-  const handleCFDISuccess = (cfdiData: CfdiData) => {
+  const handleCFDISuccess = (cfdiData: Omit<CfdiData, 'expense_id'>) => {
     // Mapear datos CFDI al formato de GastoCheck
     const concepto = cfdiData.conceptos
       .map(c => c.descripcion)
