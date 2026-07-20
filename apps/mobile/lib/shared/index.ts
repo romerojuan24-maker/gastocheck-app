@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 234 · v0.1.84 · Reembolsos fix + login eye + password fix';
+export const APP_VERSION = 'OTA 235 · v0.1.84 · Fase 1+2: SAT, autorizaciones web, flujo, cobranza';

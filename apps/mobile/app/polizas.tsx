@@ -27,6 +27,7 @@ interface Reembolso {
 interface ReceiptLine {
   id: string;
   provider_name: string | null;
+  provider_rfc: string | null;
   total_amount: number;
   receipt_date: string | null;
   fiscal_uuid: string | null;
@@ -140,7 +141,7 @@ export default function PolizasScreen() {
     setLoadingLines(true);
     const { data } = await supabase
       .from('receipt_reembolsos')
-      .select('receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, sat_validation_status, is_credit, accounting_account_id, accounting_account_code)')
+      .select('receipts(id, provider_name, provider_rfc, total_amount, receipt_date, fiscal_uuid, sat_validation_status, is_credit, accounting_account_id, accounting_account_code)')
       .eq('reembolso_id', r.id);
 
     const lines: ReceiptLine[] = (data ?? [])
@@ -181,17 +182,22 @@ export default function PolizasScreen() {
   // ── Validar SAT ────────────────────────────────────────────────────────────
 
   async function validateSat() {
-    const fiscales = rebReceipts.filter(r => r.accepted && r.fiscal_uuid);
+    // Solo pendientes (DUP-003): no re-validar validated/blocked
+    const fiscales = rebReceipts.filter(r => r.accepted && r.fiscal_uuid &&
+      r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'blocked');
     if (fiscales.length === 0) {
-      Alert.alert('Sin CFDI', 'Los comprobantes aceptados no tienen CFDI para validar en SAT.');
+      Alert.alert('Sin CFDI', 'No hay CFDI pendientes de validar en SAT.');
       return;
     }
     setValidatingSat(true);
     let ok = 0; let fail = 0;
     for (const rec of fiscales) {
       try {
-        const { data } = await supabase.functions.invoke('validate-cfdi', { body: { uuid: rec.fiscal_uuid } });
-        const ns = data?.status === 'validated' ? 'validated' : 'invalid';
+        // validate-cfdi responde { ok, estado, vigente }; el CHECK solo admite pending/validated/blocked/warning
+        const { data } = await supabase.functions.invoke('validate-cfdi', {
+          body: { uuid: rec.fiscal_uuid, rfc_emisor: rec.provider_rfc ?? '', total: rec.total_amount ?? 0 },
+        });
+        const ns = data?.vigente ? 'validated' : data?.estado === 'Cancelado' ? 'blocked' : 'warning';
         await supabase.from('receipts').update({ sat_validation_status: ns }).eq('id', rec.id);
         setRebReceipts(prev => prev.map(r => r.id === rec.id ? { ...r, sat_validation_status: ns } : r));
         if (ns === 'validated') ok++; else fail++;
@@ -228,7 +234,8 @@ export default function PolizasScreen() {
 
       const acceptedIds = accepted.map(r => r.id);
       if (acceptedIds.length > 0) {
-        await supabase.from('receipts').update({ status: 'closed_in_policy' }).in('id', acceptedIds);
+        // 'closed_in_policy' es status de expenses, NO de receipts (viola su CHECK); el valor válido es 'included_in_batch'
+        await supabase.from('receipts').update({ status: 'included_in_batch' }).in('id', acceptedIds);
       }
 
       Alert.alert('✅ Póliza generada', `La póliza fue creada por ${money(total)}.\n\nEl reembolso quedó cerrado.`, [
@@ -247,7 +254,7 @@ export default function PolizasScreen() {
   const allClassified = accepted.length > 0 && accepted.every(r => !!r.accounting_account_code);
   const hasCfdi       = accepted.some(r => !!r.fiscal_uuid);
   const allSatDone    = !hasCfdi || accepted.every(r =>
-    !r.fiscal_uuid || r.sat_validation_status === 'validated' || r.sat_validation_status === 'invalid'
+    !r.fiscal_uuid || r.sat_validation_status === 'validated' || r.sat_validation_status === 'blocked' || r.sat_validation_status === 'warning'
   );
   const canGenerate   = allClassified && allSatDone;
 
@@ -294,8 +301,8 @@ export default function PolizasScreen() {
                 ? <Text style={{ textAlign: 'center', color: '#90A4AE', padding: 24 }}>Sin comprobantes en este reembolso</Text>
                 : rebReceipts.map(rec => {
                   const satOk   = rec.sat_validation_status === 'validated';
-                  const satBad  = rec.sat_validation_status === 'invalid';
-                  const satPend = !!rec.fiscal_uuid && !rec.sat_validation_status;
+                  const satBad  = rec.sat_validation_status === 'blocked' || rec.sat_validation_status === 'warning';
+                  const satPend = !!rec.fiscal_uuid && !satOk && !satBad;
 
                   return (
                     <View key={rec.id} style={[styles.recCard, !rec.accepted && { opacity: 0.45 }]}>

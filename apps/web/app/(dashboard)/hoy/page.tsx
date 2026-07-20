@@ -52,18 +52,19 @@ export default function HoyPage() {
         cfdiRes, stockAlertsRes,
         insightsRes,
       ] = await Promise.all([
-        // GastoCheck: anticipos pendientes de aprobación
-        supabase.from('advances').select('id', { count: 'exact', head: true })
-          .eq('company_id', cid).eq('status', 'requested'),
-        // GastoCheck: comprobantes por revisar
+        // GastoCheck: solicitudes de anticipo pendientes (schema real: advance_requests, no advances)
+        supabase.from('advance_requests').select('id', { count: 'exact', head: true })
+          .eq('company_id', cid).eq('status', 'pending'),
+        // GastoCheck: comprobantes por revisar (el flujo escribe 'captured'; 'submitted' por compatibilidad)
         supabase.from('receipts').select('id', { count: 'exact', head: true })
-          .eq('company_id', cid).eq('status', 'submitted'),
+          .eq('company_id', cid).in('status', ['captured', 'submitted']),
         // CobraCheck: total por cobrar vigente
         supabase.from('cobra_invoices').select('amount')
           .eq('company_id', cid).in('status', ['pending','partial']),
-        // CobraCheck: vencidas
+        // CobraCheck: vencidas — nada asigna status 'overdue'; se calcula por due_date
         supabase.from('cobra_invoices').select('amount')
-          .eq('company_id', cid).eq('status', 'overdue'),
+          .eq('company_id', cid).in('status', ['pending','partial'])
+          .lt('due_date', new Date().toISOString().split('T')[0]),
         // BancoCheck: saldo cuentas activas
         supabase.from('bank_accounts').select('current_balance')
           .eq('company_id', cid).eq('is_active', true),

@@ -17,10 +17,12 @@ const MANAGER_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_g
 const COBRA_ROLES   = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general', 'collector'];
 
 
+// Accesos por PERFIL para revisión de la app: cada icono abre el hub real de ese rol.
+// (Antes: Admin→/settings, Contador→/administracion, Operador→/operador que NO existe → pantalla rota)
 const DASHBOARD_TOP = [
-  { id: 'admin',      icon: '👑', label: 'Admin',      route: '/settings' },
-  { id: 'contador',   icon: '📊', label: 'Contador',   route: '/administracion' },
-  { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/operador' },
+  { id: 'admin',      icon: '👑', label: 'Admin',      route: '/supervisor' },            // panel de autorizaciones
+  { id: 'contador',   icon: '📊', label: 'Contador',   route: '/supervisor/reembolsos' }, // clasificar/validar/póliza
+  { id: 'operador',   icon: '🛠',  label: 'Operador',   route: '/gastocheck' },            // vista comprador/operativa
 ];
 
 const DASHBOARD_MIDDLE = [

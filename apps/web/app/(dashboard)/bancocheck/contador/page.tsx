@@ -28,22 +28,24 @@ export default function ContadorBancoCheckPage() {
       const balance = (accData ?? []).reduce((s, a) => s + (a.current_balance ?? 0), 0);
       setTotalBalance(balance);
 
-      // Transacciones por estado
+      // Transacciones por estado — SOLO estados que el sistema realmente escribe:
+      // 'new' (importado sin clasificar), 'matched' (conciliado auto), 'explained', 'personal'.
+      // 'pending_document'/'pending_invoice'/'unidentified' no los produce nadie.
       const [expRes, noCFDIRes, noInvoiceRes, unidRes, perRes] = await Promise.all([
         supabase.from('bank_transactions')
           .select('*').eq('company_id', cid).eq('status', 'explained')
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
-          .select('*').eq('company_id', cid).eq('status', 'pending_document')
+          .select('*').eq('company_id', cid).eq('status', 'new')
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
-          .select('*').eq('company_id', cid).eq('status', 'pending_invoice')
+          .select('*').eq('company_id', cid).eq('status', 'matched')
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
-          .select('*').eq('company_id', cid).eq('status', 'unidentified')
+          .select('*').eq('company_id', cid).eq('status', 'personal')
           .order('transaction_date', { ascending: false }).limit(50),
 
         supabase.from('bank_transactions')
@@ -71,9 +73,9 @@ export default function ContadorBancoCheckPage() {
 
   const sections = [
     { title: 'Explicados',             count: explained.length,      data: explained,      color: 'emerald' },
-    { title: 'Falta comprobante',      count: withoutCFDI.length,    data: withoutCFDI,    color: 'amber' },
-    { title: 'Falta factura',          count: withoutInvoice.length, data: withoutInvoice, color: 'amber' },
-    { title: 'Revisar con contador',   count: unidentified.length,   data: unidentified,   color: 'red' },
+    { title: 'Sin clasificar',         count: withoutCFDI.length,    data: withoutCFDI,    color: 'amber' },
+    { title: 'Conciliados (auto)',     count: withoutInvoice.length, data: withoutInvoice, color: 'emerald' },
+    { title: 'Marcados personales',    count: unidentified.length,   data: unidentified,   color: 'slate' },
     { title: 'Movimientos personales', count: personal.length,       data: personal,       color: 'slate' },
   ];
 

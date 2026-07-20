@@ -42,19 +42,26 @@ export default function MisTareasPage() {
     setLoading(true);
     try {
       if (r === 'buyer' || r === 'spender') {
+        // Schema real: solicitudes en advance_requests (requester_id/reason);
+        // receipts usa gc_folio/total_amount/provider_name/uploaded_by
         const [advRes, recRes] = await Promise.all([
-          supabase.from('advances')
-            .select('id, folio, amount, status, concept')
-            .eq('company_id', cid).eq('user_id', uid)
+          supabase.from('advance_requests')
+            .select('id, amount, status, reason')
+            .eq('company_id', cid).eq('requester_id', uid)
             .order('created_at', { ascending: false }).limit(20),
           supabase.from('receipts')
-            .select('id, folio, amount, status, vendor_name')
-            .eq('company_id', cid).eq('user_id', uid)
+            .select('id, gc_folio, total_amount, status, provider_name')
+            .eq('company_id', cid).eq('uploaded_by', uid)
             .order('created_at', { ascending: false }).limit(20),
         ]);
-        const advs = (advRes.data ?? []) as MyAdvance[];
+        const advs = (advRes.data ?? []).map((a: any) => ({
+          id: a.id, folio: '', amount: a.amount, status: a.status, concept: a.reason ?? '—',
+        })) as MyAdvance[];
         setMyAdvances(advs);
-        setMyReceipts((recRes.data ?? []) as MyReceipt[]);
+        setMyReceipts(((recRes.data ?? []).map((x: any) => ({
+          id: x.id, folio: x.gc_folio ?? '—', amount: x.total_amount ?? 0,
+          status: x.status, vendor_name: x.provider_name ?? '—',
+        }))) as MyReceipt[]);
         // Balance = suma de aprobados - suma de comprobados
         const approved = advs.filter(a => ['approved','delivered'].includes(a.status)).reduce((s,a)=>s+a.amount,0);
         setMyBalance(approved);

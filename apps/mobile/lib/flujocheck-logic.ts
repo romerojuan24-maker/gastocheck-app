@@ -32,7 +32,7 @@ async function getBankAccountsSummary(company_id: string): Promise<BankAccountSu
     .eq('company_id', company_id)
     .eq('is_active', true)
 
-  if (error) throw error
+  if (error) return []
 
   if (!accounts || accounts.length === 0) return []
 
@@ -110,7 +110,8 @@ async function getCollectionsInHand(company_id: string): Promise<CollectionInHan
     .eq('status', 'registered') // No depositadas aún
     .order('received_date', { ascending: false })
 
-  if (error) throw error
+  // La migración de cobra_collections está marcada como no aplicada — no tronar el dashboard
+  if (error) return []
 
   const today = new Date()
 
@@ -139,39 +140,34 @@ async function getCollectionsInHand(company_id: string): Promise<CollectionInHan
 async function getUpcomingCommitments(company_id: string): Promise<Commitment[]> {
   const commitments: Commitment[] = []
 
-  // A. Pagos a proveedores (GastoCheck)
+  // A. Pagos a proveedores (CxP real: accounts_payable — 'company_payable' no existe)
   const { data: payables } = await supabase
-    .from('company_payable')
-    .select('id, supplier_id, amount_due, due_date')
+    .from('accounts_payable')
+    .select('id, supplier_name, amount, paid_amount, due_date')
     .eq('company_id', company_id)
-    .eq('status', 'unpaid')
+    .in('status', ['pending', 'scheduled', 'partial'])
 
   if (payables) {
-    const commitmentPayables = await Promise.all(
-      payables.map(async (p) => {
-        const { data: supplier } = await supabase
-          .from('suppliers')
-          .select('name')
-          .eq('id', p.supplier_id)
-          .single()
-
-        const today = new Date()
+    const today = new Date()
+    const commitmentPayables = payables
+      .map((p) => {
+        const amount_due = (p.amount ?? 0) - (p.paid_amount ?? 0)
         const due = new Date(p.due_date)
         const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
         return {
           id: p.id,
           type: 'supplier_payment' as const,
-          entity_name: supplier?.name || 'Proveedor',
-          amount: p.amount_due,
+          entity_name: p.supplier_name || 'Proveedor',
+          amount: amount_due,
           due_date: p.due_date,
           days_until_due,
           severity: days_until_due < 0 ? ('critical' as const) : days_until_due < 7 ? ('warning' as const) : ('info' as const),
           priority: 'medium' as const,
           status: days_until_due < 0 ? ('overdue' as const) : 'pending' as const,
         } as Commitment
-      }),
-    )
+      })
+      .filter((c) => c.amount > 0)
     commitments.push(...commitmentPayables)
   }
 
@@ -204,33 +200,8 @@ async function getUpcomingCommitments(company_id: string): Promise<Commitment[]>
     commitments.push(...commitmentPayrolls)
   }
 
-  // C. Impuestos
-  const { data: taxes } = await supabase
-    .from('tax_obligations')
-    .select('id, amount, due_date')
-    .eq('company_id', company_id)
-    .eq('status', 'unpaid')
-
-  if (taxes) {
-    const today = new Date()
-    const commitmentTaxes = taxes.map((t) => {
-      const due = new Date(t.due_date)
-      const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-
-      return {
-        id: t.id,
-        type: 'tax' as const,
-        entity_name: 'Impuestos',
-        amount: t.amount,
-        due_date: t.due_date,
-        days_until_due,
-        severity: 'critical' as const,
-        priority: 'critical' as const,
-        status: days_until_due < 0 ? ('overdue' as const) : 'pending' as const,
-      } as Commitment
-    })
-    commitments.push(...commitmentTaxes)
-  }
+  // C. Impuestos: la tabla 'tax_obligations' NO existe en el schema.
+  // Sección eliminada hasta que exista una fuente real de obligaciones fiscales.
 
   // D. Comisiones de cobradores (CobraCheck)
   const { data: commissions } = await supabase
@@ -279,23 +250,19 @@ async function getUpcomingCommitments(company_id: string): Promise<Commitment[]>
  */
 
 async function getPendingCollections(company_id: string): Promise<PendingCollection[]> {
+  // CxC real: cobra_invoices + cobra_clients ('invoices'/'clients' no existen en el schema)
   const { data: invoices, error } = await supabase
-    .from('invoices')
-    .select('id, client_id, amount_due, due_date')
+    .from('cobra_invoices')
+    .select('id, amount, due_date, cobra_clients:client_id(name)')
     .eq('company_id', company_id)
-    .eq('status', 'unpaid')
+    .in('status', ['pending', 'partial'])
 
-  if (error) throw error
+  if (error) return []
 
   const today = new Date()
 
-  const withClients = await Promise.all(
-    (invoices || []).map(async (inv) => {
-      const { data: client } = await supabase
-        .from('clients')
-        .select('name')
-        .eq('id', inv.client_id)
-        .single()
+  const withClients = (invoices || []).map((inv: any) => {
+      const client = inv.cobra_clients
 
       const due = new Date(inv.due_date)
       const days_overdue = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
@@ -317,14 +284,13 @@ async function getPendingCollections(company_id: string): Promise<PendingCollect
       return {
         id: inv.id,
         client_name: client?.name || 'Cliente desconocido',
-        amount: inv.amount_due,
+        amount: inv.amount ?? 0,
         due_date: inv.due_date,
         days_overdue: Math.max(0, days_overdue),
         severity,
         status,
       } as PendingCollection
-    }),
-  )
+    })
 
   return withClients.sort((a, b) => a.due_date.localeCompare(b.due_date))
 }

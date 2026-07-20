@@ -25,6 +25,7 @@ interface Reembolso {
 interface ReceiptLine {
   id: string
   provider_name: string | null
+  provider_rfc: string | null
   total_amount: number
   receipt_date: string | null
   fiscal_uuid: string | null
@@ -137,7 +138,7 @@ export default function PolizasWeb() {
     setLoadingLines(true)
     const { data } = await supabase
       .from('receipt_reembolsos')
-      .select('receipts(id, provider_name, total_amount, receipt_date, fiscal_uuid, sat_validation_status, is_credit, accounting_account_id, accounting_account_code, receipt_image_url)')
+      .select('receipts(id, provider_name, provider_rfc, total_amount, receipt_date, fiscal_uuid, sat_validation_status, is_credit, accounting_account_id, accounting_account_code, receipt_image_url)')
       .eq('reembolso_id', r.id)
     const parsed: ReceiptLine[] = (data ?? [])
       .map((item: any) => item.receipts)
@@ -177,15 +178,18 @@ export default function PolizasWeb() {
 
   async function validateSat() {
     const fiscales = lines.filter(r => r.accepted && r.fiscal_uuid &&
-      r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'invalid')
+      r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'blocked')
     if (fiscales.length === 0) { setSatResult('Sin CFDI pendientes de validar.'); return }
     setValidatingSat(true)
     setSatResult(null)
     let ok = 0; let fail = 0
     for (const rec of fiscales) {
       try {
-        const { data } = await supabase.functions.invoke('validate-cfdi', { body: { uuid: rec.fiscal_uuid } })
-        const ns = data?.status === 'validated' ? 'validated' : 'invalid'
+        // validate-cfdi responde { ok, estado, vigente }; el CHECK solo admite pending/validated/blocked/warning
+        const { data } = await supabase.functions.invoke('validate-cfdi', {
+          body: { uuid: rec.fiscal_uuid, rfc_emisor: rec.provider_rfc ?? '', total: rec.total_amount ?? 0 },
+        })
+        const ns = data?.vigente ? 'validated' : data?.estado === 'Cancelado' ? 'blocked' : 'warning'
         await supabase.from('receipts').update({ sat_validation_status: ns }).eq('id', rec.id)
         setLines(prev => prev.map(r => r.id === rec.id ? { ...r, sat_validation_status: ns } : r))
         if (ns === 'validated') ok++; else fail++
@@ -221,7 +225,8 @@ export default function PolizasWeb() {
 
       const acceptedIds = accepted.map(r => r.id)
       if (acceptedIds.length > 0)
-        await supabase.from('receipts').update({ status: 'closed_in_policy' }).in('id', acceptedIds)
+        // 'closed_in_policy' es status de expenses, NO de receipts (viola su CHECK); el válido es 'included_in_batch'
+        await supabase.from('receipts').update({ status: 'included_in_batch' }).in('id', acceptedIds)
 
       alert(`✅ Póliza generada por ${money(total)}\n\nEl reembolso quedó cerrado y los comprobantes marcados.`)
       setSelectedReb(null)
@@ -240,7 +245,7 @@ export default function PolizasWeb() {
   const allClassified = accepted.length > 0 && accepted.every(r => !!r.accounting_account_code)
   const hasCfdi       = accepted.some(r => !!r.fiscal_uuid)
   const allSatDone    = !hasCfdi || accepted.every(r =>
-    !r.fiscal_uuid || r.sat_validation_status === 'validated' || r.sat_validation_status === 'invalid'
+    !r.fiscal_uuid || r.sat_validation_status === 'validated' || r.sat_validation_status === 'blocked' || r.sat_validation_status === 'warning'
   )
   const canGenerate   = allClassified && allSatDone
 
@@ -303,8 +308,8 @@ export default function PolizasWeb() {
           <div className="space-y-3">
             {lines.map(rec => {
               const satOk   = rec.sat_validation_status === 'validated'
-              const satBad  = rec.sat_validation_status === 'invalid'
-              const satPend = !!rec.fiscal_uuid && !rec.sat_validation_status
+              const satBad  = rec.sat_validation_status === 'blocked' || rec.sat_validation_status === 'warning'
+              const satPend = !!rec.fiscal_uuid && !satOk && !satBad
 
               return (
                 <div

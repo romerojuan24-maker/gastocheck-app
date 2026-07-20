@@ -219,9 +219,10 @@ export default function SupervisorScreen() {
       setCompanyId(member.company_id);
 
       // Statuses a mostrar: 'pending' = solo sin procesar; 'all' = todos excepto deleted
+      // OJO: 'submitted' NO existe en el enum expense_status — incluirlo rompe toda la consulta
       const expStatuses = expFilter === 'pending'
-        ? ['captured', 'pending_auth', 'submitted']
-        : ['captured', 'pending_auth', 'submitted', 'authorized', 'rejected'];
+        ? ['captured', 'pending_auth']
+        : ['captured', 'pending_auth', 'authorized', 'rejected'];
 
       const [expRes, empRes, polRes, reqRes, acctRes, advRes, viatRes] = await Promise.all([
         supabase

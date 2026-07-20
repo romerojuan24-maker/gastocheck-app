@@ -16,6 +16,7 @@ const money = (n: number) =>
 interface ReceiptItem {
   id: string;
   provider_name: string | null;
+  provider_rfc: string | null;
   total_amount: number | null;
   receipt_date: string | null;
   fiscal_uuid: string | null;
@@ -103,7 +104,7 @@ export default function ReembolsoScreen() {
       const currentUserId = session?.user?.id ?? reb.employee_id;
       let availQ = supabase
         .from('receipts')
-        .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status, is_credit')
+        .select('id, provider_name, provider_rfc, total_amount, receipt_date, fiscal_uuid, sat_validation_status, status, is_credit')
         .eq('company_id', reb.company_id)
         .or(`uploaded_by.eq.${currentUserId},employee_id.eq.${currentUserId}`)
         .in('status', ['captured', 'approved'])
@@ -161,7 +162,7 @@ export default function ReembolsoScreen() {
 
   async function handleValidateSat() {
     const pendientes = assignedReceipts.filter(r =>
-      r.fiscal_uuid && r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'invalid'
+      r.fiscal_uuid && r.sat_validation_status !== 'validated' && r.sat_validation_status !== 'blocked'
     );
     if (pendientes.length === 0) {
       Alert.alert('Sin CFDI pendientes', 'Todos los CFDI ya están validados.');
@@ -171,10 +172,11 @@ export default function ReembolsoScreen() {
     let ok = 0; let fail = 0;
     for (const rec of pendientes) {
       try {
+        // validate-cfdi responde { ok, estado, vigente }; el CHECK solo admite pending/validated/blocked/warning
         const { data } = await supabase.functions.invoke('validate-cfdi', {
-          body: { uuid: rec.fiscal_uuid },
+          body: { uuid: rec.fiscal_uuid, rfc_emisor: rec.provider_rfc ?? '', total: rec.total_amount ?? 0 },
         });
-        const ns: string = data?.status === 'validated' ? 'validated' : 'invalid';
+        const ns: string = data?.vigente ? 'validated' : data?.estado === 'Cancelado' ? 'blocked' : 'warning';
         await supabase.from('receipts').update({ sat_validation_status: ns }).eq('id', rec.id);
         setAssignedReceipts(prev => prev.map(r =>
           r.id === rec.id ? { ...r, sat_validation_status: ns } : r
@@ -199,7 +201,7 @@ export default function ReembolsoScreen() {
 
     let availQ = supabase
       .from('receipts')
-      .select('id, provider_name, total_amount, receipt_date, fiscal_uuid, status, is_credit')
+      .select('id, provider_name, provider_rfc, total_amount, receipt_date, fiscal_uuid, sat_validation_status, status, is_credit')
       .eq('company_id', reembolso.company_id)
       .or(`uploaded_by.eq.${user.id},employee_id.eq.${user.id}`)
       .in('status', ['captured', 'approved'])
@@ -357,7 +359,8 @@ export default function ReembolsoScreen() {
   const allSatDone  = !hasCfdi || assignedReceipts.every(r =>
     !r.fiscal_uuid ||
     r.sat_validation_status === 'validated' ||
-    r.sat_validation_status === 'invalid'
+    r.sat_validation_status === 'blocked' ||
+    r.sat_validation_status === 'warning'
   );
   const pendingSatCount = assignedReceipts.filter(r =>
     r.fiscal_uuid && !r.sat_validation_status
@@ -389,7 +392,7 @@ export default function ReembolsoScreen() {
             <Text style={styles.sectionTitle}>Comprobantes incluidos</Text>
             {assignedReceipts.map(r => {
               const satOk  = r.sat_validation_status === 'validated';
-              const satBad = r.sat_validation_status === 'invalid';
+              const satBad = r.sat_validation_status === 'blocked' || r.sat_validation_status === 'warning';
               const satPend = !!r.fiscal_uuid && !r.sat_validation_status;
               return (
                 <View key={r.id} style={styles.receiptRow}>

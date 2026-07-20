@@ -8,10 +8,13 @@ const money = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
 
 interface PendingAdvance {
-  id: string; folio: string; amount: number; concept: string; spender: string; created_at: string;
+  id: string; amount: number; reason: string; spender: string; created_at: string;
 }
 interface PendingReceipt {
   id: string; folio: string; amount: number; vendor: string; spender: string; sat_fail: boolean; created_at: string;
+}
+interface PendingExpense {
+  id: string; amount: number; vendor: string; spender: string; expense_date: string | null;
 }
 interface OverdueInvoice {
   id: string; folio: string; amount: number; client: string; days_overdue: number;
@@ -26,37 +29,49 @@ interface CfdiProblem {
 export default function PendientesPage() {
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [advances,  setAdvances]  = useState<PendingAdvance[]>([]);
   const [receipts,  setReceipts]  = useState<PendingReceipt[]>([]);
+  const [expenses,  setExpenses]  = useState<PendingExpense[]>([]);
   const [overdue,   setOverdue]   = useState<OverdueInvoice[]>([]);
   const [bank,      setBank]      = useState<BankUnmatched[]>([]);
   const [cfdi,      setCfdi]      = useState<CfdiProblem[]>([]);
-  const [tab, setTab] = useState<'anticipos' | 'comprobantes' | 'cobranza' | 'banco' | 'cfdi'>('anticipos');
+  const [tab, setTab] = useState<'anticipos' | 'gastos' | 'comprobantes' | 'cobranza' | 'banco' | 'cfdi'>('anticipos');
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
     try {
-      const [advRes, recRes, cobRes, bankRes, cfdiRes] = await Promise.all([
-        supabase.from('advances')
-          .select('id, folio, amount, concept, profiles:user_id(full_name)')
-          .eq('company_id', cid).eq('status', 'requested')
+      const today = new Date().toISOString().split('T')[0];
+      // NOTA schema real: las solicitudes de anticipo viven en advance_requests
+      // (advances NO tiene status/folio/user_id). Vencidos se calculan por due_date
+      // porque nada asigna status 'overdue'.
+      const [advRes, expRes, recRes, cobRes, bankRes, cfdiRes] = await Promise.all([
+        supabase.from('advance_requests')
+          .select('id, amount, reason, requester_id, created_at')
+          .eq('company_id', cid).eq('status', 'pending')
           .order('created_at', { ascending: false }).limit(30),
 
+        supabase.from('expenses')
+          .select('id, provider_name, total, expense_date, spender_id')
+          .eq('company_id', cid).eq('status', 'pending_auth')
+          .order('expense_date', { ascending: false }).limit(30),
+
         supabase.from('receipts')
-          .select('id, folio, amount, vendor_name, sat_validation_status, profiles:user_id(full_name)')
-          .eq('company_id', cid).eq('status', 'submitted')
+          .select('id, gc_folio, total_amount, provider_name, sat_validation_status, uploaded_by, created_at')
+          .eq('company_id', cid).in('status', ['captured', 'submitted'])
           .order('created_at', { ascending: false }).limit(30),
 
         supabase.from('cobra_invoices')
-          .select('id, folio, amount, days_overdue, cobra_clients:client_id(name)')
-          .eq('company_id', cid).eq('status', 'overdue')
-          .order('days_overdue', { ascending: false }).limit(30),
+          .select('id, folio, amount, due_date, cobra_clients:client_id(name)')
+          .eq('company_id', cid).in('status', ['pending', 'partial'])
+          .lt('due_date', today)
+          .order('due_date', { ascending: true }).limit(30),
 
         supabase.from('bank_transactions')
           .select('id, transaction_date, description, amount')
-          .eq('company_id', cid).in('status', ['new', 'unidentified'])
+          .eq('company_id', cid).eq('status', 'new')
           .order('transaction_date', { ascending: false }).limit(30),
 
         supabase.from('cfdi_documents')
@@ -65,20 +80,36 @@ export default function PendientesPage() {
           .order('created_at', { ascending: false }).limit(30),
       ]);
 
+      // Nombres: receipts/expenses/advance_requests apuntan a auth.users, sin FK a profiles → 2 pasos
+      const userIds = [...new Set([
+        ...(advRes.data ?? []).map((r: any) => r.requester_id),
+        ...(recRes.data ?? []).map((r: any) => r.uploaded_by),
+        ...(expRes.data ?? []).map((r: any) => r.spender_id),
+      ].filter(Boolean))];
+      const names: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+        for (const p of profs ?? []) names[p.id] = p.full_name ?? '—';
+      }
+
       setAdvances((advRes.data ?? []).map((r: any) => ({
-        id: r.id, folio: r.folio, amount: r.amount,
-        concept: r.concept, spender: r.profiles?.full_name ?? '—',
-        created_at: r.created_at,
+        id: r.id, amount: r.amount, reason: r.reason ?? '—',
+        spender: names[r.requester_id] ?? '—', created_at: r.created_at,
+      })));
+      setExpenses((expRes.data ?? []).map((r: any) => ({
+        id: r.id, amount: r.total ?? 0, vendor: r.provider_name ?? '—',
+        spender: names[r.spender_id] ?? '—', expense_date: r.expense_date,
       })));
       setReceipts((recRes.data ?? []).map((r: any) => ({
-        id: r.id, folio: r.folio, amount: r.amount,
-        vendor: r.vendor_name ?? '—', spender: r.profiles?.full_name ?? '—',
-        sat_fail: r.sat_validation_status === 'cancelled',
+        id: r.id, folio: r.gc_folio ?? '—', amount: r.total_amount ?? 0,
+        vendor: r.provider_name ?? '—', spender: names[r.uploaded_by] ?? '—',
+        sat_fail: r.sat_validation_status === 'blocked' || r.sat_validation_status === 'warning',
         created_at: r.created_at,
       })));
       setOverdue((cobRes.data ?? []).map((r: any) => ({
         id: r.id, folio: r.folio, amount: r.amount,
-        client: r.cobra_clients?.name ?? '—', days_overdue: r.days_overdue,
+        client: r.cobra_clients?.name ?? '—',
+        days_overdue: Math.max(0, Math.floor((Date.now() - new Date(r.due_date).getTime()) / 86400000)),
       })));
       setBank((bankRes.data ?? []) as BankUnmatched[]);
       setCfdi((cfdiRes.data ?? []) as CfdiProblem[]);
@@ -91,12 +122,14 @@ export default function PendientesPage() {
     getSessionUser().then(u => {
       if (!u) return;
       setCompanyId(u.company_id);
+      setUserId((u as any).id ?? null);
       load(u.company_id);
     });
   }, [load]);
 
   const TABS = [
     { key: 'anticipos',    label: `Anticipos (${advances.length})` },
+    { key: 'gastos',       label: `Gastos por autorizar (${expenses.length})` },
     { key: 'comprobantes', label: `Comprobantes (${receipts.length})` },
     { key: 'cobranza',     label: `Cobranza vencida (${overdue.length})` },
     { key: 'banco',        label: `Banco sin clasificar (${bank.length})` },
@@ -104,12 +137,26 @@ export default function PendientesPage() {
   ] as const;
 
   async function approveAdvance(id: string) {
-    await supabase.from('advances').update({ status: 'approved' }).eq('id', id);
+    await supabase.from('advance_requests')
+      .update({ status: 'approved', reviewer_id: userId, reviewed_at: new Date().toISOString() })
+      .eq('id', id);
     setAdvances(p => p.filter(a => a.id !== id));
   }
   async function rejectAdvance(id: string) {
-    await supabase.from('advances').update({ status: 'rejected' }).eq('id', id);
+    await supabase.from('advance_requests')
+      .update({ status: 'rejected', reviewer_id: userId, reviewed_at: new Date().toISOString() })
+      .eq('id', id);
     setAdvances(p => p.filter(a => a.id !== id));
+  }
+  async function approveExpense(id: string) {
+    await supabase.from('expenses')
+      .update({ status: 'authorized', authorized_by: userId, authorized_at: new Date().toISOString() })
+      .eq('id', id);
+    setExpenses(p => p.filter(e => e.id !== id));
+  }
+  async function rejectExpense(id: string) {
+    await supabase.from('expenses').update({ status: 'rejected' }).eq('id', id);
+    setExpenses(p => p.filter(e => e.id !== id));
   }
   async function approveReceipt(id: string) {
     await supabase.from('receipts').update({ status: 'approved' }).eq('id', id);
@@ -157,8 +204,8 @@ export default function PendientesPage() {
               {advances.map(a => (
                 <div key={a.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900">{a.folio} · {a.spender}</p>
-                    <p className="text-xs text-slate-500 truncate">{a.concept}</p>
+                    <p className="text-sm font-bold text-slate-900">{a.spender}</p>
+                    <p className="text-xs text-slate-500 truncate">{a.reason}</p>
                   </div>
                   <p className="text-base font-black text-slate-900 shrink-0">{money(a.amount)}</p>
                   <div className="flex gap-2 shrink-0">
@@ -167,6 +214,32 @@ export default function PendientesPage() {
                       Aprobar
                     </button>
                     <button onClick={() => rejectAdvance(a.id)}
+                      className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-red-50 hover:text-red-600">
+                      Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* GASTOS POR AUTORIZAR (paridad con mobile: misma acción por rol) */}
+          {tab === 'gastos' && (
+            <div className="space-y-3">
+              {expenses.length === 0 && <Empty label="Sin gastos por autorizar" icon="✅" />}
+              {expenses.map(e => (
+                <div key={e.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900">{e.vendor}</p>
+                    <p className="text-xs text-slate-500 truncate">{e.spender}{e.expense_date ? ` · ${e.expense_date}` : ''}</p>
+                  </div>
+                  <p className="text-base font-black text-slate-900 shrink-0">{money(e.amount)}</p>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => approveExpense(e.id)}
+                      className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600">
+                      Autorizar
+                    </button>
+                    <button onClick={() => rejectExpense(e.id)}
                       className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-red-50 hover:text-red-600">
                       Rechazar
                     </button>
@@ -187,7 +260,7 @@ export default function PendientesPage() {
                       <p className="text-sm font-bold text-slate-900">{r.folio} · {r.spender}</p>
                       {r.sat_fail && (
                         <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-semibold">
-                          CFDI cancelado
+                          CFDI cancelado/no encontrado
                         </span>
                       )}
                     </div>

@@ -309,10 +309,12 @@ export default function ConfiguracionPage() {
     }
   }
 
-  // ── Eliminar miembro ─────────────────────────────────────────────────────
+  // ── Desactivar miembro ────────────────────────────────────────────────────
+  // Soft-disable (igual que mobile equipo.tsx): conserva la fila para auditoría;
+  // las RLS filtran status='active' así que pierde acceso de inmediato.
   async function removeMember(uid: string) {
-    if (!confirm('¿Eliminar a este miembro del equipo?')) return
-    await supabase.from('company_members').delete().eq('user_id', uid).eq('company_id', user!.company_id)
+    if (!confirm('¿Desactivar a este miembro del equipo?')) return
+    await supabase.from('company_members').update({ status: 'disabled' }).eq('user_id', uid).eq('company_id', user!.company_id)
     setMembers(m => m.filter(x => x.user_id !== uid))
   }
 
