@@ -118,7 +118,7 @@ export default function ReembolsosContadorScreen() {
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
-      const { data: accts } = await supabase.from('accounting_accounts')
+      const { data: accts } = await supabase.from('accounting_accounts_v2')
         .select('id, code, name').eq('company_id', m.company_id)
         .eq('active', true).order('code');
       setAccounts(accts ?? []);
