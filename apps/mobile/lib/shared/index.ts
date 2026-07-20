@@ -44,4 +44,4 @@ export * from './inventariocheck';
 export * from './advisor';
 
 // Versión de la app — actualizar con cada OTA
-export const APP_VERSION = 'OTA 233 · v0.1.84 · Reembolsos fix real (sin expo-sharing)';
+export const APP_VERSION = 'OTA 234 · v0.1.84 · Reembolsos fix + login eye + password fix';
