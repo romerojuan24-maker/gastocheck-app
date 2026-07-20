@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../lib/supabase';
+import { friendlyError } from '../lib/friendly-errors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ADMIN_ROLES = ['owner', 'admin'];
@@ -203,7 +204,7 @@ export default function AdminPanelScreen() {
       Alert.alert('✓ Anticipo registrado', `${money(parseFloat(amount))} para ${selBuyer.full_name ?? 'el comprador'}.`);
       load();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo registrar el anticipo.');
+      Alert.alert('No se pudo registrar', friendlyError(e, 'registrar anticipos'));
     } finally {
       setSaving(false);
     }
@@ -285,19 +286,20 @@ export default function AdminPanelScreen() {
             {/* Comprador */}
             <Text style={styles.fieldLabel}>Comprador *</Text>
             {compradores.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+              <View style={{ gap: 6, marginBottom: 8 }}>
                 {compradores.map(c => (
                   <TouchableOpacity
                     key={c.user_id}
-                    style={[styles.chip, selBuyer?.user_id === c.user_id && styles.chipActive]}
+                    style={[styles.selectRow, selBuyer?.user_id === c.user_id && styles.selectRowActive]}
                     onPress={() => onSelectBuyer(c)}
                   >
-                    <Text style={[styles.chipText, selBuyer?.user_id === c.user_id && { color: '#fff' }]}>
+                    <Text style={[styles.selectRowText, selBuyer?.user_id === c.user_id && { color: BRAND.navy, fontWeight: '700' }]}>
                       {c.full_name ?? c.user_id.slice(0, 8)}
                     </Text>
+                    {selBuyer?.user_id === c.user_id && <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>}
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             ) : (
               <Text style={{ color: '#90A4AE', fontSize: 13, marginBottom: 8 }}>Sin compradores activos</Text>
             )}
@@ -344,28 +346,39 @@ export default function AdminPanelScreen() {
             )}
 
             {/* Póliza opcional */}
-            {selBuyer && buyerPolicies.length > 0 && (
+            {selBuyer && (
               <>
                 <Text style={styles.fieldLabel}>
-                  Póliza existente <Text style={{ color: '#90A4AE', fontWeight: '400' }}>(opcional)</Text>
+                  Póliza <Text style={{ color: '#90A4AE', fontWeight: '400' }}>(opcional)</Text>
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                <View style={{ gap: 6, marginBottom: 4 }}>
                   <TouchableOpacity
-                    style={[styles.chip, !selPolicy && styles.chipActive]}
+                    style={[styles.selectRow, !selPolicy && styles.selectRowActive]}
                     onPress={() => setSelPolicy('')}
                   >
-                    <Text style={[styles.chipText, !selPolicy && { color: '#fff' }]}>Crear nueva</Text>
+                    <Text style={[styles.selectRowText, !selPolicy && { color: BRAND.navy, fontWeight: '700' }]}>
+                      ➕ Crear póliza nueva automáticamente
+                    </Text>
+                    {!selPolicy && <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>}
                   </TouchableOpacity>
                   {buyerPolicies.map(p => (
                     <TouchableOpacity
                       key={p.id}
-                      style={[styles.chip, selPolicy === p.id && styles.chipActive]}
+                      style={[styles.selectRow, selPolicy === p.id && styles.selectRowActive]}
                       onPress={() => setSelPolicy(p.id)}
                     >
-                      <Text style={[styles.chipText, selPolicy === p.id && { color: '#fff' }]}>{p.name}</Text>
+                      <Text style={[styles.selectRowText, selPolicy === p.id && { color: BRAND.navy, fontWeight: '700' }]} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      {selPolicy === p.id && <Text style={{ color: BRAND.green, fontWeight: '800' }}>✓</Text>}
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
+                </View>
+                <Text style={styles.polizaHint}>
+                  {buyerPolicies.length === 0
+                    ? 'Este comprador no tiene pólizas abiertas. Al registrar el anticipo se creará una automáticamente con el nombre "Anticipo: <propósito> · <fecha>".'
+                    : 'Las pólizas listadas se crearon automáticamente al registrar anticipos o depósitos anteriores de este comprador.'}
+                </Text>
               </>
             )}
 
@@ -493,6 +506,14 @@ const styles = StyleSheet.create({
   },
   chipActive:  { backgroundColor: BRAND.navy, borderColor: BRAND.navy },
   chipText:    { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  selectRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F8F9FB', borderRadius: 12, padding: 13,
+    borderWidth: 1.5, borderColor: '#E0E0E0',
+  },
+  selectRowActive: { borderColor: BRAND.navy, backgroundColor: '#F0F4FF' },
+  selectRowText:   { fontSize: 14, fontWeight: '600', color: '#546E7A', flex: 1, marginRight: 8 },
+  polizaHint:      { fontSize: 11, color: '#90A4AE', marginBottom: 8, lineHeight: 15 },
   createBtn:   { backgroundColor: BRAND.navy, borderRadius: 14, padding: 15, alignItems: 'center', marginTop: 12 },
   createBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   cancelBtn:   { alignItems: 'center', padding: 14, marginTop: 4 },

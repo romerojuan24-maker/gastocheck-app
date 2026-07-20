@@ -10,6 +10,7 @@ import { decode } from 'base64-arraybuffer';
 import { BRAND } from '@gastocheck/shared';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { friendlyError } from '../lib/friendly-errors';
 import { getActiveMembership } from '../lib/membership';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export default function SupervisorScreen() {
       Alert.alert('✅ Aprobada', `Anticipo de ${money(approveReq.amount)} registrado.`);
       loadData();
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      Alert.alert('No se pudo aprobar', friendlyError(err, 'aprobar anticipos'));
     } finally {
       setApproveSaving(false);
     }
@@ -473,7 +474,7 @@ export default function SupervisorScreen() {
       Alert.alert('✓ Anticipo registrado', `${money(parseFloat(advAmount))} para ${advSpender.full_name ?? 'el comprador'}.`);
       loadData();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo registrar.');
+      Alert.alert('No se pudo registrar', friendlyError(e, 'registrar anticipos'));
     } finally {
       setSavingAdv(false);
     }
@@ -518,7 +519,7 @@ export default function SupervisorScreen() {
       Alert.alert('✓ Viático registrado', `${viatDestination.trim()} para ${viatSpender.full_name ?? 'el comprador'}.`);
       loadData();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo registrar.');
+      Alert.alert('No se pudo registrar', friendlyError(e, 'registrar viáticos'));
     } finally {
       setSavingViatico(false);
     }

@@ -73,6 +73,7 @@ export default function ViaticosScreen() {
   const [viajes,    setViajes]    = useState<Viaje[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [tab,       setTab]       = useState<StatusTab>('activos');
+  const [isManager, setIsManager] = useState(false);
 
   // Detalle de viaje
   const [selectedViaje,    setSelectedViaje]    = useState<Viaje | null>(null);
@@ -113,18 +114,27 @@ export default function ViaticosScreen() {
       if (!member) return;
       setCompanyId(member.company_id);
 
-      const statusFilter: string[] =
-        tab === 'activos'    ? ['draft'] :
-        tab === 'reportados' ? ['submitted'] :
-        ['approved', 'rejected', 'closed'];
+      // Roles gerenciales ven TODOS los viáticos de la empresa (el contador
+      // registra viáticos para compradores: person_id es el comprador, no él)
+      const manager = ['owner', 'admin', 'superadmin', 'supervisor', 'accountant', 'contador_general']
+        .includes((member as any).role);
+      setIsManager(manager);
 
-      const { data } = await supabase
+      // 'approved' cuenta como activo: es un viaje autorizado aún no reportado
+      const statusFilter: string[] =
+        tab === 'activos'    ? ['draft', 'approved'] :
+        tab === 'reportados' ? ['submitted'] :
+        ['rejected', 'closed'];
+
+      let q = supabase
         .from('viaticos')
         .select('*')
         .eq('company_id', member.company_id)
-        .eq('person_id', uid)
         .in('status', statusFilter)
         .order('created_at', { ascending: false });
+      if (!manager) q = q.eq('person_id', uid);
+
+      const { data } = await q;
 
       // Contar comprobantes por viaje
       const rows = (data ?? []) as Viaje[];
