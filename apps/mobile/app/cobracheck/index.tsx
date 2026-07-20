@@ -418,6 +418,9 @@ export default function CobraCheckHome() {
             <BigCard icon="🗺️" title="Generar Ruta del Día"
               sub="Asigna clientes a un cobrador para hoy"
               bg={BRAND.navy} onPress={() => router.push('/cobracheck/generar-ruta' as any)} />
+            <NavCard icon="📍" title="Monitoreo de Rutas"
+              sub="Rutas de todos los cobradores: avance, cobrado y visitas"
+              onPress={() => router.push('/cobracheck/rutas-monitor' as any)} />
             <NavCard icon="🏢" title="Alta de Clientes"
               sub="Nuevo cliente con dirección y GPS"
               onPress={() => router.push('/cobracheck/alta-cliente' as any)} />
