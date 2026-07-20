@@ -5,8 +5,9 @@ import {
   ActivityIndicator, Alert, Modal, TextInput, ScrollView, Share,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+// NOTA: NO importar expo-sharing aquí. El APK instalado (runtime 0.1.72, build 28-jun)
+// no incluye el módulo nativo ExpoSharing; requireNativeModule lanza excepción al cargar
+// el módulo y la pantalla crashea en negro. Restaurar file-share solo tras nuevo APK.
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../../lib/supabase';
 import { getActiveMembership } from '../../../lib/membership';
@@ -118,7 +119,7 @@ export default function ReembolsosContadorScreen() {
       setReembolsos((data ?? []) as Reembolso[]);
 
       // Cargar catálogo de cuentas
-      const { data: accts } = await supabase.from('accounting_accounts_v2')
+      const { data: accts } = await supabase.from('accounting_accounts')
         .select('id, code, name').eq('company_id', m.company_id)
         .eq('active', true).order('code');
       setAccounts(accts ?? []);
@@ -281,28 +282,20 @@ ${movs}
     }
   }
 
+  // Compartir como texto (versión pre-8-jul que funciona con el APK actual).
+  // El share como archivo requiere expo-sharing nativo → pendiente de nuevo APK.
   async function sharePoliza() {
     if (!selected) return;
     try {
       const content = buildExportContent(exportFormat);
-      const fileExt = exportFormat === 'contpaq' ? 'xml' : exportFormat === 'csv' ? 'csv' : 'txt';
-      const fileName = `Poliza_Reembolso_${selected.employee_email.split('@')[0]}_${Date.now()}.${fileExt}`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-      // Escribir archivo
-      await FileSystem.writeAsStringAsync(filePath, content, { encoding: FileSystem.EncodingType.UTF8 });
-
-      // Compartir archivo
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: exportFormat === 'contpaq' ? 'application/xml' : exportFormat === 'csv' ? 'text/csv' : 'text/plain',
-          dialogTitle: `Póliza de Reembolso — ${selected.employee_email}`,
-        });
-      } else {
-        Alert.alert('Compartir no disponible', 'Tu dispositivo no soporta compartir archivos.');
-      }
+      const formatLabel = exportFormat === 'contpaq' ? 'CONTPAQi XML'
+        : exportFormat === 'csv' ? 'CSV' : 'TXT';
+      await Share.share({
+        message: `📋 Póliza de Reembolso — ${selected.employee_email}\nFormato: ${formatLabel}\n\n${content}`,
+        title:   `Póliza_Reembolso_${exportFormat.toUpperCase()}`,
+      });
     } catch (e: any) {
-      Alert.alert('Error', `No se pudo generar el archivo: ${e.message}`);
+      Alert.alert('Error', `No se pudo compartir: ${e.message}`);
     }
   }
 

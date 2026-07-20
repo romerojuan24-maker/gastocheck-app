@@ -126,7 +126,7 @@ export default function GastoCheckHome() {
       if (isSupervisor && member.company_id) {
         const [{ count: rc }, { count: ac }] = await Promise.all([
           supabase
-            .from('reimbursements')
+            .from('reembolsos')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', member.company_id)
             .eq('status', 'pending_auth'),
