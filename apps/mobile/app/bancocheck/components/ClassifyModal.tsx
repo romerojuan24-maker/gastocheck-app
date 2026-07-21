@@ -57,6 +57,7 @@ export function ClassifyModal({ transaction, companyId, onClose, onClassify, sav
   const [clients,       setClients]       = useState<ClientRow[]>([])
   const [clientSearch,  setClientSearch]  = useState('')
   const [client,        setClient]        = useState<ClientRow | null>(null)
+  const [aiLoading,     setAiLoading]     = useState(false)
 
   // Precargar clasificación actual al abrir (reclasificar)
   useEffect(() => {
@@ -95,6 +96,28 @@ export function ClassifyModal({ transaction, companyId, onClose, onClassify, sav
     if (!q) return clients.slice(0, 30)
     return clients.filter(c => c.name.toLowerCase().includes(q)).slice(0, 30)
   }, [clients, clientSearch])
+
+  // Sugerir cuenta contable con IA para ESTE movimiento
+  async function suggestWithAI() {
+    if (!transaction || accounts.length === 0) return
+    setAiLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/bancocheck-ai-classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          movements: [{ id: transaction.id, description: transaction.description, amount: transaction.amount }],
+          accounts: accounts.map(a => ({ code: a.code, name: a.name })),
+        }),
+      })
+      const json = await res.json()
+      const code = json?.suggestions?.[0]?.accountCode
+      const found = code ? accounts.find(a => a.code === code) : null
+      if (found) setAcct(found)
+    } catch { /* silencioso: la IA es opcional */ }
+    finally { setAiLoading(false) }
+  }
 
   if (!transaction) return null
 
@@ -140,9 +163,16 @@ export function ClassifyModal({ transaction, companyId, onClose, onClassify, sav
             </View>
 
             {/* 2. Cuenta contable (opcional) */}
-            <Text style={styles.section}>
-              Cuenta contable <Text style={styles.opt}>(opcional)</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.section}>
+                Cuenta contable <Text style={styles.opt}>(opcional)</Text>
+              </Text>
+              <TouchableOpacity onPress={suggestWithAI} disabled={aiLoading || accounts.length === 0} style={styles.aiBtn}>
+                {aiLoading
+                  ? <ActivityIndicator size="small" color={BRAND.blue} />
+                  : <Text style={styles.aiBtnText}>🤖 Sugerir con IA</Text>}
+              </TouchableOpacity>
+            </View>
             {acct ? (
               <TouchableOpacity style={styles.selectedRow} onPress={() => setAcct(null)}>
                 <Text style={styles.selectedText}>📒 {acct.code}{acct.name ? ` · ${acct.name}` : ''}</Text>
@@ -245,6 +275,8 @@ const styles = StyleSheet.create({
   selectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E8F5E915', borderWidth: 1.5, borderColor: BRAND.green, borderRadius: 10, padding: 12 },
   selectedText: { fontSize: 13, fontWeight: '700', color: BRAND.navy, flex: 1, marginRight: 8 },
   changeText: { fontSize: 12, fontWeight: '700', color: BRAND.blue },
+  aiBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#E3F2FD' },
+  aiBtnText: { fontSize: 11, fontWeight: '800', color: BRAND.blue },
   saveBtn: { backgroundColor: BRAND.green, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 16 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   cancelButton: { paddingVertical: 12, alignItems: 'center' },
