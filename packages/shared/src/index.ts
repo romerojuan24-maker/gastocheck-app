@@ -47,4 +47,4 @@ export * from './cfdi-parser';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 245 · v0.1.85 · FacturaCheck: fix config (crash Hermes) + marco superior';
+export const APP_VERSION = 'OTA 246 · v0.1.85 · Menus consistentes + FlujoCheck saldo + Inventario import/export + fixes';
