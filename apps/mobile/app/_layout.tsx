@@ -1,6 +1,8 @@
 import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, AppState, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
 import { supabase } from '../lib/supabase';
@@ -102,6 +104,8 @@ export default function Layout() {
   if (session === undefined) return null;
 
   return (
+    <SafeAreaProvider>
+    <StatusBar style="dark" />
     <ErrorBoundary>
     <Stack
       screenOptions={{
@@ -182,5 +186,6 @@ export default function Layout() {
       <Stack.Screen name="cobracheck/depositos"        options={{ title: 'Depósitos' }} />
     </Stack>
     </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

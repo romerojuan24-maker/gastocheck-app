@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, APP_VERSION, formatCurrency } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
@@ -135,8 +136,9 @@ export default function CobraCheckHome() {
   // ── Shared sub-components ───────────────────────────────────────────────────
 
   function TopBar() {
+    const insets = useSafeAreaInsets();
     return (
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
           <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>

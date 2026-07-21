@@ -236,8 +236,9 @@ export default function GastoCheckHome() {
   function TopBar({ accent, rightIcon, onRight, onSwitcher }: {
     accent: string; rightIcon?: string; onRight?: () => void; onSwitcher?: () => void;
   }) {
+    const insets = useSafeAreaInsets();
     return (
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
           <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>
