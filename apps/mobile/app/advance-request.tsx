@@ -70,8 +70,19 @@ export default function AdvanceRequestScreen() {
     }
   }, []);
 
+  // Formatea mientras se escribe: "12345.6" → "12,345.6" (comas de miles)
+  function formatMontoInput(raw: string): string {
+    const clean = raw.replace(/[^0-9.]/g, '');
+    const firstDot = clean.indexOf('.');
+    const intPart = (firstDot === -1 ? clean : clean.slice(0, firstDot)).replace(/^0+(?=\d)/, '');
+    const decPart = firstDot === -1 ? null : clean.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
+    const intFmt  = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return decPart === null ? intFmt : `${intFmt}.${decPart}`;
+  }
+
   async function handleSubmit() {
-    const parsedAmount = parseFloat(amount.replace(',', '.'));
+    // Quitar comas de miles antes de parsear ("2,500.50" → 2500.50)
+    const parsedAmount = parseFloat(amount.replace(/,/g, ''));
     if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('Monto inválido', 'Ingresa un monto mayor a 0');
       return;
@@ -200,15 +211,18 @@ export default function AdvanceRequestScreen() {
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>Solicitar anticipo</Text>
 
-              <Text style={styles.fieldLabel}>Monto solicitado ($)</Text>
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-                placeholder="Ej: 2500.00"
-                placeholderTextColor="#B0BEC5"
-              />
+              <Text style={styles.fieldLabel}>Monto solicitado</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: BRAND.navy, marginRight: 8 }}>$</Text>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={amount}
+                  onChangeText={(v) => setAmount(formatMontoInput(v))}
+                  keyboardType="decimal-pad"
+                  placeholder="2,500.00"
+                  placeholderTextColor="#B0BEC5"
+                />
+              </View>
 
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>¿Para qué necesitas el anticipo?</Text>
               <TextInput

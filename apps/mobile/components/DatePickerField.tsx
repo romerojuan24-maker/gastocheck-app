@@ -112,23 +112,29 @@ export default function DatePickerField({ label, value, onChange, style }: Props
               ))}
             </View>
 
-            {/* Grilla de días */}
+            {/* Grilla de días.
+                IMPORTANTE: sin `gap` en el contenedor — con celdas de 14.285%
+                el gap hacía que solo cupieran 6 columnas por fila y TODO el
+                calendario quedaba corrido un día respecto al encabezado
+                (ej. martes 21 aparecía bajo VIE). El espaciado va DENTRO
+                de cada celda (padding del wrapper). */}
             <View style={styles.calendarGrid}>
               {/* Espacios en blanco para días antes del primero del mes */}
               {Array.from({ length: firstDayOfMonth(selY, selM) - 1 }).map((_, i) => (
-                <View key={`empty-${i}`} style={styles.emptyDayCell} />
+                <View key={`empty-${i}`} style={styles.dayCellWrap} />
               ))}
 
               {/* Días del mes */}
               {days.map((day) => (
-                <TouchableOpacity
-                  key={day}
-                  style={[styles.dayChip, selD === day && styles.dayChipActive]}
-                  onPress={() => setSelD(day)}>
-                  <Text style={[styles.dayChipText, selD === day && styles.dayChipTextActive]}>
-                    {String(day).padStart(2, '0')}
-                  </Text>
-                </TouchableOpacity>
+                <View key={day} style={styles.dayCellWrap}>
+                  <TouchableOpacity
+                    style={[styles.dayChip, selD === day && styles.dayChipActive]}
+                    onPress={() => setSelD(day)}>
+                    <Text style={[styles.dayChipText, selD === day && styles.dayChipTextActive]}>
+                      {String(day).padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ))}
             </View>
 
@@ -181,15 +187,15 @@ const styles = StyleSheet.create({
   chipText:         { fontSize: 13, color: BRAND.navy, fontWeight: '600' },
   chipTextActive:   { color: '#fff' },
 
-  // Calendario grilla
-  weekdayHeaderRow: { flexDirection: 'row', gap: 4, marginBottom: 8, marginTop: 2 },
-  weekdayHeaderCell: { width: '14.285%', alignItems: 'center', paddingVertical: 6 },
+  // Calendario grilla — 7 columnas EXACTAS: nada de gap en los contenedores
+  weekdayHeaderRow: { flexDirection: 'row', marginBottom: 8, marginTop: 2 },
+  weekdayHeaderCell: { width: '14.2857%', alignItems: 'center', paddingVertical: 6 },
   weekdayHeaderText: { fontSize: 11, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase' },
 
-  calendarGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  emptyDayCell:     { width: '14.285%', paddingBottom: 0 },
+  calendarGrid:     { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCellWrap:      { width: '14.2857%', padding: 2 },
   dayChip:          {
-    width: '14.285%', aspectRatio: 1,
+    aspectRatio: 1,
     justifyContent: 'center', alignItems: 'center',
     borderRadius: 8, backgroundColor: '#F5F5F5',
     borderWidth: 1, borderColor: '#E0E0E0',

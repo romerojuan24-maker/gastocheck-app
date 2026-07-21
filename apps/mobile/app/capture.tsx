@@ -12,8 +12,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { useOcr } from '../hooks/useOcr';
 import DatePickerField from '../components/DatePickerField';
+import ZoomableImageModal from '../components/ZoomableImageModal';
 import { supabase } from '../lib/supabase';
 import { getActiveMembership } from '../lib/membership';
+import { compressForUpload, rotateImage90, imageToolsAvailable } from '../lib/image-utils';
 import {
   BRAND, DUPLICATE_STATUS_META, isFleetSector,
   VEHICLE_TYPE_ICONS, vehicleDisplayName, suggestCategoryFromProvider,
@@ -45,7 +47,9 @@ interface DuplicateResult {
 
 export default function CaptureScreen() {
   const router = useRouter();
-  const { photoUri } = useLocalSearchParams<{ photoUri?: string }>();
+  // viaticoId: cuando la captura viene desde un viaje de viáticos, el
+  // comprobante se liga automáticamente y se regresa a la pantalla de viáticos
+  const { photoUri, viaticoId } = useLocalSearchParams<{ photoUri?: string; viaticoId?: string }>();
   const { extractFromImage, loading: ocrLoading } = useOcr();
 
   // Setup offline sync monitor + cargar categorías al inicio
@@ -80,6 +84,8 @@ export default function CaptureScreen() {
   const [saving,     setSaving]     = useState(false);
   const [ocrRunning,  setOcrRunning]  = useState(false);
   const [quickSaving, setQuickSaving] = useState(false);
+  const [saveStage,   setSaveStage]   = useState('');   // "Subiendo foto…" etc. — feedback visible
+  const [showZoom,    setShowZoom]    = useState(false); // visor pinch-zoom del preview
   const [memberCompanyId, setMemberCompanyId] = useState<string | null>(null);
   const [memberUserId,    setMemberUserId]    = useState<string | null>(null);
 
@@ -205,8 +211,10 @@ export default function CaptureScreen() {
     }
     setQuickSaving(true);
     try {
-      // 1. Leer base64
-      const base64 = await FileSystem.readAsStringAsync(photo.uri, {
+      // 1. Comprimir si hay soporte nativo (próximo APK) y leer base64
+      setSaveStage('Preparando imagen…');
+      const { uri: uploadUri } = await compressForUpload(photo.uri);
+      const base64 = await FileSystem.readAsStringAsync(uploadUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
@@ -219,6 +227,7 @@ export default function CaptureScreen() {
         });
 
       // 3. Subir foto a Storage
+      setSaveStage('Subiendo foto…');
       const storagePath = `${memberCompanyId}/${Date.now()}/comprobante.jpg`;
       const { error: storErr } = await supabase.storage
         .from('expense-attachments')
@@ -226,7 +235,8 @@ export default function CaptureScreen() {
 
       if (storErr) throw new Error('Error al subir foto: ' + storErr.message);
 
-      // 4. Crear receipt
+      // 4. Crear receipt (ligado al viaje de viáticos si venimos de ahí)
+      setSaveStage('Guardando comprobante…');
       const { data: saved, error: insertErr } = await supabase
         .from('receipts')
         .insert({
@@ -236,14 +246,15 @@ export default function CaptureScreen() {
           source_type:       'photo',
           file_storage_path: storagePath,
           status:            'captured',
+          ...(viaticoId ? { viatico_id: viaticoId } : {}),
         })
         .select('id')
         .single();
 
       if (insertErr) throw new Error(insertErr.message);
 
-      // 5. Navegar inmediatamente
-      router.replace('/receipts');
+      // 5. Navegar inmediatamente (a viáticos si la captura venía de un viaje)
+      router.replace(viaticoId ? '/viaticos' : '/receipts');
 
       // 6. Cuando OCR termine, actualizar el receipt (promise ya corriendo desde paso 2)
       //    Folio y validación de UUID solo tienen sentido con los datos de OCR ya en mano:
@@ -308,6 +319,7 @@ export default function CaptureScreen() {
       Alert.alert('Error al guardar', e.message ?? 'No se pudo guardar el comprobante');
     } finally {
       setQuickSaving(false);
+      setSaveStage('');
     }
   }
 
@@ -360,8 +372,8 @@ export default function CaptureScreen() {
   // ── Tomar foto ─────────────────────────────────────────────────────────────
 
   async function takePhoto() {
-    // Ir a pantalla de cámara con flash/torch control
-    router.push('/camera-screen' as any);
+    // Ir a pantalla de cámara con flash/torch control (preservando viaticoId)
+    router.push({ pathname: '/camera-screen', params: viaticoId ? { viaticoId } : {} } as any);
   }
 
   // ── Elegir de galería ──────────────────────────────────────────────────────
@@ -547,9 +559,27 @@ export default function CaptureScreen() {
   // ── Guardar comprobante (sin póliza — va directo a Mis Comprobantes) ───────
 
   async function handleConfirm(forceSave = false, forceRsn = '') {
-    if (!photo?.base64) return;
+    if (!photo?.uri && !photo?.base64) return;
     setSaving(true);
     setShowDupModal(false);
+
+    // base64 puede ser null (foto recién rotada o venida de camera-screen):
+    // re-leerlo de la uri, comprimiendo si hay soporte nativo
+    let photoBase64 = photo.base64 ?? null;
+    if (!photoBase64 && photo.uri) {
+      try {
+        setSaveStage('Preparando imagen…');
+        const { uri: uploadUri } = await compressForUpload(photo.uri);
+        photoBase64 = await FileSystem.readAsStringAsync(uploadUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } catch {
+        setSaving(false); setSaveStage('');
+        Alert.alert('Error', 'No se pudo leer la foto. Intenta capturarla de nuevo.');
+        return;
+      }
+    }
+    if (!photoBase64) { setSaving(false); return; }
 
     // Declarados fuera del try para que el catch (encolado offline) pueda usarlos
     // aunque el error ocurra después de asignarlos — antes estaban dentro del try
@@ -576,10 +606,11 @@ export default function CaptureScreen() {
       if (!isFleet) loadFleetData(companyId);
 
       // Subir archivo a Storage (XML o foto)
+      setSaveStage(isXml ? 'Subiendo XML…' : 'Subiendo foto…');
       const ext         = isXml ? 'xml' : 'jpg';
       const contentType = isXml ? 'text/xml' : 'image/jpeg';
       storagePath = `${companyId}/${Date.now()}/comprobante.${ext}`;
-      const arrayBuffer = decode(photo.base64);
+      const arrayBuffer = decode(photoBase64);
 
       const { error: storErr } = await supabase.storage
         .from('expense-attachments')
@@ -588,6 +619,7 @@ export default function CaptureScreen() {
       if (storErr) console.warn('Storage upload warn:', storErr.message);
 
       // Llamar a submit-receipt (crea receipt + supplier + purchase_items, SIN póliza)
+      setSaveStage('Guardando comprobante…');
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
 
@@ -668,7 +700,13 @@ export default function CaptureScreen() {
         throw new Error(submitData.error ?? 'Error al guardar');
       }
 
-      // Éxito
+      // Éxito — si venimos de un viaje de viáticos, ligar el comprobante
+      if (viaticoId && submitData.receipt_id) {
+        await supabase.from('receipts')
+          .update({ viatico_id: viaticoId })
+          .eq('id', submitData.receipt_id);
+      }
+
       const dupStatus  = submitData.duplicate_status;
       const dupMeta    = DUPLICATE_STATUS_META[dupStatus as DuplicateStatus];
       const folioLabel = submitData.gc_folio ? `Folio: ${submitData.gc_folio}` : '';
@@ -679,11 +717,12 @@ export default function CaptureScreen() {
           proveedor || 'Proveedor',
           total ? `$${total}` : '',
           folioLabel,
+          viaticoId ? '🧳 Ligado a tu viaje de viáticos' : '',
           dupStatus !== 'no_duplicate'
             ? `⚠ ${dupMeta?.label ?? 'Duplicado probable'} — revisará el supervisor`
             : '',
         ].filter(Boolean).join('\n'),
-        [{ text: 'OK', onPress: () => router.back() }],
+        [{ text: 'OK', onPress: () => (viaticoId ? router.replace('/viaticos') : router.back()) }],
       );
     } catch (err: any) {
       // Si falla por red, encolar offline
@@ -726,6 +765,23 @@ export default function CaptureScreen() {
       }
     } finally {
       setSaving(false);
+      setSaveStage('');
+    }
+  }
+
+  // ── Rotar la foto capturada (requiere módulo nativo del próximo APK) ───────
+
+  async function handleRotatePhoto() {
+    if (!photo?.uri) return;
+    const newUri = await rotateImage90(photo.uri);
+    if (newUri) {
+      // base64 queda obsoleto: se re-lee de la nueva uri al guardar
+      setPhoto({ uri: newUri, base64: null });
+    } else {
+      Alert.alert(
+        'Girar imagen',
+        'Guardar la foto girada estará disponible con la próxima actualización de la app. Mientras tanto, en el visor 🔍 puedes girarla para revisarla.',
+      );
     }
   }
 
@@ -858,6 +914,17 @@ export default function CaptureScreen() {
           <Image source={{ uri: photo.uri }} style={{ flex: 1, width: '100%' }} resizeMode="contain" />
         </ScrollView>
 
+        {/* Acciones sobre la foto: zoom y rotar */}
+        <View style={{ position: 'absolute', top: 52, right: 16, gap: 10 }}>
+          <TouchableOpacity style={styles.photoActionBtn} onPress={() => setShowZoom(true)}>
+            <Text style={styles.photoActionIcon}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.photoActionBtn} onPress={handleRotatePhoto}>
+            <Text style={styles.photoActionIcon}>↻</Text>
+          </TouchableOpacity>
+        </View>
+        <ZoomableImageModal visible={showZoom} uri={photo?.uri ?? null} onClose={() => setShowZoom(false)} />
+
         {ocrRunning ? (
           <View style={{ padding: 28, backgroundColor: BRAND.navy, alignItems: 'center' }}>
             <ActivityIndicator color="#fff" size="large" />
@@ -880,7 +947,12 @@ export default function CaptureScreen() {
               disabled={quickSaving}
             >
               {quickSaving ? (
-                <ActivityIndicator color="#fff" />
+                <>
+                  <ActivityIndicator color="#fff" />
+                  <Text style={{ color: '#CFFAD8', fontSize: 13, marginTop: 6, fontWeight: '600' }}>
+                    {saveStage || 'Guardando…'}
+                  </Text>
+                </>
               ) : (
                 <>
                   <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
@@ -945,7 +1017,18 @@ export default function CaptureScreen() {
           </View>
         ) : (
           <View style={styles.photoContainer}>
-            <Image source={{ uri: photo.uri }} style={styles.photo} resizeMode="contain" />
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setShowZoom(true)}>
+              <Image source={{ uri: photo.uri }} style={styles.photo} resizeMode="contain" />
+            </TouchableOpacity>
+            <View style={{ position: 'absolute', top: 10, right: 10, gap: 8 }}>
+              <TouchableOpacity style={styles.photoActionBtn} onPress={() => setShowZoom(true)}>
+                <Text style={styles.photoActionIcon}>🔍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoActionBtn} onPress={handleRotatePhoto}>
+                <Text style={styles.photoActionIcon}>↻</Text>
+              </TouchableOpacity>
+            </View>
+            <ZoomableImageModal visible={showZoom} uri={photo?.uri ?? null} onClose={() => setShowZoom(false)} />
           </View>
         )}
 
@@ -1189,7 +1272,7 @@ export default function CaptureScreen() {
           >
             {saving
               ? <><ActivityIndicator color="#fff" />
-                  <Text style={[styles.confirmBtnText, { marginLeft: 8 }]}>Verificando...</Text></>
+                  <Text style={[styles.confirmBtnText, { marginLeft: 8 }]}>{saveStage || 'Verificando…'}</Text></>
               : <Text style={styles.confirmBtnText}>✓ Guardar comprobante</Text>
             }
           </TouchableOpacity>
@@ -1368,6 +1451,11 @@ const styles = StyleSheet.create({
   placeholderLabel: { fontSize: 14, color: '#90A4AE', marginTop: 8 },
   placeholderHint:  { fontSize: 12, color: '#B0BEC5', marginTop: 4 },
   photoContainer:  { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
+  photoActionBtn:  {
+    width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(15,30,60,0.65)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  photoActionIcon: { color: '#fff', fontSize: 19 },
   photo:           { width: '100%', aspectRatio: 3 / 4, backgroundColor: '#f5f5f5' },
   form:            { marginBottom: 24 },
   fieldGroup:      { marginBottom: 12 },

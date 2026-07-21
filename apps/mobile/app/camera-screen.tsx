@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, type FlashMode } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BRAND } from '@gastocheck/shared';
 
 export default function CameraWithFlashScreen() {
   const router = useRouter();
+  const { viaticoId } = useLocalSearchParams<{ viaticoId?: string }>();
   const cameraRef = useRef<CameraView>(null);
 
   const [permission, requestPermission] = useCameraPermissions();
@@ -38,7 +39,7 @@ export default function CameraWithFlashScreen() {
       if (!photo) return;
       router.push({
         pathname: '/capture',
-        params: { photoUri: photo.uri },
+        params: { photoUri: photo.uri, ...(viaticoId ? { viaticoId } : {}) },
       } as any);
     } catch {
       Alert.alert('Error', 'No se pudo capturar la foto');

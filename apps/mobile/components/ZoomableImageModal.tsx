@@ -126,9 +126,18 @@ export default function ZoomableImageModal({ visible, uri, onClose }: Props) {
     }),
   ).current;
 
+  // Rotación de VISTA (90° por toque) — para revisar fotos tomadas horizontales
+  const [rotation, setRotation] = useState(0);
+
   function handleClose() {
     reset();
+    setRotation(0);
     onClose();
+  }
+
+  function handleRotate() {
+    reset();
+    setRotation(r => (r + 90) % 360);
   }
 
   if (!visible || !uri) return null;
@@ -139,7 +148,10 @@ export default function ZoomableImageModal({ visible, uri, onClose }: Props) {
         <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.hint}>Pellizca para acercar · doble toque para zoom rápido</Text>
+        <TouchableOpacity style={styles.rotateBtn} onPress={handleRotate}>
+          <Text style={styles.closeIcon}>↻</Text>
+        </TouchableOpacity>
+        <Text style={styles.hint}>Pellizca para acercar · doble toque zoom · ↻ gira la imagen</Text>
 
         <View style={styles.imageWrap} {...panResponder.panHandlers}>
           <Animated.Image
@@ -152,6 +164,7 @@ export default function ZoomableImageModal({ visible, uri, onClose }: Props) {
                   { translateX },
                   { translateY },
                   { scale },
+                  { rotate: `${rotation}deg` },
                 ],
               },
             ]}
@@ -170,6 +183,11 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 48, right: 20, zIndex: 10,
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center',
+  },
+  rotateBtn: {
+    position: 'absolute', bottom: 48, right: 20, zIndex: 10,
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center',
   },
   closeIcon: { color: '#fff', fontSize: 18, fontWeight: '700' },
   hint: {

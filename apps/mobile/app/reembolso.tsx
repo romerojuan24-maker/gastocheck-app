@@ -369,6 +369,13 @@ export default function ReembolsoScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: BRAND.gray }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        {/* Volver — el borrador se conserva en Mis Reembolsos (filtro Borrador) */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ alignSelf: 'flex-start', paddingVertical: 6, paddingRight: 16, marginBottom: 4 }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.blue }}>‹ Atrás</Text>
+        </TouchableOpacity>
         <Text style={styles.controlNum}>
           {reembolso.control_number ? `R-${String(reembolso.control_number).padStart(4, '0')}` : 'Nuevo Reembolso'}
         </Text>

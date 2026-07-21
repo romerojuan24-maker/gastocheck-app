@@ -47,4 +47,4 @@ export * from './cfdi-parser';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 241 · v0.1.85 · Monitoreo de Rutas visible en vista Admin';
+export const APP_VERSION = 'OTA 242 · v0.1.85 · Retro comprador: zoom, rotar, fechas, viajes, montos';

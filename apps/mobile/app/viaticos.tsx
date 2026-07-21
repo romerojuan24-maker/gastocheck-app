@@ -451,6 +451,25 @@ export default function ViaticosScreen() {
               <Text style={styles.detailTitle}>Mis Comprobantes</Text>
               <Text style={styles.detailPurpose}>Selecciona un comprobante para agregar al viaje</Text>
             </View>
+
+            {/* Capturar un ticket NUEVO directo al viaje (se liga automáticamente) */}
+            <TouchableOpacity
+              style={{
+                margin: 16, marginBottom: 0, backgroundColor: BRAND.blue, borderRadius: 14,
+                padding: 15, alignItems: 'center',
+              }}
+              onPress={() => {
+                setShowAddReceipt(false);
+                if (selectedViaje) {
+                  router.push({ pathname: '/capture', params: { viaticoId: selectedViaje.id } } as any);
+                }
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>📷 Capturar ticket nuevo</Text>
+              <Text style={{ color: '#DDE7FF', fontSize: 11, marginTop: 2 }}>
+                Se liga automáticamente a este viaje
+              </Text>
+            </TouchableOpacity>
             <FlatList
               data={availableReceipts}
               keyExtractor={r => r.id}

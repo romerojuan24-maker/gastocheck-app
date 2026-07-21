@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   computeBalance, BRAND, APP_VERSION,
   type Expense, type Policy, type Advance,
@@ -752,8 +753,12 @@ function BottomBar({
   onSelect: (i: number) => void;
   color: string;
 }) {
+  // Safe area REAL del dispositivo: en teléfonos con barra de navegación
+  // Android el padding fijo quedaba corto y los tabs se encimaban con los
+  // botones del sistema (reporte de comprador 2026-07-21)
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
+    <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
       {tabs.map((t, i) => {
         const isActive = active === i;
         return (
