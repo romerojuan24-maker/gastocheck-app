@@ -17,6 +17,8 @@ import { useInventarioProducts, useInventarioAlerts, useInventarioMutations, use
 // Componentes
 import { ProductList, AlertsList, EditModal, QuickMovementModal, MovementsList } from './components'
 import { CompanySwitcher } from '../shared/components/CompanySwitcher'
+import { pickAndParseInventory, importInventory, exportInventoryCsv } from '../../lib/inventory-io'
+import { friendlyError } from '../../lib/friendly-errors'
 
 // Tipos
 import type { InventoryProduct } from './types'
@@ -110,6 +112,33 @@ export default function InventarioCheckHome() {
     }
   }
 
+  const [importing, setImporting] = useState(false)
+
+  async function handleImport() {
+    if (!companyId) return
+    try {
+      const parsed = await pickAndParseInventory()
+      if (!parsed) return
+      if (parsed.products.length === 0) {
+        Alert.alert('Sin productos válidos', 'No se encontraron filas con nombre de producto. Revisa que la primera fila sean los encabezados (Nombre, SKU, Costo, Precio, Existencia…).')
+        return
+      }
+      setImporting(true)
+      const n = await importInventory(companyId, parsed.products)
+      Alert.alert('✓ Inventario importado', `${n} producto(s) importados${parsed.skipped ? ` · ${parsed.skipped} fila(s) sin nombre omitidas` : ''}.`)
+      await refetchProducts()
+    } catch (e: any) {
+      Alert.alert('Error al importar', friendlyError(e, 'importar inventario'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function handleExport() {
+    if (products.length === 0) { Alert.alert('Inventario vacío', 'No hay productos para exportar.'); return }
+    try { await exportInventoryCsv(products) } catch { Alert.alert('Error', 'No se pudo exportar.') }
+  }
+
   const openQuickMove = (product: InventoryProduct, direction: 'in' | 'out') => {
     // idempotencyKey se genera UNA vez al abrir el sheet, no en cada intento
     // de guardar — así un doble tap en "Guardar" no crea 2 movimientos.
@@ -165,7 +194,7 @@ export default function InventarioCheckHome() {
 
   function TopBar() {
     return (
-      <View style={s.topBar}>
+      <View style={[s.topBar, { height: 60 + insets.top, paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
           <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>
@@ -214,6 +243,26 @@ export default function InventarioCheckHome() {
     }
     return (
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        {/* Ajustes del inventario */}
+        <Text style={{ fontSize: 12, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8 }}>Inventario</Text>
+        <TouchableOpacity style={s.navCard} onPress={handleImport} disabled={importing}>
+          <Text style={s.navCardIcon}>📥</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.navCardTitle}>Importar de Excel/CSV</Text>
+            <Text style={s.navCardSub}>Carga tu inventario existente (columnas: Nombre, SKU, Costo, Precio, Existencia…)</Text>
+          </View>
+          {importing ? <ActivityIndicator size="small" color={INVEN_COLOR} /> : <Text style={s.navCardArrow}>›</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navCard} onPress={handleExport}>
+          <Text style={s.navCardIcon}>📤</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.navCardTitle}>Exportar inventario</Text>
+            <Text style={s.navCardSub}>Comparte tu inventario como CSV</Text>
+          </View>
+          <Text style={s.navCardArrow}>›</Text>
+        </TouchableOpacity>
+
+        <Text style={{ fontSize: 12, fontWeight: '800', color: '#90A4AE', textTransform: 'uppercase', marginBottom: 8, marginTop: 20 }}>Cuenta</Text>
         <View style={s.profileCard}>
           <View style={[s.avatar, { backgroundColor: INVEN_COLOR + '20' }]}>
             <Text style={[s.avatarText, { color: INVEN_COLOR }]}>{initial}</Text>
@@ -287,8 +336,26 @@ export default function InventarioCheckHome() {
           />
         </View>
 
+        {/* Importar / Exportar desde Excel o CSV */}
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 8 }}>
+          <TouchableOpacity style={[s.ioBtn, { borderColor: INVEN_COLOR }, importing && { opacity: 0.6 }]} onPress={handleImport} disabled={importing}>
+            {importing ? <ActivityIndicator size="small" color={INVEN_COLOR} /> : <Text style={[s.ioBtnText, { color: INVEN_COLOR }]}>📥 Importar Excel/CSV</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.ioBtn, { borderColor: '#90A4AE' }]} onPress={handleExport}>
+            <Text style={[s.ioBtnText, { color: '#607D8B' }]}>📤 Exportar</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 16 }}>
+            {visible.length === 0 && (
+              <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+                <Text style={{ fontSize: 34, marginBottom: 8 }}>📦</Text>
+                <Text style={{ color: '#90A4AE', textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 }}>
+                  Aún no tienes productos. Agrega uno con “+ Nuevo producto” o importa tu inventario de Excel/CSV con el botón de arriba.
+                </Text>
+              </View>
+            )}
             <ProductList
               products={visible}
               onEdit={setEditing}
@@ -371,20 +438,29 @@ export default function InventarioCheckHome() {
 
       <BottomTabBar />
 
-      <EditModal
-        product={editing}
-        onClose={() => setEditing(null)}
-        onSave={handleSave}
-        saving={saving}
-      />
+      {/* Montaje condicional: los modales derivan su estado interno de la
+          prop `product` con useState(product), que solo lee el valor inicial.
+          Si se montan siempre (con product=null), nunca reciben el producto
+          nuevo y el botón "no hace nada". Montarlos solo cuando hay target
+          garantiza un montaje fresco con el valor correcto. */}
+      {editing && (
+        <EditModal
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSave={handleSave}
+          saving={saving}
+        />
+      )}
 
-      <QuickMovementModal
-        product={quickMoveTarget}
-        direction={quickMoveDirection}
-        onClose={() => { setQuickMoveTarget(null); setQuickMoveDirection(null) }}
-        onConfirm={handleQuickMoveConfirm}
-        saving={quickMoveSaving}
-      />
+      {quickMoveTarget && (
+        <QuickMovementModal
+          product={quickMoveTarget}
+          direction={quickMoveDirection}
+          onClose={() => { setQuickMoveTarget(null); setQuickMoveDirection(null) }}
+          onConfirm={handleQuickMoveConfirm}
+          saving={quickMoveSaving}
+        />
+      )}
     </View>
   )
 }
@@ -394,7 +470,7 @@ export default function InventarioCheckHome() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: BRAND.gray },
 
-  topBar:         { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.navy, paddingHorizontal: 12, height: 60 },
+  topBar:         { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.navy, paddingHorizontal: 12 },
   topBarBack:     { paddingHorizontal: 4, paddingVertical: 8 },
   topBarBackText: { color: '#90A4AE', fontSize: 13, fontWeight: '600' },
   topBarCenter:   { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
@@ -416,6 +492,8 @@ const s = StyleSheet.create({
   fabContainer: { position: 'absolute', bottom: 16, left: 16, right: 16 },
   fab:          { paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   fabText:      { color: '#fff', fontWeight: '700', fontSize: 15 },
+  ioBtn:        { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1.5 },
+  ioBtnText:    { fontSize: 12, fontWeight: '800' },
 
   tabBar:        { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, paddingTop: 4, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.08, shadowRadius: 6 },
   tabItem:       { flex: 1, alignItems: 'center', paddingVertical: 8, position: 'relative' },

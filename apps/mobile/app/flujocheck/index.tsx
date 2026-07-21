@@ -208,7 +208,7 @@ export default function FlujoCheckHome() {
 
   function TopBar() {
     return (
-      <View style={s.topBar}>
+      <View style={[s.topBar, { height: 60 + insets.top, paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
           <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>
@@ -423,7 +423,7 @@ export default function FlujoCheckHome() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: BRAND.gray },
 
-  topBar:         { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.navy, paddingHorizontal: 12, height: 60 },
+  topBar:         { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.navy, paddingHorizontal: 12 },
   topBarBack:     { paddingHorizontal: 4, paddingVertical: 8 },
   topBarBackText: { color: '#90A4AE', fontSize: 13, fontWeight: '600' },
   topBarCenter:   { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },

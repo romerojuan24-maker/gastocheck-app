@@ -17,27 +17,33 @@ export function KpiCards({ currentBalance, income, expense, projected, risk }: P
     <View style={styles.container}>
       <View style={styles.kpiRow}>
         <View style={styles.kpi}>
-          <Text style={styles.kpiLabel}>Saldo hoy</Text>
+          <Text style={styles.kpiLabel}>Saldo anterior</Text>
           <Text style={styles.kpiValue}>{formatCurrency(currentBalance)}</Text>
+          <Text style={styles.kpiHint}>en bancos hoy</Text>
         </View>
         <View style={styles.kpi}>
           <Text style={styles.kpiLabel}>Ingresos</Text>
           <Text style={[styles.kpiValue, styles.incomeValue]}>+{formatCurrency(income)}</Text>
+          <Text style={styles.kpiHint}>por cobrar</Text>
         </View>
         <View style={styles.kpi}>
           <Text style={styles.kpiLabel}>Egresos</Text>
           <Text style={[styles.kpiValue, styles.expenseValue]}>-{formatCurrency(expense)}</Text>
+          <Text style={styles.kpiHint}>por pagar</Text>
         </View>
       </View>
 
       <View style={styles.projectionCard}>
-        <Text style={styles.projectionLabel}>PROYECCIÓN 7 DÍAS</Text>
+        <Text style={styles.projectionLabel}>SALDO FINAL · PROYECTADO 7 DÍAS</Text>
         <View style={styles.projectionContent}>
           <Text style={styles.projectionValue}>{formatCurrency(projected)}</Text>
           <Text style={[styles.riskLabel, { color: riskMeta.color }]}>
             {riskMeta.label}
           </Text>
         </View>
+        <Text style={styles.formula}>
+          Saldo anterior {formatCurrency(currentBalance)} + Ingresos {formatCurrency(income)} − Egresos {formatCurrency(expense)}
+        </Text>
       </View>
     </View>
   )
@@ -65,6 +71,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     marginBottom: 4,
+  },
+  kpiHint: {
+    color: '#64748b',
+    fontSize: 9,
+    marginTop: 2,
+  },
+  formula: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 10,
+    marginTop: 8,
+    textAlign: 'center',
   },
   kpiValue: {
     color: '#f1f5f9',
