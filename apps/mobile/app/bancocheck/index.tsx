@@ -171,6 +171,8 @@ export default function BancoCheckHome() {
               </View>
             )}
 
+            <NavCard icon="📒" title="Póliza del día" sub="Genera y exporta la póliza contable (CONTPAQ/CSV)"
+              onPress={() => router.push('/bancocheck/poliza-dia' as any)} />
             <NavCard icon="🔗" title="Cruce automático" sub="Empareja movimientos con facturas, anticipos y gastos"
               onPress={() => router.push('/bancocheck/cruce' as any)} />
             <NavCard icon="➕" title="Nuevo movimiento (manual)" sub="Registra un pago o ingreso a mano"
