@@ -27,20 +27,20 @@ import type { CfdiDocument } from './types'
 const FACTURA_COLOR = BRAND.purple  // '#7B1FA2'
 const ADMIN_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general']
 
+// Esquema común: 🏢 Empresa (izquierda) · específicos · ⚙️ Ajustes (derecha)
 const CONTADOR_TABS = [
+  { icon: '🏢', label: 'Empresa',       badge: 0 },
   { icon: '🧾', label: 'CFDIs',         badge: 0 },
   { icon: '📤', label: 'Distribución',  badge: 0 },
   { icon: '📊', label: 'Reportes',      badge: 0 },
-  { icon: '⚙️',  label: 'Configuración',badge: 0 },
-  { icon: '👤', label: 'Perfil',        badge: 0 },
+  { icon: '⚙️',  label: 'Ajustes',      badge: 0 },
 ]
 
 const ADMIN_TABS = [
   { icon: '🏢', label: 'Empresa',       badge: 0 },
   { icon: '🧾', label: 'CFDIs',         badge: 0 },
   { icon: '📊', label: 'Reportes',      badge: 0 },
-  { icon: '⚙️',  label: 'Configuración',badge: 0 },
-  { icon: '👤', label: 'Perfil',        badge: 0 },
+  { icon: '⚙️',  label: 'Ajustes',      badge: 0 },
 ]
 
 type CfdiTab = 'received' | 'issued' | 'problems'
@@ -171,6 +171,34 @@ export default function FacturaCheckHome() {
         <TouchableOpacity onPress={() => router.push('/settings')} style={s.topBarIcon} activeOpacity={0.7}>
           <Text style={{ fontSize: 20 }}>⚙️</Text>
         </TouchableOpacity>
+      </View>
+    )
+  }
+
+  // Pestaña ⚙️ Ajustes (derecha): config del módulo (PAC/créditos) + cuenta + salir.
+  function AjustesTab() {
+    async function signOut() {
+      Alert.alert('Cerrar sesión', '¿Estás seguro?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); router.replace('/login' as any) } },
+      ])
+    }
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />
+        </View>
+        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#EEF2F7', gap: 10 }}>
+          <TouchableOpacity style={s.navCard} onPress={() => router.push('/settings')}>
+            <Text style={s.navCardIcon}>⚙️</Text>
+            <View style={{ flex: 1 }}><Text style={s.navCardTitle}>Configuración de la cuenta</Text></View>
+            <Text style={s.navCardArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.navCard, { borderColor: BRAND.red + '30' }]} onPress={signOut}>
+            <Text style={s.navCardIcon}>🚪</Text>
+            <View style={{ flex: 1 }}><Text style={[s.navCardTitle, { color: BRAND.red }]}>Cerrar sesión</Text></View>
+          </TouchableOpacity>
+        </View>
       </View>
     )
   }
@@ -354,7 +382,7 @@ export default function FacturaCheckHome() {
   }
 
   function BottomTabBar() {
-    const cfdisIdx = displayAs === 'admin' ? 1 : 0
+    const cfdisIdx = 1 // CFDIs es el índice 1 en ambas vistas (Empresa es 0)
     const tabs = FACTURA_TABS.map((t, i) => ({
       ...t,
       badge: i === cfdisIdx ? problems : 0,
@@ -404,13 +432,20 @@ export default function FacturaCheckHome() {
             )}
             {activeTab === 1 && <CfdisTab />}
             {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} onVouchersGenerated={refetchDocuments} />}
-            {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
-            {activeTab === 4 && <ProfileTab />}
+            {activeTab === 3 && <AjustesTab />}
           </>
         ) : (
           <>
-            {activeTab === 0 && <CfdisTab />}
-            {activeTab === 1 && (
+            {activeTab === 0 && (
+              <EmpresaTab
+                companyName={companyName}
+                viewMode={viewMode}
+                onSelectMode={handleSelectMode}
+                color={FACTURA_COLOR}
+              />
+            )}
+            {activeTab === 1 && <CfdisTab />}
+            {activeTab === 2 && (
               <DistributionTab
                 documents={documents}
                 companyId={companyId || ''}
@@ -418,9 +453,8 @@ export default function FacturaCheckHome() {
                 onLinked={refetchDocuments}
               />
             )}
-            {activeTab === 2 && <ReportsTab documents={documents} color={FACTURA_COLOR} onVouchersGenerated={refetchDocuments} />}
-            {activeTab === 3 && <SettingsTab companyId={companyId || ''} color={FACTURA_COLOR} />}
-            {activeTab === 4 && <ProfileTab />}
+            {activeTab === 3 && <ReportsTab documents={documents} color={FACTURA_COLOR} onVouchersGenerated={refetchDocuments} />}
+            {activeTab === 4 && <AjustesTab />}
           </>
         )}
       </View>
