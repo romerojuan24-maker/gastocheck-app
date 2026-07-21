@@ -30,7 +30,9 @@ export function SettingsTab({ companyId, color }: Props) {
   const { credit, loading, refetch } = useCFDICredit(companyId)
   const { config: pacConfig, loading: pacLoading } = usePacProviderConfig(companyId)
 
-  if (loading || !credit) {
+  // Solo bloquea con spinner mientras carga; la sección de PAC (la funcional)
+  // debe verse aunque el crédito no esté disponible.
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={color} />
@@ -38,13 +40,14 @@ export function SettingsTab({ companyId, color }: Props) {
     )
   }
 
-  const remaining = credit.total_balance - credit.consumed_this_month
-  const usagePercent = credit.total_balance > 0
+  const remaining = credit ? credit.total_balance - credit.consumed_this_month : 0
+  const usagePercent = credit && credit.total_balance > 0
     ? Math.min(100, (credit.consumed_this_month / credit.total_balance) * 100)
     : 0
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }}>
+      {credit && (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Créditos de facturación</Text>
         <Text style={styles.planLabel}>{PLAN_LABEL[credit.credit_plan] || credit.credit_plan}</Text>
@@ -76,6 +79,7 @@ export function SettingsTab({ companyId, color }: Props) {
           <Text style={[styles.rechargeButtonText, { color }]}>🔄 Actualizar saldo</Text>
         </TouchableOpacity>
       </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Proveedor de timbrado (PAC)</Text>

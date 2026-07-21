@@ -14,6 +14,14 @@ import type {
   AuditAction,
 } from '../types'
 
+// crypto.randomUUID() NO existe en React Native/Hermes → lanzaba una
+// excepción que dejaba estos hooks (useCFDICredit, useCFDIList) en estado
+// null para siempre, y con ello la pestaña Configuración de FacturaCheck se
+// quedaba en spinner infinito ("no carga"). safeId() no depende de crypto.
+function safeId(): string {
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 // ============================================================================
 // logCfdiAudit — escribe en audit_log_facturacheck (tabla real, compliance)
 // ============================================================================
@@ -71,7 +79,7 @@ export function useCFDIGeneration() {
         // TODO: Insert en cfdi_issue_requests + llamar backend API /api/factura/generate-cfdi
         const total = params.subtotal + (params.iva || 0)
         const request: CfdiIssueRequest = {
-          id: crypto.randomUUID(),
+          id: safeId(),
           company_id: '',
           cfdi_type: 'ingreso',
           receptor_rfc: params.receptor_rfc,
@@ -138,7 +146,7 @@ export function useCFDIDistribution() {
       try {
         // TODO: Call backend API /api/factura/distribute
         const distribution: CfdiDistribution = {
-          id: crypto.randomUUID(),
+          id: safeId(),
           cfdi_id: params.cfdi_id,
           distribution_channel: params.channel,
           recipient_email: params.recipient_email,
@@ -181,7 +189,7 @@ export function useCFDICredit(companyId: string) {
     try {
       // TODO: Query /api/factura/credits
       const mockCredit: CfdiCredit = {
-        id: crypto.randomUUID(),
+        id: safeId(),
         company_id: companyId,
         credit_plan: 'fixed',
         total_balance: 500.0,
@@ -237,7 +245,7 @@ export function useCFDIList(companyId: string) {
             id: 'CFDI001',
             company_id: companyId,
             direction: 'issued',
-            uuid_cfdi: crypto.randomUUID(),
+            uuid_cfdi: safeId(),
             rfc_emisor: 'ABC000000XYZ',
             razon_social_emisor: 'Mi Empresa SA de CV',
             rfc_receptor: 'XYZ123456ABC',
