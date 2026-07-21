@@ -89,10 +89,30 @@ export function useBancoActions() {
     }
   }
 
-  const classify = (transactionId: string, status: string, category?: string, notes?: string) =>
+  const classify = (
+    transactionId: string,
+    status: string,
+    category?: string,
+    notes?: string,
+    extra?: {
+      accountingAccountId?: string | null;
+      accountingAccountCode?: string | null;
+      clientId?: string | null;
+      clientName?: string | null;
+      supplierId?: string | null;
+    },
+  ) =>
     run(async () => {
       const { error } = await supabase.rpc('bancocheck_classify', {
-        p_transaction_id: transactionId, p_status: status, p_category: category ?? null, p_notes: notes ?? null,
+        p_transaction_id: transactionId,
+        p_status: status,
+        p_category: category ?? null,
+        p_notes: notes ?? null,
+        p_accounting_account_id:   extra?.accountingAccountId ?? null,
+        p_accounting_account_code: extra?.accountingAccountCode ?? null,
+        p_client_id:               extra?.clientId ?? null,
+        p_client_name:             extra?.clientName ?? null,
+        p_supplier_id:             extra?.supplierId ?? null,
       })
       if (error) throw error
     })

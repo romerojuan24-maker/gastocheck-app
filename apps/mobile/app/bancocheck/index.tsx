@@ -3,9 +3,10 @@
 // movimientos están explicados y cuáles no? Mismo shell (TopBar +
 // RolePill + tabs con barra inferior) que el resto de CHECK SUITE.
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, APP_VERSION } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
@@ -22,12 +23,14 @@ const ROLE_LABEL: Record<string, string> = {
   contador_general: '📊 Contador', supervisor: '📊 Supervisor',
 };
 
+// Esquema consistente con GastoCheck/CobraCheck: 🏢 Empresa al inicio,
+// ⚙️ Ajustes al final. (retro Juan 2026-07-21, punto 4)
 const TABS = [
+  { icon: '🏢', label: 'Empresa' },
   { icon: '📊', label: 'Resumen' },
   { icon: '🏦', label: 'Cuentas' },
   { icon: '🔗', label: 'Concilia' },
-  { icon: '🏢', label: 'Empresa' },
-  { icon: '👤', label: 'Perfil' },
+  { icon: '⚙️', label: 'Ajustes' },
 ];
 
 export default function BancoCheckHome() {
@@ -39,7 +42,8 @@ export default function BancoCheckHome() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(1); // abre en Resumen (Empresa es tab 0 por esquema)
+  const insets = useSafeAreaInsets();
 
   useEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -104,7 +108,7 @@ export default function BancoCheckHome() {
 
   return (
     <View style={s.screen}>
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.replace('/')} style={s.topBarBack} activeOpacity={0.7}>
           <Text style={s.topBarBackText}>‹ CHECK SUITE</Text>
         </TouchableOpacity>
@@ -129,7 +133,7 @@ export default function BancoCheckHome() {
       </View>
 
       <View style={{ flex: 1 }}>
-        {tab === 0 && (
+        {tab === 1 && (
           <ScrollView contentContainerStyle={s.pad}>
             <View style={s.balanceCard}>
               <Text style={s.balanceLabel}>Saldo total en cuentas</Text>
@@ -176,17 +180,17 @@ export default function BancoCheckHome() {
           </ScrollView>
         )}
 
-        {tab === 1 && <BancoCheckCuentas />}
-        {tab === 2 && <BancoCheckConciliacion />}
+        {tab === 2 && <BancoCheckCuentas />}
+        {tab === 3 && <BancoCheckConciliacion />}
 
-        {tab === 3 && (
+        {tab === 0 && (
           <ScrollView contentContainerStyle={s.pad}>
             <Text style={s.tabTitle}>Empresa</Text>
             <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
               sub="Datos fiscales, usuarios y configuración"
               bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
             <NavCard icon="🏦" title="Cuentas Bancarias" sub="Alta, edición y saldo de cada cuenta"
-              onPress={() => setTab(1)} />
+              onPress={() => setTab(2)} />
             <CompanySwitcher color={BANCO_COLOR} />
           </ScrollView>
         )}
@@ -216,7 +220,7 @@ export default function BancoCheckHome() {
         )}
       </View>
 
-      <View style={[s.bottomBar, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
+      <View style={[s.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
         {TABS.map((t, i) => {
           const isActive = tab === i;
           return (
@@ -267,11 +271,9 @@ function BigCard({ icon, title, sub, bg, onPress }: { icon: string; title: strin
   );
 }
 
-const TOP_INSET = Platform.OS === 'ios' ? 54 : 32;
-
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: BRAND.gray },
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: TOP_INSET, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
   topBarBack: { paddingRight: 12 },
   topBarBackText: { fontSize: 13, fontWeight: '700', color: BRAND.csblue },
   topBarCenter: { flex: 1, flexDirection: 'row', justifyContent: 'center' },

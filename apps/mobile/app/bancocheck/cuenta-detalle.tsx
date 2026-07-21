@@ -68,9 +68,20 @@ export default function BancoCheckCuentaDetalle() {
     setMonth(m); setYear(y);
   }
 
-  async function handleClassify(category: string) {
+  async function handleClassify(payload: {
+    category: string;
+    accountingAccountId?: string | null;
+    accountingAccountCode?: string | null;
+    clientId?: string | null;
+    clientName?: string | null;
+  }) {
     if (!selected) return;
-    const res = await classify(selected.id, 'explained', category);
+    const res = await classify(selected.id, 'explained', payload.category, undefined, {
+      accountingAccountId:   payload.accountingAccountId,
+      accountingAccountCode: payload.accountingAccountCode,
+      clientId:              payload.clientId,
+      clientName:            payload.clientName,
+    });
     if (!res.success) { Alert.alert('Error', res.error ?? 'No se pudo aprobar el movimiento'); return; }
     setSelected(null);
     load();
@@ -133,8 +144,8 @@ export default function BancoCheckCuentaDetalle() {
             <TouchableOpacity
               key={t.id}
               style={s.txnCard}
-              activeOpacity={isPending ? 0.7 : 1}
-              onPress={() => { if (isPending) setSelected(t); }}
+              activeOpacity={0.7}
+              onPress={() => setSelected(t)}
             >
               <View style={{ flex: 1, marginRight: 10 }}>
                 <Text style={s.txnDesc} numberOfLines={1}>{t.description || 'Sin descripción'}</Text>
@@ -153,7 +164,7 @@ export default function BancoCheckCuentaDetalle() {
         })}
       </ScrollView>
 
-      <ClassifyModal transaction={selected} onClose={() => setSelected(null)} onClassify={handleClassify} saving={saving} />
+      <ClassifyModal transaction={selected} companyId={account?.company_id ?? null} onClose={() => setSelected(null)} onClassify={handleClassify} saving={saving} />
     </View>
   );
 }

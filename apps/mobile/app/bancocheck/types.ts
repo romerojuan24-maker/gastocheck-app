@@ -55,6 +55,12 @@ export interface BankTransaction {
   notes: string | null
   is_personal: boolean
   confidence: number | null
+  // Clasificación contable real (migración 20260721100000)
+  accounting_account_id: string | null
+  accounting_account_code: string | null
+  linked_client_id: string | null
+  linked_client_name: string | null
+  linked_supplier_id: string | null
   matched_entity_type: 'receipt' | 'invoice' | 'advance' | null
   related_receipt_id: string | null
   related_invoice_id: string | null

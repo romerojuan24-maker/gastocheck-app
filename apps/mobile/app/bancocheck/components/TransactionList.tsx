@@ -20,9 +20,12 @@ interface Props {
   onExplain: (t: BankTransaction) => void
   onPersonal: (t: BankTransaction) => void
   onIgnore: (t: BankTransaction) => void
+  // Abrir el detalle/reclasificación de CUALQUIER movimiento (incluidos los
+  // ya explicados/ignorados) — antes esos quedaban inertes al tap.
+  onOpen?: (t: BankTransaction) => void
 }
 
-export function TransactionList({ transactions, onExplain, onPersonal, onIgnore }: Props) {
+export function TransactionList({ transactions, onExplain, onPersonal, onIgnore, onOpen }: Props) {
   if (transactions.length === 0) {
     return (
       <View style={styles.empty}>
@@ -43,7 +46,11 @@ export function TransactionList({ transactions, onExplain, onPersonal, onIgnore 
         const actionable = t.status !== 'explained' && t.status !== 'ignored'
 
         return (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.7}
+            onPress={() => (onOpen ?? onExplain)(t)}
+          >
             <View style={styles.row}>
               <View style={{ flex: 1, marginRight: 10 }}>
                 <Text style={styles.description} numberOfLines={1}>{t.description || 'Sin descripción'}</Text>
@@ -55,17 +62,29 @@ export function TransactionList({ transactions, onExplain, onPersonal, onIgnore 
             </View>
 
             <View style={styles.row}>
-              <View style={[styles.pill, { backgroundColor: meta.bg }]}>
-                <Text style={[styles.pillText, { color: meta.fg }]}>{meta.label}</Text>
-              </View>
-              {t.is_personal && (
-                <View style={[styles.pill, { backgroundColor: '#F3E5F5', marginLeft: 6 }]}>
-                  <Text style={[styles.pillText, { color: BRAND.purple }]}>👤 Personal</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1, gap: 6 }}>
+                <View style={[styles.pill, { backgroundColor: meta.bg }]}>
+                  <Text style={[styles.pillText, { color: meta.fg }]}>{meta.label}</Text>
                 </View>
-              )}
+                {t.accounting_account_code && (
+                  <View style={[styles.pill, { backgroundColor: '#E3F2FD' }]}>
+                    <Text style={[styles.pillText, { color: BRAND.blue }]}>📒 {t.accounting_account_code}</Text>
+                  </View>
+                )}
+                {t.linked_client_name && (
+                  <View style={[styles.pill, { backgroundColor: '#E8F5E9' }]}>
+                    <Text style={[styles.pillText, { color: BRAND.green }]}>👤 {t.linked_client_name}</Text>
+                  </View>
+                )}
+                {t.is_personal && (
+                  <View style={[styles.pill, { backgroundColor: '#F3E5F5' }]}>
+                    <Text style={[styles.pillText, { color: BRAND.purple }]}>👤 Personal</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
-            {actionable && (
+            {actionable ? (
               <View style={[styles.row, { marginTop: 10, gap: 8 }]}>
                 <TouchableOpacity style={[styles.actionBtn, styles.actionPrimary]} onPress={() => onExplain(t)}>
                   <Text style={styles.actionPrimaryText}>Explicar</Text>
@@ -77,8 +96,10 @@ export function TransactionList({ transactions, onExplain, onPersonal, onIgnore 
                   <Text style={styles.actionText}>Ignorar</Text>
                 </TouchableOpacity>
               </View>
+            ) : (
+              <Text style={styles.reclassifyHint}>Toca para reclasificar</Text>
             )}
-          </View>
+          </TouchableOpacity>
         )
       }}
     />
@@ -106,4 +127,5 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 12, fontWeight: '700', color: BRAND.navy },
   actionPrimary: { backgroundColor: BRAND.blue },
   actionPrimaryText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  reclassifyHint: { fontSize: 11, color: '#B0BEC5', marginTop: 8, fontStyle: 'italic' },
 })

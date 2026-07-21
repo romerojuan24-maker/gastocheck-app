@@ -56,9 +56,20 @@ export default function BancoCheckMovimientos() {
     return true;
   });
 
-  async function handleClassify(category: string) {
+  async function handleClassify(payload: {
+    category: string;
+    accountingAccountId?: string | null;
+    accountingAccountCode?: string | null;
+    clientId?: string | null;
+    clientName?: string | null;
+  }) {
     if (!selected) return;
-    const res = await classify(selected.id, 'explained', category);
+    const res = await classify(selected.id, 'explained', payload.category, undefined, {
+      accountingAccountId:   payload.accountingAccountId,
+      accountingAccountCode: payload.accountingAccountCode,
+      clientId:              payload.clientId,
+      clientName:            payload.clientName,
+    });
     if (!res.success) { Alert.alert('Error', res.error ?? 'No se pudo explicar el movimiento'); return; }
     setSelected(null);
     refetch();
@@ -107,13 +118,14 @@ export default function BancoCheckMovimientos() {
           <TransactionList
             transactions={filtered}
             onExplain={setSelected}
+            onOpen={setSelected}
             onPersonal={handlePersonal}
             onIgnore={handleIgnore}
           />
         )}
       </ScrollView>
 
-      <ClassifyModal transaction={selected} onClose={() => setSelected(null)} onClassify={handleClassify} saving={saving} />
+      <ClassifyModal transaction={selected} companyId={companyId} onClose={() => setSelected(null)} onClassify={handleClassify} saving={saving} />
     </View>
   );
 }
