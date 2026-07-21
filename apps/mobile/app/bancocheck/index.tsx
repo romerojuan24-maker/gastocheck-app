@@ -171,6 +171,8 @@ export default function BancoCheckHome() {
               </View>
             )}
 
+            <NavCard icon="➕" title="Nuevo movimiento (manual)" sub="Registra un pago o ingreso a mano"
+              onPress={() => router.push('/bancocheck/nuevo-movimiento' as any)} />
             <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
               onPress={() => router.push('/bancocheck/importar' as any)} />
             <NavCard icon="👤" title="Movimientos personales" sub="Excluidos de reportes de negocio"

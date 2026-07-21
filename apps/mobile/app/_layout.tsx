@@ -151,6 +151,7 @@ export default function Layout() {
       <Stack.Screen name="rutas-equipo"      options={{ title: 'Rutas del equipo' }} />
       <Stack.Screen name="bancocheck/index"        options={{ title: 'BancoCheck' }} />
       <Stack.Screen name="bancocheck/movimientos"  options={{ title: 'Movimientos Bancarios' }} />
+      <Stack.Screen name="bancocheck/nuevo-movimiento" options={{ title: 'Nuevo Movimiento' }} />
       <Stack.Screen name="bancocheck/cuentas"        options={{ title: 'Cuentas Bancarias' }} />
       <Stack.Screen name="bancocheck/importar"       options={{ title: 'Importar Movimientos' }} />
       <Stack.Screen name="bancocheck/cuenta-detalle" options={{ title: 'Detalle de Cuenta' }} />
