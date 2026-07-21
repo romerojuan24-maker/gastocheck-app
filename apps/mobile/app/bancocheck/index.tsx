@@ -175,7 +175,9 @@ export default function BancoCheckHome() {
               onPress={() => router.push('/bancocheck/cruce' as any)} />
             <NavCard icon="➕" title="Nuevo movimiento (manual)" sub="Registra un pago o ingreso a mano"
               onPress={() => router.push('/bancocheck/nuevo-movimiento' as any)} />
-            <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
+            <NavCard icon="📄" title="Importar con OCR (foto/PDF)" sub="Lee el estado de cuenta automáticamente"
+              onPress={() => router.push('/bancocheck/importar-ocr' as any)} />
+            <NavCard icon="📤" title="Importar CSV" sub="Desde CSV o Excel del banco"
               onPress={() => router.push('/bancocheck/importar' as any)} />
             <NavCard icon="👤" title="Movimientos personales" sub="Excluidos de reportes de negocio"
               onPress={() => router.push({ pathname: '/bancocheck/movimientos', params: { filter: 'personal' } } as any)} />
