@@ -10,12 +10,19 @@ import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
 import DatePickerField from '../../components/DatePickerField';
-import { CobraCheckCFDIIntegration } from '../../components/CobraCheckCFDIIntegration';
+import { CobraCheckCFDIIntegration, type CobraCfdiMapped } from '../../components/CobraCheckCFDIIntegration';
 
 interface ClientOption {
   id: string;
   name: string;
   rfc: string | null;
+}
+
+function addDays(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.slice(0, 10).split('-').map(Number);
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
 function todayStr() {
@@ -42,6 +49,11 @@ export default function FacturaManualScreen() {
   const [xmlSubtotal, setXmlSubtotal] = useState<number | null>(null);
   const [xmlTax,      setXmlTax]      = useState<number | null>(null);
 
+  // Importación en LOTE (varios XML a la vez)
+  const [batch,      setBatch]      = useState<CobraCfdiMapped[]>([]);
+  const [batchDays,  setBatchDays]  = useState('30');
+  const [batchSaving, setBatchSaving] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -57,10 +69,7 @@ export default function FacturaManualScreen() {
     })();
   }, []);
 
-  async function handleXmlLoaded(data: {
-    cliente: string; rfc_cliente: string; monto: number; iva: number;
-    fecha: string; descripcion: string; cfdi_uuid?: string; folio: string;
-  }) {
+  async function handleXmlLoaded(data: CobraCfdiMapped) {
     if (!companyId) return;
 
     if (data.cfdi_uuid) {
@@ -72,13 +81,14 @@ export default function FacturaManualScreen() {
       }
     }
 
-    // Buscar cliente existente por RFC, o crearlo
+    // Buscar cliente existente por RFC, o crearlo CON sus datos fiscales del XML
     let client = data.rfc_cliente ? clients.find(c => c.rfc === data.rfc_cliente) : undefined;
     if (!client) {
       const { data: created, error } = await supabase.from('cobra_clients').insert({
         company_id: companyId,
         name:       data.cliente || data.rfc_cliente || 'Cliente sin nombre',
         rfc:        data.rfc_cliente || null,
+        address:    data.cp_cliente ? `C.P. ${data.cp_cliente} (domicilio fiscal del CFDI)` : null,
         status:     'active',
       }).select('id, name, rfc').single();
       if (error) {
@@ -96,6 +106,98 @@ export default function FacturaManualScreen() {
     setXmlUuidSat(data.cfdi_uuid ?? null);
     setXmlTax(data.iva ?? 0);
     setXmlSubtotal(data.monto != null ? data.monto - (data.iva ?? 0) : null);
+  }
+
+  // ── Importación en lote: varios XML → revisar → registrar todas ────────────
+
+  async function handleXmlBatch(list: CobraCfdiMapped[]) {
+    if (!companyId) return;
+
+    // Filtrar CFDIs ya registrados (una sola query por todos los UUID)
+    const uuids = list.map(x => x.cfdi_uuid).filter(Boolean) as string[];
+    let existing = new Set<string>();
+    if (uuids.length > 0) {
+      const { data: dups } = await supabase.from('cobra_invoices')
+        .select('uuid_sat').eq('company_id', companyId).in('uuid_sat', uuids);
+      existing = new Set((dups ?? []).map((d: any) => d.uuid_sat));
+    }
+    const fresh = list.filter(x => !x.cfdi_uuid || !existing.has(x.cfdi_uuid));
+    const skipped = list.length - fresh.length;
+
+    if (fresh.length === 0) {
+      Alert.alert('Nada que importar', 'Todos esos CFDIs ya estaban registrados en Cobranza.');
+      return;
+    }
+    if (skipped > 0) {
+      Alert.alert('Aviso', `${skipped} factura(s) ya registradas se omitieron.`);
+    }
+    setBatch(fresh);
+  }
+
+  async function registerBatch() {
+    if (!companyId || batch.length === 0) return;
+    const days = parseInt(batchDays, 10);
+    if (!days || days <= 0) {
+      Alert.alert('Días de crédito', 'Ingresa los días de crédito para calcular el vencimiento.');
+      return;
+    }
+
+    setBatchSaving(true);
+    try {
+      // Resolver/crear clientes por RFC (cache local para no duplicar)
+      const byRfc = new Map<string, ClientOption>();
+      clients.forEach(c => { if (c.rfc) byRfc.set(c.rfc, c); });
+      const newClients: ClientOption[] = [];
+
+      for (const inv of batch) {
+        if (inv.rfc_cliente && !byRfc.has(inv.rfc_cliente)) {
+          const { data: created, error } = await supabase.from('cobra_clients').insert({
+            company_id: companyId,
+            name:       inv.cliente || inv.rfc_cliente,
+            rfc:        inv.rfc_cliente,
+            address:    inv.cp_cliente ? `C.P. ${inv.cp_cliente} (domicilio fiscal del CFDI)` : null,
+            status:     'active',
+          }).select('id, name, rfc').single();
+          if (error) throw new Error(`Cliente ${inv.cliente}: ${error.message}`);
+          byRfc.set(inv.rfc_cliente, created);
+          newClients.push(created);
+        }
+      }
+      if (newClients.length > 0) {
+        setClients(prev => [...prev, ...newClients].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+
+      // Insertar todas las facturas (fecha de emisión = la del XML)
+      const rows = batch.map(inv => {
+        const emision = inv.fecha ? inv.fecha.slice(0, 10) : todayStr();
+        return {
+          company_id: companyId,
+          client_id:  inv.rfc_cliente ? byRfc.get(inv.rfc_cliente)!.id : null,
+          folio:      inv.folio || `XML-${Date.now().toString().slice(-6)}`,
+          amount:     inv.monto,
+          subtotal:   inv.monto - (inv.iva ?? 0),
+          tax:        inv.iva ?? 0,
+          uuid_sat:   inv.cfdi_uuid ?? null,
+          issue_date: emision,
+          due_date:   addDays(emision, days),
+          status:     'pending',
+          days_overdue: 0,
+        };
+      }).filter(r => r.client_id);
+
+      const { error: insErr } = await supabase.from('cobra_invoices').insert(rows);
+      if (insErr) throw insErr;
+
+      Alert.alert(
+        '✓ Facturas registradas',
+        `${rows.length} factura(s) dadas de alta.${newClients.length > 0 ? `\n${newClients.length} cliente(s) nuevos creados con sus datos fiscales.` : ''}`,
+        [{ text: 'OK', onPress: () => { setBatch([]); router.back(); } }],
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'No se pudieron registrar las facturas.');
+    } finally {
+      setBatchSaving(false);
+    }
   }
 
   async function handleSave() {
@@ -146,10 +248,53 @@ export default function FacturaManualScreen() {
     </View>;
   }
 
+  // ── Vista de lote: revisar y registrar varias facturas de una vez ─────────
+  if (batch.length > 0) {
+    return (
+      <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        <Text style={styles.batchTitle}>📦 {batch.length} factura(s) por registrar</Text>
+        <Text style={styles.batchSub}>Fecha de emisión tomada de cada XML. Revisa y confirma.</Text>
+
+        {batch.map((inv, i) => (
+          <View key={inv.cfdi_uuid ?? i} style={styles.batchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.batchClient} numberOfLines={1}>{inv.cliente}</Text>
+              <Text style={styles.batchMeta}>
+                Folio {inv.folio || '—'} · Emisión {inv.fecha ? inv.fecha.slice(0, 10) : '—'}
+              </Text>
+              {inv.cp_cliente ? <Text style={styles.batchMeta}>C.P. fiscal: {inv.cp_cliente}</Text> : null}
+            </View>
+            <Text style={styles.batchAmount}>${inv.monto.toLocaleString('es-MX')}</Text>
+            <TouchableOpacity onPress={() => setBatch(prev => prev.filter((_, j) => j !== i))} style={{ padding: 6 }}>
+              <Text style={{ color: BRAND.red, fontWeight: '800' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        <Text style={styles.fieldLabel}>Días de crédito (vencimiento = emisión + días)</Text>
+        <TextInput
+          style={styles.input}
+          value={batchDays}
+          onChangeText={setBatchDays}
+          keyboardType="number-pad"
+          placeholder="30"
+          placeholderTextColor="#B0BEC5"
+        />
+
+        <TouchableOpacity style={[styles.saveBtn, batchSaving && { opacity: 0.6 }]} onPress={registerBatch} disabled={batchSaving}>
+          {batchSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>✓ Registrar {batch.length} factura(s)</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={{ alignItems: 'center', padding: 14 }} onPress={() => setBatch([])} disabled={batchSaving}>
+          <Text style={{ color: '#90A4AE', fontWeight: '600' }}>Cancelar lote</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: BRAND.gray }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
       <TouchableOpacity style={styles.xmlImportBtn} onPress={() => setShowXmlImport(true)}>
-        <Text style={styles.xmlImportBtnText}>📄 Importar desde XML (CFDI)</Text>
+        <Text style={styles.xmlImportBtnText}>📄 Importar desde XML (CFDI) — uno o varios</Text>
       </TouchableOpacity>
       {xmlUuidSat && (
         <Text style={styles.xmlHint}>✓ Datos tomados del CFDI — puedes ajustarlos abajo.</Text>
@@ -200,6 +345,7 @@ export default function FacturaManualScreen() {
         visible={showXmlImport}
         onDismiss={() => setShowXmlImport(false)}
         onCFDILoaded={(data) => { handleXmlLoaded(data); setShowXmlImport(false); }}
+        onCFDIBatch={(list) => { handleXmlBatch(list); setShowXmlImport(false); }}
       />
     </ScrollView>
   );
@@ -223,4 +369,15 @@ const styles = StyleSheet.create({
   clientOptionText: { fontSize: 14, fontWeight: '600', color: BRAND.navy },
   saveBtn: { backgroundColor: BRAND.cobra, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+
+  batchTitle:  { fontSize: 17, fontWeight: '800', color: BRAND.navy, marginBottom: 4 },
+  batchSub:    { fontSize: 12, color: '#90A4AE', marginBottom: 14 },
+  batchRow:    {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#E0E0E0',
+  },
+  batchClient: { fontSize: 14, fontWeight: '700', color: BRAND.navy },
+  batchMeta:   { fontSize: 11, color: '#90A4AE', marginTop: 2 },
+  batchAmount: { fontSize: 14, fontWeight: '800', color: BRAND.navy },
 });

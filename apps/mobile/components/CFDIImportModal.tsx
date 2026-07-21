@@ -15,10 +15,13 @@ interface CFDIImportModalProps {
   visible: boolean;
   onDismiss: () => void;
   onSuccess: (data: Omit<CfdiData, 'expense_id'>) => void;
+  /** Permite elegir VARIOS XML a la vez; los válidos se entregan por onSuccessMany */
+  multiple?: boolean;
+  onSuccessMany?: (list: Omit<CfdiData, 'expense_id'>[]) => void;
   mode: 'gasto' | 'cobra'; // gasto = receptor, cobra = emisor
 }
 
-export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImportModalProps) {
+export function CFDIImportModal({ visible, onDismiss, onSuccess, multiple, onSuccessMany, mode }: CFDIImportModalProps) {
   const [loading, setLoading] = useState(false);
 
   const handlePickFile = async () => {
@@ -28,10 +31,44 @@ export function CFDIImportModal({ visible, onDismiss, onSuccess, mode }: CFDIImp
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/xml', 'text/xml', 'application/pdf'],
         copyToCacheDirectory: true,
+        multiple: !!multiple,
       });
 
       if (result.canceled) {
         setLoading(false);
+        return;
+      }
+
+      // ── Modo múltiple: procesar todos los XML elegidos ──────────────────
+      if (multiple && result.assets.length > 1) {
+        const xmlAssets = result.assets.filter(a => (a.name ?? '').toLowerCase().endsWith('.xml'));
+        const skippedNonXml = result.assets.length - xmlAssets.length;
+
+        const parsed: Omit<CfdiData, 'expense_id'>[] = [];
+        const errores: string[] = [];
+        for (const asset of xmlAssets) {
+          try {
+            const content = await FileSystem.readAsStringAsync(asset.uri);
+            const cfdi = parseCfdiXml(content);
+            if (!cfdi?.rfc_emisor) { errores.push(`${asset.name}: no es CFDI válido`); continue; }
+            if (cfdi.tipo_comprobante !== 'I') { errores.push(`${asset.name}: no es tipo Ingreso`); continue; }
+            parsed.push(cfdi);
+          } catch (e) {
+            errores.push(`${asset.name}: ${(e as Error).message}`);
+          }
+        }
+
+        setLoading(false);
+        if (parsed.length === 0) {
+          Alert.alert('Sin CFDIs válidos', errores.slice(0, 5).join('\n') || 'Ningún archivo se pudo procesar.');
+          return;
+        }
+        if (errores.length > 0 || skippedNonXml > 0) {
+          const extra = skippedNonXml > 0 ? [`${skippedNonXml} archivo(s) no-XML omitidos`] : [];
+          Alert.alert('Aviso', [...extra, ...errores.slice(0, 5)].join('\n'));
+        }
+        onSuccessMany?.(parsed);
+        onDismiss();
         return;
       }
 

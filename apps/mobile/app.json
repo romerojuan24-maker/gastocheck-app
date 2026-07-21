@@ -15,7 +15,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gastocheck.app"
+      "bundleIdentifier": "com.gastocheck.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "CHECK SUITE usa tu ubicación para registrar la ruta de cobranza y ubicar a tus clientes.",
+        "NSPhotoLibraryUsageDescription": "CHECK SUITE necesita acceso a tus fotos para adjuntar comprobantes.",
+        "NSCameraUsageDescription": "CHECK SUITE necesita la cámara para capturar comprobantes y escanear códigos QR.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.gastocheck.app",
@@ -24,7 +30,9 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "plugins": [
@@ -40,6 +48,12 @@
         "expo-camera",
         {
           "cameraPermission": "CHECK SUITE necesita la cámara para escanear códigos QR y capturar comprobantes."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CHECK SUITE usa tu ubicación para registrar la ruta de cobranza y ubicar a tus clientes."
         }
       ],
       [

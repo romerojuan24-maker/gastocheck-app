@@ -5,7 +5,9 @@ import type { CfdiData } from './types';
 /** Extrae datos fiscales de un XML CFDI 4.0/3.3, incluyendo IEPS y retenciones. */
 export function parseCfdiXml(xml: string): Omit<CfdiData, 'expense_id'> {
   const attr = (tag: string, name: string): string => {
-    const re = new RegExp(`<(?:[a-zA-Z0-9]+:)?${tag}\\b[^>]*?\\b${name}="([^"]*)"`, 'i');
+    // Acepta comillas dobles Y simples: algunos generadores de CFDI emiten
+    // atributos con comillas simples y el regex estricto los perdía
+    const re = new RegExp(`<(?:[a-zA-Z0-9]+:)?${tag}\\b[^>]*?\\b${name}=["']([^"']*)["']`, 'i');
     const m = xml.match(re);
     return m ? m[1] : '';
   };
@@ -81,6 +83,12 @@ export function parseCfdiXml(xml: string): Omit<CfdiData, 'expense_id'> {
     fecha:        attr('Comprobante', 'Fecha'),
     metodo_pago:  attr('Comprobante', 'MetodoPago'),
     forma_pago:   attr('Comprobante', 'FormaPago'),
+    // Datos fiscales adicionales (CFDI 4.0) — para alta automática de clientes.
+    // Nota: el CFDI solo trae códigos postales, no dirección completa.
+    lugar_expedicion:          attr('Comprobante', 'LugarExpedicion'),
+    domicilio_fiscal_receptor: attr('Receptor', 'DomicilioFiscalReceptor'),
+    regimen_fiscal_receptor:   attr('Receptor', 'RegimenFiscalReceptor'),
+    uso_cfdi:                  attr('Receptor', 'UsoCFDI'),
     conceptos,
   };
 }

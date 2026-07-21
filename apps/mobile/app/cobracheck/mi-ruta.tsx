@@ -62,6 +62,10 @@ export default function MiRutaCobraScreen() {
   // ── Formulario captura ──────────────────────────────────────────────────
   const [movementType,     setMovementType]     = useState<'collected' | 'promise' | 'not_paid'>('collected');
   const [collectedAmount,  setCollectedAmount]  = useState('');
+  // Facturas MARCADAS por el cobrador (puede ser más de una por visita)
+  const [chosenIds,        setChosenIds]        = useState<Set<string>>(new Set());
+  // Forma de pago del cobro: efectivo / transferencia / documento
+  const [payMethod,        setPayMethod]        = useState<'cash' | 'transfer' | 'check'>('cash');
   const [promiseDate,      setPromiseDate]      = useState('');
   const [reasonNotPaid,    setReasonNotPaid]    = useState('');
   const [movementNotes,    setMovementNotes]    = useState('');
@@ -257,6 +261,8 @@ export default function MiRutaCobraScreen() {
 
   function handleSelectClient(client: CobraClient) {
     setSelectedClient(client);
+    setChosenIds(new Set());
+    setCollectedAmount('');
     loadInvoicesForClient(client.id);
     setCaptureStep('invoice');
   }
@@ -273,9 +279,18 @@ export default function MiRutaCobraScreen() {
     setShowCaptureModal(true);
   }
 
-  function handleSelectInvoice(invoice: CobraInvoice) {
-    setCaptureStep('movement');
-    setCollectedAmount(invoice.amount.toString());
+  // Marcar/desmarcar factura — el cobrador puede cobrar VARIAS en una visita
+  function toggleInvoice(invoice: CobraInvoice) {
+    setChosenIds(prev => {
+      const next = new Set(prev);
+      if (next.has(invoice.id)) next.delete(invoice.id);
+      else next.add(invoice.id);
+      // Con una sola factura marcada el monto es editable (pago parcial);
+      // con varias, cada una se registra por su monto completo
+      const marked = selectedInvoices.filter(i => next.has(i.id));
+      setCollectedAmount(marked.length === 1 ? String(marked[0].amount) : '');
+      return next;
+    });
   }
 
   async function handleTakePhoto() {
@@ -299,7 +314,9 @@ export default function MiRutaCobraScreen() {
   }
 
   async function confirmMovement() {
-    if (!selectedClient || !selectedInvoices[0] || movementType === 'collected' && !collectedAmount) {
+    const chosen = selectedInvoices.filter(i => chosenIds.has(i.id));
+    if (!selectedClient || chosen.length === 0
+        || (movementType === 'collected' && chosen.length === 1 && !collectedAmount)) {
       Alert.alert('Error', 'Completa todos los campos requeridos.');
       return;
     }
@@ -311,29 +328,40 @@ export default function MiRutaCobraScreen() {
 
     setSaving(true);
     try {
-      const invoice = selectedInvoices[0];
       const currentPoint = points[points.length - 1];
-
-      // addMovementToday guarda en el teléfono de inmediato (nunca se
-      // pierde) y sube a Supabase al toque si hay conexión — antes esto
-      // solo vivía en memoria de React y se perdía sin conexión.
-      const updated = await addMovementToday(userId, {
-        company_id:        companyId,
-        user_id:           userId,
-        client_id:         selectedClient.id,
-        client_name:       selectedClient.name,
-        invoice_id:        invoice.id,
-        folio:             invoice.folio,
-        route_point_ts:    currentPoint?.ts || new Date().toISOString(),
-        amount_original:   invoice.amount,
-        movement_type:     movementType,
-        collected_amount:  movementType === 'collected' ? parseFloat(collectedAmount) : undefined,
-        promise_date:      movementType === 'promise' && promiseDate ? promiseDate : undefined,
-        reason_not_paid:   movementType === 'not_paid' ? reasonNotPaid : undefined,
-        photo_uri:         photoUri || undefined,
-        notes:             movementNotes || undefined,
-      });
       const isNewClientToday = !movements.some(m => m.client_id === selectedClient.id);
+
+      // UN movimiento POR CADA factura marcada — la relación de pagos queda
+      // por factura. Con una sola factura el monto es editable (parcial);
+      // con varias, cada una se registra por su importe completo.
+      // addMovementToday guarda en el teléfono de inmediato (nunca se
+      // pierde) y sube a Supabase al toque si hay conexión.
+      let updated = movements;
+      let totalCollected = 0;
+      for (const invoice of chosen) {
+        const collected = movementType === 'collected'
+          ? (chosen.length === 1 ? parseFloat(collectedAmount) : invoice.amount)
+          : undefined;
+        if (collected) totalCollected += collected;
+
+        updated = await addMovementToday(userId, {
+          company_id:        companyId,
+          user_id:           userId,
+          client_id:         selectedClient.id,
+          client_name:       selectedClient.name,
+          invoice_id:        invoice.id,
+          folio:             invoice.folio,
+          route_point_ts:    currentPoint?.ts || new Date().toISOString(),
+          amount_original:   invoice.amount,
+          movement_type:     movementType,
+          collected_amount:  collected,
+          method:            movementType === 'collected' ? payMethod : undefined,
+          promise_date:      movementType === 'promise' && promiseDate ? promiseDate : undefined,
+          reason_not_paid:   movementType === 'not_paid' ? reasonNotPaid : undefined,
+          photo_uri:         photoUri || undefined,
+          notes:             movementNotes || undefined,
+        });
+      }
       setMovements(updated);
 
       // Refleja el avance en la ruta asignada, para que el Reporte de Ruta
@@ -341,9 +369,9 @@ export default function MiRutaCobraScreen() {
       if (assignedRoute) {
         const patch: Record<string, number> = {};
         if (isNewClientToday) patch.clients_visited = assignedRoute.clients_visited + 1;
-        if (movementType === 'collected') patch.payments_collected = assignedRoute.payments_collected + (parseFloat(collectedAmount) || 0);
-        if (movementType === 'promise') patch.promises_made = assignedRoute.promises_made + 1;
-        if (movementType === 'not_paid') patch.rejections = assignedRoute.rejections + 1;
+        if (movementType === 'collected') patch.payments_collected = assignedRoute.payments_collected + totalCollected;
+        if (movementType === 'promise') patch.promises_made = assignedRoute.promises_made + chosen.length;
+        if (movementType === 'not_paid') patch.rejections = assignedRoute.rejections + chosen.length;
         if (Object.keys(patch).length > 0) {
           await supabase.from('cobra_routes').update(patch).eq('id', assignedRoute.id);
           setAssignedRoute({ ...assignedRoute, ...patch });
@@ -358,10 +386,17 @@ export default function MiRutaCobraScreen() {
       setMovementNotes('');
       setPhotoUri(null);
       setMovementType('collected');
+      setPayMethod('cash');
       setSelectedClient(null);
       setSelectedInvoices([]);
+      setChosenIds(new Set());
 
-      Alert.alert('Éxito', `Movimiento de cobranza registrado: ${selectedClient.name}`);
+      Alert.alert(
+        'Éxito',
+        chosen.length === 1
+          ? `Movimiento registrado: ${selectedClient.name}`
+          : `${chosen.length} movimientos registrados (uno por factura): ${selectedClient.name}`,
+      );
     } catch (e) {
       Alert.alert('Error', 'No se pudo guardar el movimiento: ' + (e instanceof Error ? e.message : ''));
     } finally {
@@ -459,6 +494,9 @@ export default function MiRutaCobraScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.routeClientName}>{c.name}</Text>
+                    <Text style={[styles.routeClientMeta, { color: BRAND.navy, fontWeight: '700' }]}>
+                      Saldo: $ {(c.current_balance ?? 0).toLocaleString('es-MX')}
+                    </Text>
                     {c.address ? <Text style={styles.routeClientMeta} numberOfLines={1}>{c.address}</Text> : null}
                     {(c.payer_name || c.visit_schedule) && (
                       <Text style={styles.routeClientMeta} numberOfLines={1}>
@@ -607,6 +645,7 @@ export default function MiRutaCobraScreen() {
                       {mov.movement_type === 'collected' && mov.collected_amount && (
                         <Text style={[styles.timelineCoords, { color: BRAND.green, fontWeight: '600' }]}>
                           Cobrado: $ {mov.collected_amount.toLocaleString('es-MX')}
+                          {mov.method === 'transfer' ? ' · 🏦 Transferencia' : mov.method === 'check' ? ' · 📄 Documento' : ' · 💵 Efectivo'}
                         </Text>
                       )}
                       {mov.movement_type === 'promise' && mov.promise_date && (
@@ -692,7 +731,9 @@ export default function MiRutaCobraScreen() {
               {captureStep === 'invoice' && selectedClient && (
                 <>
                   <Text style={styles.modalTitle}>{selectedClient.name}</Text>
-                  <Text style={styles.modalSub}>Selecciona factura pendiente</Text>
+                  <Text style={styles.modalSub}>
+                    Marca una o varias facturas · Saldo total: $ {selectedInvoices.reduce((s, i) => s + i.amount, 0).toLocaleString('es-MX')}
+                  </Text>
                   {selectedInvoices.length === 0 ? (
                     <Text style={styles.modalSub}>Sin facturas pendientes</Text>
                   ) : (
@@ -700,39 +741,55 @@ export default function MiRutaCobraScreen() {
                       data={selectedInvoices}
                       keyExtractor={inv => inv.id}
                       scrollEnabled={false}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.invoiceItem}
-                          onPress={() => handleSelectInvoice(item)}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.invoiceNum}>Folio {item.folio}</Text>
-                            <Text style={styles.invoiceAmount}>
-                              $ {item.amount.toLocaleString('es-MX')}
+                      renderItem={({ item }) => {
+                        const marked = chosenIds.has(item.id);
+                        return (
+                          <TouchableOpacity
+                            style={[styles.invoiceItem, marked && { borderColor: BRAND.green, borderWidth: 2, backgroundColor: '#E8F5E915' }]}
+                            onPress={() => toggleInvoice(item)}
+                          >
+                            <Text style={{ fontSize: 20, marginRight: 8 }}>{marked ? '☑' : '☐'}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.invoiceNum}>Folio {item.folio}</Text>
+                              <Text style={styles.invoiceAmount}>
+                                $ {item.amount.toLocaleString('es-MX')}
+                              </Text>
+                              <Text style={styles.invoiceDate}>
+                                Vence: {new Date(item.due_date).toLocaleDateString('es-MX')}
+                              </Text>
+                            </View>
+                            <Text style={[
+                              styles.statusBadge,
+                              { color: item.status === 'overdue' ? BRAND.red : '#FF9800' }
+                            ]}>
+                              {item.status === 'overdue' ? 'Vencida' : 'Pendiente'}
                             </Text>
-                            <Text style={styles.invoiceDate}>
-                              Vence: {new Date(item.due_date).toLocaleDateString('es-MX')}
-                            </Text>
-                          </View>
-                          <Text style={[
-                            styles.statusBadge,
-                            { color: item.status === 'overdue' ? BRAND.red : '#FF9800' }
-                          ]}>
-                            {item.status === 'overdue' ? 'Vencida' : 'Pendiente'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
+                          </TouchableOpacity>
+                        );
+                      }}
                     />
+                  )}
+                  {chosenIds.size > 0 && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: BRAND.green, borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 }}
+                      onPress={() => setCaptureStep('movement')}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                        Continuar con {chosenIds.size} factura(s) →
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </>
               )}
 
               {/* Paso 3: Detalles del movimiento */}
-              {captureStep === 'movement' && selectedClient && selectedInvoices[0] && (
+              {captureStep === 'movement' && selectedClient && chosenIds.size > 0 && (
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <Text style={styles.modalTitle}>Registrar movimiento</Text>
                   <Text style={styles.modalSub}>
-                    {selectedClient.name} • Factura {selectedInvoices[0].folio}
+                    {selectedClient.name} • {chosenIds.size === 1
+                      ? `Factura ${selectedInvoices.find(i => chosenIds.has(i.id))?.folio ?? ''}`
+                      : `${chosenIds.size} facturas seleccionadas`}
                   </Text>
 
                   {/* Tipo de movimiento */}
@@ -765,15 +822,53 @@ export default function MiRutaCobraScreen() {
                   {/* Campo específico según tipo */}
                   {movementType === 'collected' && (
                     <>
-                      <Text style={styles.fieldLabel}>Monto cobrado</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Ej: 5000"
-                        placeholderTextColor="#B0BEC5"
-                        value={collectedAmount}
-                        onChangeText={setCollectedAmount}
-                        keyboardType="decimal-pad"
-                      />
+                      {/* Forma de pago: efectivo, transferencia o documento */}
+                      <Text style={styles.fieldLabel}>Forma de pago</Text>
+                      <View style={styles.buttonGroup}>
+                        {([
+                          ['cash',     '💵 Efectivo'],
+                          ['transfer', '🏦 Transferencia'],
+                          ['check',    '📄 Documento'],
+                        ] as ['cash' | 'transfer' | 'check', string][]).map(([m, label]) => (
+                          <TouchableOpacity
+                            key={m}
+                            style={[styles.buttonGroupItem, payMethod === m && { backgroundColor: BRAND.green }]}
+                            onPress={() => setPayMethod(m)}
+                          >
+                            <Text style={[styles.buttonGroupText, payMethod === m && { color: '#fff' }]}>{label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      {chosenIds.size === 1 ? (
+                        <>
+                          <Text style={styles.fieldLabel}>Monto cobrado</Text>
+                          <TextInput
+                            style={styles.input}
+                            placeholder="Ej: 5000"
+                            placeholderTextColor="#B0BEC5"
+                            value={collectedAmount}
+                            onChangeText={setCollectedAmount}
+                            keyboardType="decimal-pad"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.fieldLabel}>Se registrará un pago POR CADA factura</Text>
+                          {selectedInvoices.filter(i => chosenIds.has(i.id)).map(i => (
+                            <View key={i.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, paddingHorizontal: 4 }}>
+                              <Text style={{ color: BRAND.navy, fontWeight: '600', fontSize: 13 }}>Folio {i.folio}</Text>
+                              <Text style={{ color: BRAND.green, fontWeight: '800', fontSize: 13 }}>$ {i.amount.toLocaleString('es-MX')}</Text>
+                            </View>
+                          ))}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: '#E0E0E0' }}>
+                            <Text style={{ color: BRAND.navy, fontWeight: '800', fontSize: 14 }}>Total</Text>
+                            <Text style={{ color: BRAND.green, fontWeight: '800', fontSize: 14 }}>
+                              $ {selectedInvoices.filter(i => chosenIds.has(i.id)).reduce((s, i) => s + i.amount, 0).toLocaleString('es-MX')}
+                            </Text>
+                          </View>
+                        </>
+                      )}
                     </>
                   )}
 

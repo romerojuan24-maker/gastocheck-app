@@ -183,6 +183,12 @@ export interface CfdiData {
   fecha: string;
   metodo_pago: string;
   forma_pago: string;
+  /** C.P. de expedición del emisor (CFDI 4.0) */
+  lugar_expedicion?: string;
+  /** C.P. fiscal del receptor (CFDI 4.0) — el CFDI no trae dirección completa */
+  domicilio_fiscal_receptor?: string;
+  regimen_fiscal_receptor?: string;
+  uso_cfdi?: string;
   conceptos: { descripcion: string; importe: number; cantidad?: number }[];
 }
 
