@@ -171,6 +171,8 @@ export default function BancoCheckHome() {
               </View>
             )}
 
+            <NavCard icon="🔗" title="Cruce automático" sub="Empareja movimientos con facturas, anticipos y gastos"
+              onPress={() => router.push('/bancocheck/cruce' as any)} />
             <NavCard icon="➕" title="Nuevo movimiento (manual)" sub="Registra un pago o ingreso a mano"
               onPress={() => router.push('/bancocheck/nuevo-movimiento' as any)} />
             <NavCard icon="📤" title="Importar movimientos" sub="Desde CSV o Excel del banco"
