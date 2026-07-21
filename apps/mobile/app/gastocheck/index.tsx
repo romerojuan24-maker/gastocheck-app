@@ -576,7 +576,7 @@ export default function GastoCheckHome() {
     { icon: '👥', label: 'Equipo',   badge: 0 },
     { icon: '💳', label: 'Finanzas', badge: overdueAdv },
     { icon: '🚗', label: 'Flotilla', badge: 0 },
-    { icon: '⚙️', label: 'Config',   badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',  badge: 0 },
   ];
 
   return (

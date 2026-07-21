@@ -360,7 +360,7 @@ export default function CobraCheckHome() {
     { icon: '👥', label: 'Equipo',   badge: 0 },
     { icon: '💰', label: 'Finanzas', badge: 0 },
     { icon: '🎯', label: 'Cobranza', badge: 0 },
-    { icon: '⚙️', label: 'Config',   badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',  badge: 0 },
   ];
 
   return (

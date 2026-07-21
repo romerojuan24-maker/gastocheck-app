@@ -27,12 +27,13 @@ import type { CashFlowItem } from './types'
 const FLUJO_COLOR = BRAND.blue  // '#1565C0'
 const ADMIN_ROLES = ['owner', 'admin', 'supervisor', 'accountant', 'contador_general']
 
+// Esquema común: 🏢 Empresa (izquierda) · específicos · ⚙️ Ajustes (derecha)
 const CONTADOR_TABS = [
+  { icon: '🏢', label: 'Empresa',    badge: 0 },
   { icon: '📊', label: 'Flujo',      badge: 0 },
   { icon: '💳', label: 'Créditos',   badge: 0 },
   { icon: '📈', label: 'Proyección', badge: 0 },
   { icon: '⚙️',  label: 'Ajustes',   badge: 0 },
-  { icon: '👤', label: 'Perfil',     badge: 0 },
 ]
 
 const ADMIN_TABS = [
@@ -40,7 +41,6 @@ const ADMIN_TABS = [
   { icon: '📊', label: 'Flujo',      badge: 0 },
   { icon: '📈', label: 'Proyección', badge: 0 },
   { icon: '⚙️',  label: 'Ajustes',   badge: 0 },
-  { icon: '👤', label: 'Perfil',     badge: 0 },
 ]
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -223,6 +223,34 @@ export default function FlujoCheckHome() {
     )
   }
 
+  // Pestaña ⚙️ Ajustes (derecha): config del módulo + cuenta + cerrar sesión.
+  function AjustesTab() {
+    async function signOut() {
+      Alert.alert('Cerrar sesión', '¿Estás seguro?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); router.replace('/login' as any) } },
+      ])
+    }
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
+        </View>
+        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#EEF2F7', gap: 10 }}>
+          <TouchableOpacity style={s.navCard} onPress={() => router.push('/settings')}>
+            <Text style={s.navCardIcon}>⚙️</Text>
+            <View style={{ flex: 1 }}><Text style={s.navCardTitle}>Configuración de la cuenta</Text></View>
+            <Text style={s.navCardArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.navCard, { borderColor: BRAND.red + '30' }]} onPress={signOut}>
+            <Text style={s.navCardIcon}>🚪</Text>
+            <View style={{ flex: 1 }}><Text style={[s.navCardTitle, { color: BRAND.red }]}>Cerrar sesión</Text></View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
+  }
+
   function ProfileTab() {
     const initial = (userName ?? userEmail ?? '?').charAt(0).toUpperCase()
     async function signOut() {
@@ -349,16 +377,21 @@ export default function FlujoCheckHome() {
                 color={FLUJO_COLOR}
               />
             )}
-            {activeTab === 3 && (
-              <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
-            )}
-            {activeTab === 4 && <ProfileTab />}
+            {activeTab === 3 && <AjustesTab />}
           </>
         ) : (
           <>
-            {activeTab === 0 && <FlujoTab />}
-            {activeTab === 1 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
-            {activeTab === 2 && (
+            {activeTab === 0 && (
+              <EmpresaTab
+                companyName={companyName}
+                viewMode={viewMode}
+                onSelectMode={handleSelectMode}
+                color={FLUJO_COLOR}
+              />
+            )}
+            {activeTab === 1 && <FlujoTab />}
+            {activeTab === 2 && <CreditsTab companyId={companyId || ''} color={FLUJO_COLOR} />}
+            {activeTab === 3 && (
               <ProjectionTab
                 companyId={companyId || ''}
                 currentBalance={currentBalance}
@@ -368,10 +401,7 @@ export default function FlujoCheckHome() {
                 color={FLUJO_COLOR}
               />
             )}
-            {activeTab === 3 && (
-              <SettingsTab companyId={companyId || ''} currentBalance={currentBalance} color={FLUJO_COLOR} />
-            )}
-            {activeTab === 4 && <ProfileTab />}
+            {activeTab === 4 && <AjustesTab />}
           </>
         )}
       </View>

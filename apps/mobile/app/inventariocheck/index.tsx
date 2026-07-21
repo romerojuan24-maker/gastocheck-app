@@ -16,6 +16,7 @@ import { useInventarioProducts, useInventarioAlerts, useInventarioMutations, use
 
 // Componentes
 import { ProductList, AlertsList, EditModal, QuickMovementModal, MovementsList } from './components'
+import { CompanySwitcher } from '../shared/components/CompanySwitcher'
 
 // Tipos
 import type { InventoryProduct } from './types'
@@ -24,12 +25,13 @@ import type { InventoryProduct } from './types'
 
 const INVEN_COLOR = BRAND.orange  // '#FF9800'
 
+// Esquema común CHECK SUITE: 🏢 Empresa (izquierda) · específicos · ⚙️ Ajustes (derecha)
 const INVEN_TABS = [
+  { icon: '🏢', label: 'Empresa',    badge: 0 },
   { icon: '📦', label: 'Inventario', badge: 0 },
   { icon: '⚠️',  label: 'Alertas',   badge: 0 },
   { icon: '🔄', label: 'Movimientos',badge: 0 },
   { icon: '⚙️',  label: 'Ajustes',   badge: 0 },
-  { icon: '👤', label: 'Perfil',     badge: 0 },
 ]
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -178,6 +180,24 @@ export default function InventarioCheckHome() {
     )
   }
 
+  function EmpresaTab() {
+    return (
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: BRAND.navy, marginBottom: 16 }}>Empresa</Text>
+        <TouchableOpacity
+          style={{ backgroundColor: BRAND.navy, borderRadius: 16, padding: 20, marginBottom: 12 }}
+          onPress={() => router.push('/administracion' as any)}
+          activeOpacity={0.85}
+        >
+          <Text style={{ fontSize: 28, marginBottom: 8 }}>🏢</Text>
+          <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800', marginBottom: 4 }}>Mi Empresa</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>Datos fiscales, cuentas bancarias, usuarios y plan</Text>
+        </TouchableOpacity>
+        <CompanySwitcher color={INVEN_COLOR} />
+      </ScrollView>
+    )
+  }
+
   function ProfileTab() {
     const initial = (userName ?? userEmail ?? '?').charAt(0).toUpperCase()
     async function signOut() {
@@ -303,7 +323,7 @@ export default function InventarioCheckHome() {
   function BottomTabBar() {
     const tabs = INVEN_TABS.map((t, i) => ({
       ...t,
-      badge: i === 1 ? alerts.length : 0,
+      badge: i === 2 ? alerts.length : 0,
     }))
     return (
       <View style={[s.tabBar, { borderTopColor: INVEN_COLOR + '30', paddingBottom: insets.bottom || 8 }]}>
@@ -338,14 +358,14 @@ export default function InventarioCheckHome() {
       <TopBar />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 0 && <InventarioTab />}
-        {activeTab === 1 && <AlertasTab />}
-        {activeTab === 2 && (
+        {activeTab === 0 && <EmpresaTab />}
+        {activeTab === 1 && <InventarioTab />}
+        {activeTab === 2 && <AlertasTab />}
+        {activeTab === 3 && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
             <MovementsList movements={movements} productNames={productNames} />
           </ScrollView>
         )}
-        {activeTab === 3 && <ComingSoon title="Ajustes" />}
         {activeTab === 4 && <ProfileTab />}
       </View>
 
