@@ -170,6 +170,18 @@ export default function CobraCheckHome() {
     );
   }
 
+  function EmpresaView() {
+    return (
+      <ScrollView contentContainerStyle={s.pad}>
+        <Text style={s.tabTitle}>Empresa</Text>
+        <BigCard icon="🏢" title="Mi Empresa"
+          sub="Datos fiscales, cuentas bancarias, usuarios y catálogo de cuentas"
+          bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
+        <CompanySwitcher color={COBRA_COLOR} />
+      </ScrollView>
+    );
+  }
+
   function ProfileTab() {
     const initial = (userName ?? userEmail ?? '?').charAt(0).toUpperCase();
     async function signOut() {
@@ -207,9 +219,10 @@ export default function CobraCheckHome() {
   // ── ══ COBRADOR ══ ──────────────────────────────────────────────────────────
 
   const COBR_TABS = [
+    { icon: '🏢', label: 'Empresa',   badge: 0 },
     { icon: '🗺️', label: 'Mi Ruta',   badge: 0 },
     { icon: '📊', label: 'Reportes',  badge: 0 },
-    { icon: '👤', label: 'Perfil',    badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',   badge: 0 },
   ];
 
   if (isCobrador && !isAdmin) {
@@ -218,7 +231,8 @@ export default function CobraCheckHome() {
         <TopBar />
         <RolePill />
         <View style={{ flex: 1 }}>
-          {cobrTab === 0 && (
+          {cobrTab === 0 && <EmpresaView />}
+          {cobrTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Asignación de Cobranza</Text>
 
@@ -237,7 +251,7 @@ export default function CobraCheckHome() {
                 onPress={() => router.push('/cobracheck/clientes' as any)} />
             </ScrollView>
           )}
-          {cobrTab === 1 && (
+          {cobrTab === 2 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Reportes</Text>
               <BigCard icon="💰" title="Cobranza Efectiva"
@@ -251,7 +265,7 @@ export default function CobraCheckHome() {
                 onPress={() => router.push('/cobracheck/depositos' as any)} />
             </ScrollView>
           )}
-          {cobrTab === 2 && <ProfileTab />}
+          {cobrTab === 3 && <ProfileTab />}
         </View>
         <BottomBar tabs={COBR_TABS} active={cobrTab} onSelect={setCobrTab} color={COBRA_COLOR} />
       </View>
@@ -261,11 +275,12 @@ export default function CobraCheckHome() {
   // ── ══ CONTADOR ══ ──────────────────────────────────────────────────────────
 
   const CONT_TABS = [
+    { icon: '🏢', label: 'Empresa',  badge: 0 },
     { icon: '🎯', label: 'Cobranza', badge: 0 },
     { icon: '👥', label: 'Clientes', badge: 0 },
     { icon: '🗺️', label: 'Rutas',    badge: 0 },
     { icon: '📈', label: 'Reportes', badge: 0 },
-    { icon: '👤', label: 'Perfil',   badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',  badge: 0 },
   ];
 
   if (isContador && !isAdmin) {
@@ -274,7 +289,8 @@ export default function CobraCheckHome() {
         <TopBar />
         <RolePill />
         <View style={{ flex: 1 }}>
-          {contTab === 0 && (
+          {contTab === 0 && <EmpresaView />}
+          {contTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Cobranza</Text>
 
@@ -309,7 +325,7 @@ export default function CobraCheckHome() {
                 onPress={() => router.push('/cobracheck/clientes' as any)} />
             </ScrollView>
           )}
-          {contTab === 1 && (
+          {contTab === 2 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Clientes</Text>
               <BigCard icon="👥" title="Directorio"
@@ -322,7 +338,7 @@ export default function CobraCheckHome() {
               />
             </ScrollView>
           )}
-          {contTab === 2 && (
+          {contTab === 3 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Rutas de Cobranza</Text>
               <EmptyComingSoon
@@ -332,7 +348,7 @@ export default function CobraCheckHome() {
               />
             </ScrollView>
           )}
-          {contTab === 3 && (
+          {contTab === 4 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Reportes</Text>
               <BigCard icon="📈" title="Reportes de Cobranza"
@@ -346,7 +362,7 @@ export default function CobraCheckHome() {
                 onPress={() => router.push('/cobracheck/cartera-total' as any)} />
             </ScrollView>
           )}
-          {contTab === 4 && <ProfileTab />}
+          {contTab === 5 && <ProfileTab />}
         </View>
         <BottomBar tabs={CONT_TABS} active={contTab} onSelect={setContTab} color={COBRA_COLOR} />
       </View>

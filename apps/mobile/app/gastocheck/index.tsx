@@ -292,6 +292,18 @@ export default function GastoCheckHome() {
     );
   }
 
+  function EmpresaView({ accent }: { accent: string }) {
+    return (
+      <ScrollView contentContainerStyle={s.pad}>
+        <Text style={s.tabTitle}>Empresa</Text>
+        <BigCard icon="🏢" title={companyName ?? 'Mi Empresa'}
+          sub="Datos fiscales, cuentas bancarias, usuarios y catálogo de cuentas"
+          bg={BRAND.navy} onPress={() => router.push('/administracion' as any)} />
+        <CompanySwitcher color={accent} />
+      </ScrollView>
+    );
+  }
+
   function ProfileTab({ accent }: { accent: string }) {
     const initial = (userName ?? userEmail ?? '?').charAt(0).toUpperCase();
     return (
@@ -318,11 +330,12 @@ export default function GastoCheckHome() {
   // ── ══ COMPRADOR ══ ─────────────────────────────────────────────────────────
 
   const COMP_TABS = [
+    { icon: '🏢', label: 'Empresa',     badge: 0 },
     { icon: '📷', label: 'Capturar',    badge: 0 },
     { icon: '📋', label: 'Gastos',      badge: pendingCount },
     { icon: '💰', label: 'Saldo',       badge: 0 },
     { icon: '🏪', label: 'Proveedores', badge: 0 },
-    { icon: '👤', label: 'Perfil',      badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',     badge: 0 },
   ];
 
   if (displayAs === 'comprador') {
@@ -338,7 +351,8 @@ export default function GastoCheckHome() {
         )}
 
         <View style={{ flex: 1 }}>
-          {compTab === 0 && (
+          {compTab === 0 && <EmpresaView accent={BRAND.green} />}
+          {compTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
               <TouchableOpacity style={[s.heroBtn, { backgroundColor: BRAND.green }]}
                 onPress={() => router.push('/capture')} activeOpacity={0.88}>
@@ -371,7 +385,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {compTab === 1 && (
+          {compTab === 2 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Mis Gastos</Text>
               <BigCard icon="📋" title="Mis Reembolsos"
@@ -391,7 +405,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {compTab === 2 && (
+          {compTab === 3 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Mi Saldo</Text>
               {balance ? (
@@ -431,7 +445,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {compTab === 3 && (
+          {compTab === 4 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Proveedores</Text>
               <TouchableOpacity style={[s.heroBtn, { backgroundColor: BRAND.blue }]}
@@ -443,7 +457,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {compTab === 4 && <ProfileTab accent={BRAND.green} />}
+          {compTab === 5 && <ProfileTab accent={BRAND.green} />}
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
@@ -459,11 +473,12 @@ export default function GastoCheckHome() {
   const contBadge = pendingReimb + pendingAdvReq;
 
   const CONT_TABS = [
+    { icon: '🏢', label: 'Empresa',    badge: 0 },
     { icon: '📥', label: 'Pendientes', badge: contBadge },
     { icon: '📑', label: 'Pólizas',    badge: 0 },
     { icon: '➕', label: 'Otros',      badge: 0 },
     { icon: '📊', label: 'Reportes',   badge: 0 },
-    { icon: '👤', label: 'Perfil',     badge: 0 },
+    { icon: '⚙️', label: 'Ajustes',    badge: 0 },
   ];
 
   if (displayAs === 'contador') {
@@ -479,7 +494,8 @@ export default function GastoCheckHome() {
         )}
 
         <View style={{ flex: 1 }}>
-          {contTab === 0 && (
+          {contTab === 0 && <EmpresaView accent={BRAND.blue} />}
+          {contTab === 1 && (
             <ScrollView contentContainerStyle={s.pad}>
               {contBadge === 0 ? (
                 <EmptyState icon="✅" title="Todo al día" sub="No hay items pendientes por revisar" />
@@ -516,7 +532,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {contTab === 1 && (
+          {contTab === 2 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Pólizas</Text>
               <BigCard icon="📑" title="Mis Pólizas"
@@ -531,7 +547,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {contTab === 2 && (
+          {contTab === 3 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Otros Gastos</Text>
               <BigCard icon="➕" title="Captura Manual"
@@ -543,7 +559,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {contTab === 3 && (
+          {contTab === 4 && (
             <ScrollView contentContainerStyle={s.pad}>
               <Text style={s.tabTitle}>Reportes</Text>
               <BigCard icon="📊" title="Centro de Reportes"
@@ -558,7 +574,7 @@ export default function GastoCheckHome() {
             </ScrollView>
           )}
 
-          {contTab === 4 && <ProfileTab accent={BRAND.blue} />}
+          {contTab === 5 && <ProfileTab accent={BRAND.blue} />}
         </View>
 
         <ViewSwitcherModal visible={showSwitcher} current={viewMode}
