@@ -47,4 +47,4 @@ export * from './cfdi-parser';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 247 · v0.1.85 · FacturaCheck: emision CFDI 4.0 completa (catalogos SAT, pago, retenciones)';
+export const APP_VERSION = 'OTA 248 · v0.1.85 · Catalogo de cuentas accesible desde todos los modulos (via Empresa)';

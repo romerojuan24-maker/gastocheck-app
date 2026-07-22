@@ -426,6 +426,20 @@ export default function AdministracionScreen() {
         <Text style={styles.addBankBtnText}>+ Agregar cuenta bancaria</Text>
       </TouchableOpacity>
 
+      {/* ── Contabilidad ── */}
+      <SectionHeader title="Contabilidad" />
+      <Text style={styles.sectionHint}>
+        El catálogo de cuentas es el mismo para todos los módulos (GastoCheck, CobraCheck, BancoCheck, Reembolsos…).
+      </Text>
+      <TouchableOpacity style={styles.catalogRow} onPress={() => router.push('/catalogo-cuentas' as any)}>
+        <Text style={{ fontSize: 22, marginRight: 12 }}>📒</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.catalogTitle}>Catálogo de cuentas contable</Text>
+          <Text style={styles.catalogSub}>Alta, edición e importación de cuentas</Text>
+        </View>
+        <Text style={{ fontSize: 18, color: '#CBD5E1' }}>›</Text>
+      </TouchableOpacity>
+
       {/* Modal alta cuenta bancaria */}
       <Modal visible={showBankModal} animationType="slide" transparent onRequestClose={() => setShowBankModal(false)}>
         <View style={styles.modalOverlay}>
@@ -754,6 +768,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addBankBtnText: { fontSize: 14, fontWeight: '700', color: BRAND.blue },
+  catalogRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E8EDF2' },
+  catalogTitle: { fontSize: 15, fontWeight: '700', color: BRAND.navy },
+  catalogSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
 
   // Modal banco
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
