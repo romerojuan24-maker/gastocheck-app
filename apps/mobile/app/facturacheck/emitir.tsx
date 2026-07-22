@@ -9,6 +9,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '@gastocheck/shared';
 import { supabase } from '../../lib/supabase';
 import { getActiveMembership } from '../../lib/membership';
+import SatPicker from '../../components/SatPicker';
+import {
+  USO_CFDI, REGIMEN_FISCAL, FORMA_PAGO, METODO_PAGO, CLAVE_UNIDAD, CLAVE_PROD_SERV,
+} from '../../lib/sat-catalogs';
 
 const FACTURA_COLOR = BRAND.purple;
 
@@ -42,15 +46,31 @@ export default function FacturaCheckEmitir() {
   const [hasActive, setHasActive] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Emisor (quien presta el servicio) — viene de la config PAC (cfdi_provider_configs)
+  const [emisor, setEmisor] = useState<{ rfc?: string; razon_social?: string; regimen_fiscal?: string; codigo_postal_fiscal?: string } | null>(null);
+
+  // Receptor
   const [rfc, setRfc] = useState(params.receptor_rfc ?? '');
   const [razonSocial, setRazonSocial] = useState(params.receptor_razon_social ?? '');
   const [usoCfdi, setUsoCfdi] = useState('G03');
+  const [receptorRegimen, setReceptorRegimen] = useState('601');
   const [codigoPostal, setCodigoPostal] = useState('');
+
+  // Concepto
   const [descripcion, setDescripcion] = useState('');
   const [cantidad, setCantidad] = useState('1');
   const [precio, setPrecio] = useState('');
   const [claveProd, setClaveProd] = useState('01010101');
   const [claveUnidad, setClaveUnidad] = useState('H87');
+  const [descuento, setDescuento] = useState('');
+
+  // Retenciones (ISR / IVA)
+  const [retIsr, setRetIsr] = useState('');
+  const [retIva, setRetIva] = useState('');
+
+  // Pago
+  const [metodoPago, setMetodoPago] = useState('PUE');
+  const [formaPago, setFormaPago] = useState('03');
 
   const [clients, setClients] = useState<CfdiClient[]>([]);
   const [products, setProducts] = useState<CfdiProduct[]>([]);
@@ -71,7 +91,7 @@ export default function FacturaCheckEmitir() {
         supabase.from('cfdi_clients').select('id, rfc, razon_social, uso_cfdi, codigo_postal').eq('company_id', member.company_id).eq('is_active', true).order('razon_social'),
         supabase.from('cfdi_products').select('id, descripcion, clave_prod_serv, clave_unidad, precio_default').eq('company_id', member.company_id).eq('is_active', true).order('descripcion'),
       ]);
-      if (!cfgErr && cfgData?.config) setHasActive(!!cfgData.config.is_active);
+      if (!cfgErr && cfgData?.config) { setHasActive(!!cfgData.config.is_active); setEmisor(cfgData.config); }
       setClients((clientRows ?? []) as CfdiClient[]);
       setProducts((productRows ?? []) as CfdiProduct[]);
       setLoading(false);
@@ -95,9 +115,14 @@ export default function FacturaCheckEmitir() {
 
   const cantidadNum = parseFloat(cantidad) || 0;
   const precioNum = parseFloat(precio) || 0;
-  const subtotal = cantidadNum * precioNum;
-  const iva = +(subtotal * 0.16).toFixed(2);
-  const total = +(subtotal + iva).toFixed(2);
+  const descuentoNum = parseFloat(descuento) || 0;
+  const importe = +(cantidadNum * precioNum).toFixed(2);         // importe del concepto (antes de descuento)
+  const baseGravable = Math.max(0, +(importe - descuentoNum).toFixed(2));
+  const ivaTrasladado = +(baseGravable * 0.16).toFixed(2);        // IVA 16% trasladado
+  const retIsrNum = parseFloat(retIsr) || 0;                      // ISR retenido
+  const retIvaNum = parseFloat(retIva) || 0;                      // IVA retenido
+  const subtotal = importe;
+  const total = +(baseGravable + ivaTrasladado - retIsrNum - retIvaNum).toFixed(2);
 
   async function handleEmit() {
     if (!companyId) return;
@@ -109,15 +134,19 @@ export default function FacturaCheckEmitir() {
     setMsg(null);
     try {
       const item = {
-        descripcion: descripcion.trim(), cantidad: cantidadNum, precio: precioNum,
-        subtotal, iva, total, clave_prod: claveProd, clave_unidad: claveUnidad,
+        descripcion: descripcion.trim(), cantidad: cantidadNum,
+        clave_prod: claveProd, clave_unidad: claveUnidad,
+        valor_unitario: precioNum, importe, descuento: descuentoNum,
+        iva_trasladado: ivaTrasladado, ret_isr: retIsrNum, ret_iva: retIvaNum,
       };
 
       const { data: reqRow, error: e1 } = await supabase.from('cfdi_issue_requests').insert({
         company_id: companyId, cfdi_type: isNotaCredito ? 'egreso' : 'ingreso',
         receptor_rfc: rfc.trim().toUpperCase(), receptor_razon_social: razonSocial.trim() || null,
         receptor_uso_cfdi: usoCfdi.trim() || 'G03', receptor_codigo_postal: codigoPostal.trim() || null,
-        items: [item], subtotal, iva, total, status: 'pending',
+        receptor_regimen: receptorRegimen || null,
+        items: [item], subtotal, iva: ivaTrasladado, total,
+        metodo_pago: metodoPago, forma_pago: formaPago, status: 'pending',
         related_uuid_cfdi: params.related_uuid ?? null, relacion_tipo: params.relacion_tipo ?? null,
       }).select('id').single();
       if (e1) throw e1;
@@ -166,6 +195,16 @@ export default function FacturaCheckEmitir() {
         </View>
       )}
 
+      {/* Emisor (quien presta el servicio) — datos fiscales de la config PAC */}
+      {emisor && (
+        <View style={s.emisorCard}>
+          <Text style={s.emisorTitle}>Emisor · {emisor.razon_social ?? emisor.rfc ?? '—'}</Text>
+          <Text style={s.emisorLine}>RFC {emisor.rfc ?? '—'} · Régimen {emisor.regimen_fiscal ?? '—'} · Lugar de expedición CP {emisor.codigo_postal_fiscal ?? '—'}</Text>
+          <Text style={s.emisorHint}>Serie, folio y sellos digitales los asigna el PAC al timbrar. Edita estos datos en Ajustes → Configurar PAC.</Text>
+        </View>
+      )}
+
+      <Text style={s.sectionHead}>Receptor (cliente)</Text>
       {clients.length > 0 && (
         <>
           <Text style={s.fieldLabel}>Cliente guardado</Text>
@@ -185,17 +224,12 @@ export default function FacturaCheckEmitir() {
       <Text style={s.fieldLabel}>Razón social</Text>
       <TextInput style={s.input} value={razonSocial} onChangeText={setRazonSocial} placeholder="Nombre o razón social del cliente" placeholderTextColor="#B0BEC5" />
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.fieldLabel}>Uso CFDI</Text>
-          <TextInput style={s.input} value={usoCfdi} onChangeText={setUsoCfdi} placeholder="G03" placeholderTextColor="#B0BEC5" autoCapitalize="characters" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.fieldLabel}>CP receptor</Text>
-          <TextInput style={s.input} value={codigoPostal} onChangeText={setCodigoPostal} placeholder="00000" placeholderTextColor="#B0BEC5" keyboardType="number-pad" maxLength={5} />
-        </View>
-      </View>
+      <SatPicker label="Uso CFDI" value={usoCfdi} options={USO_CFDI} onChange={setUsoCfdi} />
+      <SatPicker label="Régimen fiscal del receptor" value={receptorRegimen} options={REGIMEN_FISCAL} onChange={setReceptorRegimen} />
+      <Text style={s.fieldLabel}>CP (domicilio fiscal receptor)</Text>
+      <TextInput style={s.input} value={codigoPostal} onChangeText={setCodigoPostal} placeholder="00000" placeholderTextColor="#B0BEC5" keyboardType="number-pad" maxLength={5} />
 
+      <Text style={s.sectionHead}>Concepto</Text>
       {products.length > 0 && (
         <>
           <Text style={s.fieldLabel}>Producto/servicio guardado</Text>
@@ -209,8 +243,11 @@ export default function FacturaCheckEmitir() {
         </>
       )}
 
-      <Text style={s.fieldLabel}>Descripción del concepto *</Text>
-      <TextInput style={s.input} value={descripcion} onChangeText={setDescripcion} placeholder="Ej. Servicio de consultoría" placeholderTextColor="#B0BEC5" />
+      <Text style={s.fieldLabel}>Descripción (detalle claro y específico) *</Text>
+      <TextInput style={s.input} value={descripcion} onChangeText={setDescripcion} placeholder="Ej. Servicio de consultoría contable mes de julio" placeholderTextColor="#B0BEC5" />
+
+      <SatPicker label="Clave producto/servicio (SAT)" value={claveProd} options={CLAVE_PROD_SERV} onChange={setClaveProd} allowManual />
+      <SatPicker label="Unidad de medida (SAT)" value={claveUnidad} options={CLAVE_UNIDAD} onChange={setClaveUnidad} allowManual />
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
@@ -218,14 +255,50 @@ export default function FacturaCheckEmitir() {
           <TextInput style={s.input} value={cantidad} onChangeText={setCantidad} keyboardType="decimal-pad" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.fieldLabel}>Precio unitario *</Text>
+          <Text style={s.fieldLabel}>Valor unitario *</Text>
           <TextInput style={s.input} value={precio} onChangeText={setPrecio} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.fieldLabel}>Descuento</Text>
+          <TextInput style={s.input} value={descuento} onChangeText={setDescuento} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
         </View>
       </View>
 
+      <Text style={s.sectionHead}>Impuestos retenidos (opcional)</Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.fieldLabel}>ISR retenido</Text>
+          <TextInput style={s.input} value={retIsr} onChangeText={setRetIsr} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.fieldLabel}>IVA retenido</Text>
+          <TextInput style={s.input} value={retIva} onChangeText={setRetIva} placeholder="0.00" placeholderTextColor="#B0BEC5" keyboardType="decimal-pad" />
+        </View>
+      </View>
+
+      <Text style={s.sectionHead}>Datos de pago</Text>
+      <SatPicker label="Método de pago" value={metodoPago} options={METODO_PAGO} onChange={setMetodoPago} />
+      <SatPicker label="Forma de pago" value={formaPago} options={FORMA_PAGO} onChange={setFormaPago} />
+
+      {/* Desglose de totales */}
       <View style={s.totalsBox}>
-        <Text style={s.totalsText}>Subtotal ${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} · IVA 16% ${iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</Text>
-        <Text style={s.totalsBig}>Total ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</Text>
+        {[
+          ['Importe', importe],
+          ['Descuento', -descuentoNum],
+          ['Subtotal', baseGravable],
+          ['IVA 16% trasladado', ivaTrasladado],
+          ['ISR retenido', -retIsrNum],
+          ['IVA retenido', -retIvaNum],
+        ].map(([label, val]) => (
+          <View key={label as string} style={s.totalRow}>
+            <Text style={s.totalLabel}>{label}</Text>
+            <Text style={s.totalVal}>${Math.abs(val as number).toLocaleString('es-MX', { minimumFractionDigits: 2 })}{(val as number) < 0 ? ' −' : ''}</Text>
+          </View>
+        ))}
+        <View style={[s.totalRow, { borderTopWidth: 1, borderTopColor: '#E0E0E0', paddingTop: 8, marginTop: 4 }]}>
+          <Text style={s.totalsBig}>Total a pagar</Text>
+          <Text style={s.totalsBig}>${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</Text>
+        </View>
       </View>
 
       {msg && <Text style={s.pendingMsg}>{msg}</Text>}
@@ -252,7 +325,15 @@ const s = StyleSheet.create({
   chipTextActive: { color: '#fff' },
   totalsBox: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginTop: 16, borderWidth: 1, borderColor: '#F0F0F0' },
   totalsText: { fontSize: 12, color: '#90A4AE' },
-  totalsBig: { fontSize: 20, fontWeight: '800', color: BRAND.navy, marginTop: 4 },
+  totalsBig: { fontSize: 17, fontWeight: '800', color: BRAND.navy },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  totalLabel: { fontSize: 13, color: '#607D8B' },
+  totalVal: { fontSize: 13, fontWeight: '600', color: BRAND.navy },
+  sectionHead: { fontSize: 13, fontWeight: '800', color: FACTURA_COLOR, marginTop: 20, marginBottom: 2 },
+  emisorCard: { backgroundColor: '#F3E5F5', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: FACTURA_COLOR + '30' },
+  emisorTitle: { fontSize: 13, fontWeight: '800', color: FACTURA_COLOR },
+  emisorLine: { fontSize: 11, color: '#6A1B9A', marginTop: 4, lineHeight: 16 },
+  emisorHint: { fontSize: 10, color: '#9C7BA8', marginTop: 6, lineHeight: 14 },
   pendingMsg: { textAlign: 'center', color: FACTURA_COLOR, fontSize: 13, fontWeight: '600', marginTop: 12 },
   emitBtn: { backgroundColor: FACTURA_COLOR, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   emitBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },

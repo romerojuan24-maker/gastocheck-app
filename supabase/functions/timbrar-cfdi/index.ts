@@ -26,6 +26,8 @@ interface IssueRequest {
   subtotal: number | null
   iva: number | null
   total: number | null
+  metodo_pago: string | null
+  forma_pago: string | null
   provider: string
   status: string
   related_uuid_cfdi: string | null
@@ -63,8 +65,8 @@ async function timbrarFacturama(cfg: ProviderConfig, req: IssueRequest): Promise
     Currency: 'MXN',
     ExpeditionPlace: cfg.codigo_postal_fiscal ?? '00000',
     CfdiType: req.cfdi_type === 'egreso' ? 'E' : 'I',
-    PaymentForm: '03',
-    PaymentMethod: 'PUE',
+    PaymentForm: req.forma_pago ?? '03',
+    PaymentMethod: req.metodo_pago ?? 'PUE',
     Receiver: {
       Rfc: req.receptor_rfc,
       Name: req.receptor_razon_social ?? 'PUBLICO EN GENERAL',
@@ -72,17 +74,31 @@ async function timbrarFacturama(cfg: ProviderConfig, req: IssueRequest): Promise
       FiscalRegime: req.receptor_regimen ?? '601',
       TaxZipCode: req.receptor_codigo_postal ?? cfg.codigo_postal_fiscal ?? '00000',
     },
-    Items: (req.items ?? []).map((it: any) => ({
-      ProductCode: it.clave_prod ?? '01010101',
-      UnitCode: it.clave_unidad ?? 'H87',
-      Description: it.descripcion ?? it.description ?? 'Concepto',
-      Quantity: Number(it.cantidad ?? it.quantity ?? 1),
-      UnitPrice: Number(it.precio ?? it.unit_price ?? 0),
-      Subtotal: Number(it.subtotal ?? (Number(it.cantidad ?? 1) * Number(it.precio ?? 0))),
-      TaxObject: '02',
-      Taxes: [{ Total: Number(it.iva ?? 0), Name: 'IVA', Base: Number(it.subtotal ?? 0), Rate: 0.16, IsRetention: false }],
-      Total: Number(it.total ?? 0),
-    })),
+    Items: (req.items ?? []).map((it: any) => {
+      const qty = Number(it.cantidad ?? it.quantity ?? 1)
+      const unitPrice = Number(it.valor_unitario ?? it.precio ?? it.unit_price ?? 0)
+      const importe = Number(it.importe ?? qty * unitPrice)
+      const desc = Number(it.descuento ?? 0)
+      const base = Math.max(0, importe - desc)
+      const iva = Number(it.iva_trasladado ?? it.iva ?? +(base * 0.16).toFixed(2))
+      const retIsr = Number(it.ret_isr ?? 0)
+      const retIva = Number(it.ret_iva ?? 0)
+      const taxes: any[] = [{ Total: iva, Name: 'IVA', Base: base, Rate: 0.16, IsRetention: false }]
+      if (retIva > 0) taxes.push({ Total: retIva, Name: 'IVA', Base: base, Rate: 0.106667, IsRetention: true })
+      if (retIsr > 0) taxes.push({ Total: retIsr, Name: 'ISR', Base: base, Rate: 0.10, IsRetention: true })
+      return {
+        ProductCode: it.clave_prod ?? '01010101',
+        UnitCode: it.clave_unidad ?? 'H87',
+        Description: it.descripcion ?? it.description ?? 'Concepto',
+        Quantity: qty,
+        UnitPrice: unitPrice,
+        Subtotal: importe,
+        ...(desc > 0 ? { Discount: desc } : {}),
+        TaxObject: '02',
+        Taxes: taxes,
+        Total: +(base + iva - retIsr - retIva).toFixed(2),
+      }
+    }),
     ...(req.related_uuid_cfdi ? {
       CfdiRelatedDocuments: [{ Uuid: req.related_uuid_cfdi, RelationshipType: req.relacion_tipo ?? '01' }],
     } : {}),
@@ -116,13 +132,16 @@ async function timbrarFacturapia(cfg: ProviderConfig, req: IssueRequest): Promis
     use: req.receptor_uso_cfdi ?? 'G03',
     items: (req.items ?? []).map((it: any) => ({
       quantity: Number(it.cantidad ?? it.quantity ?? 1),
+      discount: Number(it.descuento ?? 0) || undefined,
       product: {
         description: it.descripcion ?? it.description ?? 'Concepto',
         product_key: it.clave_prod ?? '01010101',
-        price: Number(it.precio ?? it.unit_price ?? 0),
+        unit_key: it.clave_unidad ?? 'H87',
+        price: Number(it.valor_unitario ?? it.precio ?? it.unit_price ?? 0),
       },
     })),
-    payment_form: '03',
+    payment_method: req.metodo_pago ?? 'PUE',
+    payment_form: req.forma_pago ?? '03',
     ...(req.related_uuid_cfdi ? {
       related_documents: [{ uuid: req.related_uuid_cfdi, relationship: req.relacion_tipo ?? '01' }],
     } : {}),
