@@ -51,6 +51,31 @@ interface TimbreResult {
   xml: string | null
   pdf_url: string | null
   provider_id: string | null
+  // Sellos y datos del timbrado (los devuelve el PAC)
+  serie?: string | null
+  folio?: string | null
+  lugar_expedicion?: string | null
+  sello_cfdi?: string | null
+  sello_sat?: string | null
+  no_certificado_sat?: string | null
+  no_certificado_emisor?: string | null
+  fecha_timbrado?: string | null
+  rfc_prov_certif?: string | null
+  total?: number | null
+}
+
+// Cadena original del complemento de certificación del SAT (TFD 1.1):
+// ||version|UUID|FechaTimbrado|RfcProvCertif|SelloCFD||
+function buildCadenaOriginal(t: TimbreResult): string | null {
+  if (!t.uuid || !t.fecha_timbrado || !t.sello_cfdi) return null
+  return `||1.1|${t.uuid}|${t.fecha_timbrado}|${t.rfc_prov_certif ?? ''}|${t.sello_cfdi}||`
+}
+
+// URL del QR de verificación oficial del SAT.
+function buildQrUrl(uuid: string, rfcEmisor: string, rfcReceptor: string, total: number, selloSat: string | null | undefined): string {
+  const tt = (total ?? 0).toFixed(6)
+  const fe = (selloSat ?? '').slice(-8)
+  return `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=${uuid}&re=${rfcEmisor}&rr=${rfcReceptor}&tt=${tt}&fe=${fe}`
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +136,20 @@ async function timbrarFacturama(cfg: ProviderConfig, req: IssueRequest): Promise
   })
   const data = await resp.json()
   if (!resp.ok) throw new Error(`Facturama ${resp.status}: ${JSON.stringify(data).slice(0, 300)}`)
-  return { uuid: data.Complement?.TaxStamp?.Uuid ?? data.Id, xml: null, pdf_url: null, provider_id: data.Id ?? null }
+  const ts = data.Complement?.TaxStamp ?? {}
+  return {
+    uuid: ts.Uuid ?? data.Id,
+    xml: null, pdf_url: null, provider_id: data.Id ?? null,
+    serie: data.Serie ?? 'A', folio: data.Folio ?? null,
+    lugar_expedicion: data.ExpeditionPlace ?? cfg.codigo_postal_fiscal ?? null,
+    sello_cfdi: ts.CfdiSign ?? null,
+    sello_sat: ts.SatSign ?? null,
+    no_certificado_sat: ts.SatCertNumber ?? null,
+    no_certificado_emisor: data.CertNumber ?? null,
+    fecha_timbrado: ts.Date ?? null,
+    rfc_prov_certif: ts.RfcProvCertif ?? null,
+    total: Number(data.Total ?? req.total ?? 0),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +192,17 @@ async function timbrarFacturapia(cfg: ProviderConfig, req: IssueRequest): Promis
   })
   const data = await resp.json()
   if (!resp.ok) throw new Error(`FacturAPI ${resp.status}: ${JSON.stringify(data).slice(0, 300)}`)
-  return { uuid: data.uuid ?? data.id, xml: null, pdf_url: null, provider_id: data.id ?? null }
+  const st = data.stamp ?? {}
+  return {
+    uuid: data.uuid ?? data.id,
+    xml: null, pdf_url: null, provider_id: data.id ?? null,
+    serie: data.series ?? null, folio: data.folio_number != null ? String(data.folio_number) : null,
+    sello_cfdi: st.signature ?? null,
+    sello_sat: st.sat_signature ?? null,
+    no_certificado_sat: st.sat_cert_number ?? null,
+    fecha_timbrado: st.date ?? null,
+    total: Number(data.total ?? req.total ?? 0),
+  }
 }
 
 const ADAPTERS: Record<string, (cfg: ProviderConfig, req: IssueRequest) => Promise<TimbreResult>> = {
@@ -228,14 +276,20 @@ Deno.serve(async (httpReq) => {
       // cfdi_documents — timbrar solo actualizaba cfdi_issue_requests, así
       // que un CFDI recién timbrado nunca aparecía en la lista.
       const r = req as IssueRequest
+      const cadena = buildCadenaOriginal(result)
+      const qrUrl = buildQrUrl(result.uuid, cfg.rfc, r.receptor_rfc, result.total ?? r.total ?? 0, result.sello_sat)
       await admin.from('cfdi_documents').insert({
         company_id: req.company_id, direction: 'issued', uuid_cfdi: result.uuid,
         rfc_emisor: cfg.rfc, razon_social_emisor: cfg.razon_social,
         rfc_receptor: r.receptor_rfc, razon_social_receptor: r.receptor_razon_social,
         fecha_emision: new Date().toISOString(), subtotal: r.subtotal, iva: r.iva, total: r.total,
-        forma_pago: '03', metodo_pago: 'PUE', uso_cfdi: r.receptor_uso_cfdi,
+        forma_pago: r.forma_pago ?? '03', metodo_pago: r.metodo_pago ?? 'PUE', uso_cfdi: r.receptor_uso_cfdi,
         tipo_comprobante: r.cfdi_type === 'egreso' ? 'E' : 'I',
         status: 'vigente', pdf_storage_path: result.pdf_url,
+        serie: result.serie, folio: result.folio, lugar_expedicion: result.lugar_expedicion,
+        sello_cfdi: result.sello_cfdi, sello_sat: result.sello_sat,
+        no_certificado_sat: result.no_certificado_sat, no_certificado_emisor: result.no_certificado_emisor,
+        cadena_original: cadena, fecha_timbrado: result.fecha_timbrado, qr_url: qrUrl,
       })
 
       await admin.from('audit_logs').insert({

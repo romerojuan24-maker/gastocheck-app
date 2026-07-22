@@ -347,6 +347,13 @@ export default function FacturaCheckHome() {
             <Text style={s.modalTitle}>Acciones del CFDI</Text>
             <Text style={s.modalSub} numberOfLines={1}>{actionDoc.uuid_cfdi}</Text>
 
+            <TouchableOpacity
+              style={[s.modalBtn, { backgroundColor: BRAND.navy }]}
+              onPress={() => { const u = actionDoc.uuid_cfdi; setActionDoc(null); router.push({ pathname: '/facturacheck/cfdi-detalle', params: { uuid: u } } as any); }}
+            >
+              <Text style={s.modalBtnText}>📄 Ver detalle, sellos y QR</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[s.modalBtn, { backgroundColor: FACTURA_COLOR }]} onPress={goToNotaCredito}>
               <Text style={s.modalBtnText}>📝 Generar Nota de Crédito</Text>
             </TouchableOpacity>
