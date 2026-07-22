@@ -47,4 +47,4 @@ export * from './cfdi-parser';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 248 · v0.1.85 · Catalogo de cuentas accesible desde todos los modulos (via Empresa)';
+export const APP_VERSION = 'OTA 249 · v0.1.85 · CFDI sellos + cadena original + QR de verificacion SAT';
