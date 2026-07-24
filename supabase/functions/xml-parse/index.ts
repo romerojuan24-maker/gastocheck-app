@@ -2,7 +2,7 @@
 // Incluye: detección de duplicados por UUID, validación RFC, validación matemática.
 // Deploy: supabase functions deploy xml-parse
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { parseCfdiXml } from '../../../packages/shared/src/cfdi.ts';
+import { parseCfdiXml } from '../_shared/cfdi.ts';
 
 const RFC_RE = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
 
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
+    (Deno.env.get('SB_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY'))!,
     { global: { headers: { Authorization: authHeader } } },
   );
 

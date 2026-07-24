@@ -2,7 +2,7 @@
 // y dejando registro inmutable en expense_audit.
 // Deploy: supabase functions deploy authorize-expense
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { canTransition, nextStatus, type ExpenseAction } from '../../../packages/shared/src/status.ts';
+import { canTransition, nextStatus, type ExpenseAction } from '../_shared/status.ts';
 
 // 🟠 FIX BUG #11: Type guard para validar action
 function isValidAction(action: unknown): action is ExpenseAction {
@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
+    (Deno.env.get('SB_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY'))!,
     { global: { headers: { Authorization: authHeader } } },
   );
 

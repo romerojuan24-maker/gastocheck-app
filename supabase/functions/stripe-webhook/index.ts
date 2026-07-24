@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check"
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) ?? "",
 )
 
 // Mapa inverso: stripe_price_id → plan_code

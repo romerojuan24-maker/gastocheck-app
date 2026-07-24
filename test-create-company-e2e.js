@@ -7,7 +7,7 @@ const fs = require('fs');
 const https = require('https');
 
 const SUPABASE_URL = "https://omhycwfjxynkfwywzwvz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzY0MjMsImV4cCI6MjA5NjM1MjQyM30.J9cmcQPAyuW7S9R7_3UDevYKAvLThSI6JWgHIl3Yj14";
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 console.log("=== PRUEBA E2E: create-company ===");
 console.log("Entorno: PRODUCCION (Supabase)");

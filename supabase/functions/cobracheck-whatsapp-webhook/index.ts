@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   if (req.method === 'POST') {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!);
     const body = await req.json();
     const messages = body.entry?.[0]?.changes?.[0]?.value?.messages || [];
 

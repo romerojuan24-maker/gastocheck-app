@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const { createClient } = require('@supabase/supabase-js')
 const URL  = 'https://omhycwfjxynkfwywzwvz.supabase.co'
-const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzY0MjMsImV4cCI6MjA5NjM1MjQyM30.J9cmcQPAyuW7S9R7_3UDevYKAvLThSI6JWgHIl3Yj14'
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const sb = createClient(URL, ANON)
 
 async function run() {

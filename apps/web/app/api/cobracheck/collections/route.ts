@@ -7,7 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireCompanyMember } from '@/lib/api-auth'
 import type { CobraCollection } from '@gastocheck/shared'
+
+const COBRA_ROLES = ['owner', 'admin', 'accountant', 'supervisor', 'cobrador', 'collector']
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -28,9 +31,9 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    if (!company_id) {
-      return NextResponse.json({ error: 'Missing company_id' }, { status: 400 })
-    }
+    // service_role salta RLS → autorización explícita (JWT + membresía activa).
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     let query = supabase
       .from('cobra_collections')
@@ -84,6 +87,10 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
+
+    // Autorización explícita (service_role salta RLS). Escritura = rol de cobranza.
+    const auth = await requireCompanyMember(req, company_id, COBRA_ROLES)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // 1. Detectar cliente si no se especificó
     let resolved_client_id = client_id
@@ -174,14 +181,19 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Missing collection_id' }, { status: 400 })
     }
 
-    const { action, status, notes, user_id } = body
+    const { action, status, notes } = body
 
-    if (!action || !user_id) {
-      return NextResponse.json(
-        { error: 'Missing action and user_id' },
-        { status: 400 },
-      )
+    if (!action) {
+      return NextResponse.json({ error: 'Missing action' }, { status: 400 })
     }
+
+    // Autorización: NO se confía en user_id del body. Se obtiene la empresa DE
+    // la cobranza y se verifica que el token pertenezca a esa empresa.
+    const { data: col } = await supabase
+      .from('cobra_collections').select('company_id').eq('id', collection_id).maybeSingle()
+    if (!col) return NextResponse.json({ error: 'Cobranza no encontrada' }, { status: 404 })
+    const auth = await requireCompanyMember(req, col.company_id, COBRA_ROLES)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     // Mapear acciones a estados
     const statusMap: Record<string, string> = {

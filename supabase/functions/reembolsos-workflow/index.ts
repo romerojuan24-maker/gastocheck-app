@@ -12,11 +12,11 @@ export default async (req: Request) => {
 
   try {
     const url     = Deno.env.get('SUPABASE_URL') ?? ''
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    const anonKey = (Deno.env.get('SB_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')) ?? ''
 
     const supabaseAdmin = createClient(
       url,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) ?? '',
     )
 
     const authHeader = req.headers.get('Authorization') ?? ''

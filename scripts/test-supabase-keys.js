@@ -5,7 +5,7 @@
  */
 
 const SUPABASE_URL = 'https://omhycwfjxynkfwywzwvz.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkwODk3MjYsImV4cCI6MjAyNDY2OTcyNn0.sSlEbsfs4842PDD8H050uQ_dhLbljxActT_m0E4pqns'
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 async function testKeys() {
   try {

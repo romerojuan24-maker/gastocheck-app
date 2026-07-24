@@ -36,9 +36,8 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
   SELECT CASE
     WHEN NOT company_is_in_trial(p_company) THEN true
     ELSE (
-      SELECT count(*) < plan_seats
-      FROM companies c
-      WHERE c.id = p_company
+      SELECT (SELECT count(*) FROM company_members m WHERE m.company_id = p_company)
+           < (SELECT c.plan_seats FROM companies c WHERE c.id = p_company)
     )
   END;
 $$;

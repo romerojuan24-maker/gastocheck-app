@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const { createClient } = require('@supabase/supabase-js')
 const URL = 'https://omhycwfjxynkfwywzwvz.supabase.co'
-const SVC = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDc3NjQyMywiZXhwIjoyMDk2MzUyNDIzfQ.mTSMLWCIOU_d8UNDNL8Dv40oJFUv8x9p3ceUQQbdvSU'
+const SVC = process.env.SUPABASE_SERVICE_ROLE_KEY
 const sb = createClient(URL, SVC, { auth: { persistSession: false } })
 
 const ORPHAN = 'b2199da2-50a2-431b-bea0-d8d9bb01f788'

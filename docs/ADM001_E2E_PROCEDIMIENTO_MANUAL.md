@@ -51,7 +51,7 @@ Script (guardar como `test-create-company-e2e-signin.js`):
 const https = require('https');
 
 const SUPABASE_URL = "https://omhycwfjxynkfwywzwvz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzY0MjMsImV4cCI6MjA5NjM1MjQyM30.J9cmcQPAyuW7S9R7_3UDevYKAvLThSI6JWgHIl3Yj14";
+const ANON_KEY = "<REDACTADO — usar variable de entorno NEXT_PUBLIC_SUPABASE_ANON_KEY>";
 const TEST_EMAIL = "test-adm001@example.com";
 const TEST_PASSWORD = "TestPass123!@#$";
 
@@ -150,7 +150,7 @@ const fs = require('fs');
 const readline = require('readline');
 
 const SUPABASE_URL = "https://omhycwfjxynkfwywzwvz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzY0MjMsImV4cCI6MjA5NjM1MjQyM30.J9cmcQPAyuW7S9R7_3UDevYKAvLThSI6JWgHIl3Yj14";
+const ANON_KEY = "<REDACTADO — usar variable de entorno NEXT_PUBLIC_SUPABASE_ANON_KEY>";
 
 const rl = readline.createInterface({
   input: process.stdin,

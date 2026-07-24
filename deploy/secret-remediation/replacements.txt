@@ -1,0 +1,3 @@
+# git filter-repo --replace-text  (ejecutar en un --mirror, tras rotar/deshabilitar legacy)
+# Reemplaza cualquier JWT de 3 partes (anon/service_role legacy eyJ...) por REDACTED en TODO el historial.
+regex:eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}==>REDACTED_JWT

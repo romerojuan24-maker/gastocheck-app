@@ -1,7 +1,9 @@
 // Parser para catálogos de cuentas contables (Excel Contpaqi, CSV, TXT)
+// xlsx (SheetJS) se carga DIFERIDO dentro de parseExcel — no al importar este
+// módulo — para no arriesgar un crash de evaluación en Hermes al abrir la
+// pantalla que lo importa (mismo patrón que lib/inventory-io.ts).
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import * as XLSX from 'xlsx';
 
 export interface CatalogAccount {
   codigo:   string;
@@ -58,6 +60,7 @@ export async function parseCatalogFile(
 // Se filtran filas donde Nombre esté vacío.
 
 async function parseExcel(fileUri: string): Promise<CatalogAccount[]> {
+  const XLSX = await import('xlsx');  // carga diferida (ver nota arriba)
   const b64 = await FileSystem.readAsStringAsync(fileUri, {
     encoding: FileSystem.EncodingType.Base64,
   });

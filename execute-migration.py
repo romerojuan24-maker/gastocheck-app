@@ -7,7 +7,7 @@ with open("supabase/migrations/20260627_perfilamiento_gastocheck_v1.sql", "r", e
 
 # Informacion Supabase
 supabase_url = "https://omhycwfjxynkfwywzwvz.supabase.co"
-service_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDc3NjQyMywiZXhwIjoyMDk2MzUyNDIzfQ.mTSMLWCIOU_d8UNDNL8Dv40oJFUv8x9p3ceUQQbdvSU"
+service_key = os.environ['SUPABASE_SERVICE_ROLE_KEY']
 
 print("Conectando a Supabase...")
 

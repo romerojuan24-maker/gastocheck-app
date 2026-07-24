@@ -16,6 +16,10 @@ const supabase = createClient(
 // Cargar dashboard completo: bancos, cobranzas, pagos, proyecciones
 // ============================================================================
 
+// Roles con visibilidad de tesorería/flujo (el dashboard expone saldos
+// bancarios y compromisos de nómina — datos sensibles).
+const FLUJO_ROLES = ['owner', 'admin', 'accountant', 'contador_general', 'office']
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -23,6 +27,32 @@ export async function GET(req: NextRequest) {
 
     if (!company_id) {
       return NextResponse.json({ error: 'Missing company_id' }, { status: 400 })
+    }
+
+    // ── Autorización: el route corre con service_role (salta RLS), así que la
+    //    autorización DEBE ser explícita. Sin esto, cualquiera podía pedir el
+    //    dashboard de OTRA empresa pasando su company_id en el query string.
+    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Sin autorización' }, { status: 401 })
+    }
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+    if (authErr || !user) {
+      return NextResponse.json({ error: 'Sin autorización' }, { status: 401 })
+    }
+    const { data: caller } = await supabase
+      .from('company_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('company_id', company_id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!caller) {
+      // No es miembro activo de ESA empresa → no puede ver su tesorería.
+      return NextResponse.json({ error: 'Sin acceso a esta empresa' }, { status: 403 })
+    }
+    if (!FLUJO_ROLES.includes(caller.role)) {
+      return NextResponse.json({ error: 'Tu rol no tiene acceso a FlujoCheck' }, { status: 403 })
     }
 
     // 1. SALDOS BANCARIOS
@@ -150,25 +180,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // B. Nómina
+    // B. Nómina — vía capa estable nomi_cashflow_commitments (la vista ya
+    // filtra aprobados + no pagados; desacopla de la estructura de nomi_payroll)
     const { data: payrolls } = await supabase
-      .from('nomi_payroll')
-      .select('id, net_amount, payroll_date')
+      .from('nomi_cashflow_commitments')
+      .select('id, amount, due_date')
       .eq('company_id', company_id)
-      .eq('status', 'approved')
-      .is('paid_at', null)
 
     if (payrolls) {
       for (const p of payrolls) {
-        const due = new Date(p.payroll_date)
+        const due = new Date(p.due_date)
         const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
         commitments.push({
           id: p.id,
           type: 'payroll',
           entity_name: 'Nómina',
-          amount: p.net_amount,
-          due_date: p.payroll_date,
+          amount: p.amount,
+          due_date: p.due_date,
           days_until_due,
           severity: days_until_due < 0 ? 'critical' : days_until_due < 7 ? 'warning' : 'info',
           priority: 'critical',
@@ -216,16 +245,11 @@ export async function GET(req: NextRequest) {
       next5Days.setDate(next5Days.getDate() + 5)
 
       for (const c of commissionsData) {
-        const { data: employee } = await supabase
-          .from('nomi_employees')
-          .select('name')
-          .eq('id', c.collector_id)
-          .single()
-
+        // El cobrador es entidad de CobraCheck, no de nómina. Etiqueta genérica.
         commitments.push({
           id: c.id,
           type: 'commission',
-          entity_name: `Comisión: ${employee?.name || 'Cobrador'}`,
+          entity_name: 'Comisión de cobrador',
           amount: c.commission_amount,
           due_date: next5Days.toISOString().split('T')[0],
           days_until_due: 5,

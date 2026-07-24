@@ -3,7 +3,7 @@
 # Entorno: Produccion (Supabase)
 
 $SUPABASE_URL = "https://omhycwfjxynkfwywzwvz.supabase.co"
-$ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NzY0MjMsImV4cCI6MjA5NjM1MjQyM30.J9cmcQPAyuW7S9R7_3UDevYKAvLThSI6JWgHIl3Yj14"
+$ANON_KEY = $env:NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 Write-Host "=== PRUEBA E2E: create-company ===" -ForegroundColor Green
 Write-Host "Entorno: PRODUCCION (Supabase)"

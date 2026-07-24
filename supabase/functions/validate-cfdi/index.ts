@@ -6,7 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const SUPABASE_SERVICE = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) ?? '';
 
 const SAT_SOAP_URL =
   'https://consultaqr.facturaelectronica.sat.gob.mx/ConsultaCFDIService.svc';

@@ -8,7 +8,7 @@
 const { createClient } = require('@supabase/supabase-js')
 
 const SUPABASE_URL = 'https://omhycwfjxynkfwywzwvz.supabase.co'
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9taHljd2ZqeHlua2Z3eXd6d3Z6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDc3NjQyMywiZXhwIjoyMDk2MzUyNDIzfQ.mTSMLWCIOU_d8UNDNL8Dv40oJFUv8x9p3ceUQQbdvSU'
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const DEMO_EMAIL = 'demo@gastocheck.app'
 const DEMO_PASSWORD = 'DemoGastoCheck2026!' // Contraseña segura por defecto

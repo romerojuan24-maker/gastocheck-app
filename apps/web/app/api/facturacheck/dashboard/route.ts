@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireCompanyMember } from '@/lib/api-auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -16,9 +17,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const company_id = searchParams.get('company_id')
 
-    if (!company_id) {
-      return NextResponse.json({ error: 'Missing company_id' }, { status: 400 })
-    }
+    // service_role salta RLS → autorización explícita (JWT + membresía activa;
+    // rechaza company_id ajeno).
+    const auth = await requireCompanyMember(req, company_id)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     const now = new Date()
     const period_month = now.getMonth() + 1

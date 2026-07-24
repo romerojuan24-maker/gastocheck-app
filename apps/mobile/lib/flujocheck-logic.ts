@@ -171,26 +171,26 @@ async function getUpcomingCommitments(company_id: string): Promise<Commitment[]>
     commitments.push(...commitmentPayables)
   }
 
-  // B. Nómina (NomiCheck)
+  // B. Nómina (NomiCheck) — vía capa estable nomi_cashflow_commitments
+  // (desacopla FlujoCheck de la estructura interna de nomi_payroll; la vista
+  //  ya filtra aprobados + no pagados y respeta la RLS de nómina).
   const { data: payrolls } = await supabase
-    .from('nomi_payroll')
-    .select('id, net_amount, payroll_date')
+    .from('nomi_cashflow_commitments')
+    .select('id, amount, due_date')
     .eq('company_id', company_id)
-    .eq('status', 'approved')
-    .is('paid_at', null)
 
   if (payrolls) {
     const today = new Date()
     const commitmentPayrolls = payrolls.map((p) => {
-      const due = new Date(p.payroll_date)
+      const due = new Date(p.due_date)
       const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
       return {
         id: p.id,
         type: 'payroll' as const,
         entity_name: 'Nómina',
-        amount: p.net_amount,
-        due_date: p.payroll_date,
+        amount: p.amount,
+        due_date: p.due_date,
         days_until_due,
         severity: days_until_due < 0 ? ('critical' as const) : days_until_due < 7 ? ('warning' as const) : ('info' as const),
         priority: 'critical' as const, // Alta prioridad
@@ -216,27 +216,20 @@ async function getUpcomingCommitments(company_id: string): Promise<Commitment[]>
     const next5Days = new Date(today)
     next5Days.setDate(next5Days.getDate() + 5)
 
-    const commitmentCommissions = await Promise.all(
-      commissions.map(async (c) => {
-        const { data: employee } = await supabase
-          .from('nomi_employees')
-          .select('name')
-          .eq('id', c.collector_id)
-          .single()
-
-        return {
-          id: c.id,
-          type: 'commission' as const,
-          entity_name: `Comisión: ${employee?.name || 'Cobrador'}`,
-          amount: c.commission_amount,
-          due_date: next5Days.toISOString().split('T')[0],
-          days_until_due: 5,
-          severity: 'info' as const,
-          priority: 'medium' as const,
-          status: 'pending' as const,
-        } as Commitment
-      }),
-    )
+    // El cobrador es una entidad de CobraCheck, no de nómina. Etiqueta genérica
+    // (el nombre puntual no es dato de tesorería y no justifica un N+1 ni
+    // acoplar FlujoCheck a otro módulo).
+    const commitmentCommissions = commissions.map((c) => ({
+      id: c.id,
+      type: 'commission' as const,
+      entity_name: 'Comisión de cobrador',
+      amount: c.commission_amount,
+      due_date: next5Days.toISOString().split('T')[0],
+      days_until_due: 5,
+      severity: 'info' as const,
+      priority: 'medium' as const,
+      status: 'pending' as const,
+    } as Commitment))
     commitments.push(...commitmentCommissions)
   }
 

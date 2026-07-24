@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    const supabaseUser = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+    const supabaseUser = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SB_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')) ?? '', {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user: caller }, error: authErr } = await supabaseUser.auth.getUser()
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     const { insight_id } = await req.json()
     if (!insight_id) return Response.json({ error: 'insight_id requerido' }, { status: 400, headers: CORS })
 
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!)
 
     const { data: insight } = await admin.from('advisor_insights').select('*').eq('id', insight_id).single()
     if (!insight) return Response.json({ error: 'Insight no encontrado' }, { status: 404, headers: CORS })

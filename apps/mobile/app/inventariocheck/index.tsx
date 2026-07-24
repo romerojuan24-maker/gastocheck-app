@@ -54,6 +54,11 @@ export default function InventarioCheckHome() {
   const [quickMoveTarget, setQuickMoveTarget] = useState<InventoryProduct | null>(null)
   const [quickMoveDirection, setQuickMoveDirection] = useState<'in' | 'out' | null>(null)
   const [quickMoveKey, setQuickMoveKey] = useState<string>('')
+  // ⚠️ Debe declararse ANTES del early return `if (loading)` (más abajo). Estaba
+  // después → en el render con loading=true se llamaban menos hooks que con
+  // loading=false → "Rendered more hooks than during the previous render" (crash
+  // al entrar a InventarioCheck). Todos los hooks van antes de cualquier return.
+  const [importing, setImporting] = useState(false)
 
   const { products, refetch: refetchProducts } = useInventarioProducts(companyId || '')
   const { alerts } = useInventarioAlerts(companyId || '')
@@ -111,8 +116,6 @@ export default function InventarioCheckHome() {
       Alert.alert('Error', result.error || 'No se pudo guardar')
     }
   }
-
-  const [importing, setImporting] = useState(false)
 
   async function handleImport() {
     if (!companyId) return

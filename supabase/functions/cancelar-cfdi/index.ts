@@ -56,7 +56,7 @@ Deno.serve(async (httpReq) => {
 
   try {
     const authHeader = httpReq.headers.get('Authorization') ?? ''
-    const supabaseUser = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+    const supabaseUser = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SB_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')) ?? '', {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user: caller }, error: authErr } = await supabaseUser.auth.getUser()
@@ -67,7 +67,7 @@ Deno.serve(async (httpReq) => {
     if (!MOTIVOS_VALIDOS.includes(motivo)) return Response.json({ error: 'Motivo SAT inválido (01-04)' }, { status: 400, headers: CORS })
     if (motivo === '01' && !folio_sustitucion) return Response.json({ error: 'Motivo 01 requiere el UUID del comprobante que sustituye' }, { status: 400, headers: CORS })
 
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!)
 
     const { data: req, error: e1 } = await admin.from('cfdi_issue_requests').select('*').eq('id', request_id).single()
     if (e1 || !req) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404, headers: CORS })

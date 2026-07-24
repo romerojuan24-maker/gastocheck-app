@@ -2,9 +2,14 @@
 // para LEER .xlsx y .csv. Para exportar, comparte CSV como texto (Share nativo,
 // sin depender de expo-sharing que no está en el APK actual); el archivo .xlsx
 // descargable llegará con el próximo APK.
-import * as XLSX from 'xlsx';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+//
+// IMPORTANTE: xlsx / expo-document-picker / expo-file-system se cargan de forma
+// DIFERIDA (import() dentro de la función) — NO en el nivel de módulo. Metro
+// evalúa un módulo al primer require; con import top-level, xlsx se evaluaba al
+// solo ENTRAR a InventarioCheck (que importa este archivo), y si SheetJS truena
+// al evaluar en Hermes, tumbaba la pantalla al entrar. Diferido, solo se evalúa
+// al presionar Importar/Exportar (y cualquier error queda en el try/catch de la
+// pantalla, no en un crash de render).
 import { Share } from 'react-native';
 import { supabase } from './supabase';
 
@@ -54,6 +59,12 @@ function mapRow(row: Record<string, any>): ParsedProduct | null {
 
 /** Abre el selector, lee xlsx/csv y devuelve los productos parseados. */
 export async function pickAndParseInventory(): Promise<{ products: ParsedProduct[]; skipped: number } | null> {
+  // Carga diferida (ver nota arriba): estos módulos NO deben evaluarse al entrar.
+  const [XLSX, DocumentPicker, FileSystem] = await Promise.all([
+    import('xlsx'),
+    import('expo-document-picker'),
+    import('expo-file-system/legacy'),
+  ]);
   const res = await DocumentPicker.getDocumentAsync({
     type: [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx

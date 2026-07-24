@@ -6,7 +6,10 @@
 -- ----------------------------------------------------------------------------
 -- ENUMS
 -- ----------------------------------------------------------------------------
-create type member_role   as enum ('owner','supervisor','spender','office','accountant');
+-- Enum completo desde el inicio para que el folder sea replayable en limpio
+-- (migraciones posteriores hacen ALTER TYPE ADD VALUE IF NOT EXISTS → no-op).
+-- Producción no re-ejecuta init, así que este cambio no la afecta.
+create type member_role   as enum ('owner','supervisor','spender','office','accountant','operator','admin','superadmin','cobrador','buyer','viewer','collector','contador_general');
 create type member_status as enum ('active','invited','disabled');
 create type company_plan  as enum ('basico','equipo','empresa','corporativo');
 create type cost_center_type as enum ('obra','ruta','proyecto','lote','cliente','unidad','sucursal','otro');
