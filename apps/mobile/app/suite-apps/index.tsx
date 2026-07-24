@@ -31,6 +31,12 @@ const TOOLS = [
     icon: '📦',
     route: '/inventariocheck',
   },
+  {
+    id: 'nominacheck',
+    title: 'Nómina',
+    icon: '🧾',
+    route: '/nominacheck',
+  },
 ];
 
 const BOTTOM_GRID = [

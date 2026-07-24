@@ -43,8 +43,9 @@ export * from './facturacheck';
 export * from './inventariocheck';
 export * from './advisor';
 export * from './cfdi-parser';
+export * from './nomina';
 
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 251 · v0.1.85 · Fix InventarioCheck (crash de hooks al entrar)';
+export const APP_VERSION = 'OTA 252 · v0.1.86 · NóminaCheck (motor de cálculo + pantalla)';
