@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BRAND, APP_VERSION, calcNominaMensual, type NominaResult } from '@gastocheck/shared'
 import { supabase } from '../../lib/supabase'
+import { getActiveMembership } from '../../lib/membership'
 
 const NOMI = BRAND.purple ?? '#7B1FA2'
 const money = (n: number) => '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -31,9 +32,7 @@ export default function NominaCheckHome() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setDirNote('Inicia sesión para ver empleados.'); return }
-      const { data: mem } = await supabase
-        .from('company_members').select('company_id').eq('user_id', user.id)
-        .eq('status', 'active').limit(1).maybeSingle()
+      const mem = await getActiveMembership(user.id)
       if (!mem?.company_id) { setDirNote('Sin empresa activa.'); return }
       const { data, error } = await supabase.rpc('nomi_get_employee_directory', { p_company: mem.company_id })
       if (error) { setDirNote('Sin acceso al directorio (requiere capacidad de nómina).'); return }
@@ -63,6 +62,18 @@ export default function NominaCheckHome() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+        {/* Acciones */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.action} onPress={() => router.push('/nominacheck/prenomina')}>
+            <Text style={styles.actionIcon}>⚙️</Text>
+            <Text style={styles.actionTxt}>Prenómina</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.action} onPress={() => router.push('/nominacheck/nuevo-empleado')}>
+            <Text style={styles.actionIcon}>➕</Text>
+            <Text style={styles.actionTxt}>Nuevo empleado</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Calculadora */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Simular cálculo mensual</Text>
@@ -86,7 +97,8 @@ export default function NominaCheckHome() {
             </View>
           )}
           <Text style={styles.disclaimer}>
-            ⚠️ Tablas fiscales por verificar contra DOF vigente. Cálculo de referencia.
+            Tablas fiscales 2026 verificadas: ISR Anexo 8 RMF (DOF 28-12-2025) · subsidio Decreto 2026
+            ($536.22, tope $11,492.66) · UMA $117.31.
           </Text>
         </View>
 
@@ -127,6 +139,10 @@ const styles = StyleSheet.create({
   back: { color: '#fff', opacity: 0.9, fontSize: 15, marginBottom: 6 },
   hTitle: { color: '#fff', fontSize: 24, fontWeight: '800' },
   hSub: { color: '#fff', opacity: 0.85, fontSize: 13, marginTop: 2 },
+  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  action: { flex: 1, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 18, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  actionIcon: { fontSize: 24, marginBottom: 6 },
+  actionTxt: { fontSize: 13, fontWeight: '800', color: BRAND.navy },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
   cardTitle: { fontSize: 16, fontWeight: '800', color: BRAND.navy, marginBottom: 12 },
   label: { fontSize: 13, color: '#607D8B', marginBottom: 6 },
