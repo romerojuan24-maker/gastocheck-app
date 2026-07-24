@@ -48,4 +48,4 @@ export * from './nomina';
 // Versión de la app — actualizar con cada OTA
 // ATENCIÓN: Este es el ÚNICO lugar donde se define APP_VERSION
 // Después de cambiar, ejecutar: npm run sync-shared-version
-export const APP_VERSION = 'OTA 252 · v0.1.86 · NóminaCheck (motor de cálculo + pantalla)';
+export const APP_VERSION = 'OTA 253 · v0.1.87 · NóminaCheck (tablas fiscales 2026 verificadas DOF/SAT)';

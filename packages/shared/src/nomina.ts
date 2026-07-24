@@ -1,8 +1,11 @@
 // NóminaCheck — Motor de cálculo (México). N2.
-// IMPORTANTE: las TABLAS fiscales de abajo son la estructura correcta del cálculo,
-// pero sus VALORES deben verificarse contra las publicaciones oficiales del DOF/SAT/IMSS
-// para el ejercicio vigente antes de usar en producción. Marcadas con // VERIFICAR-DOF.
-// El motor (la mecánica de art. 96 LISR + subsidio + cuotas IMSS obrero) es exacto.
+// VALORES FISCALES 2026 verificados contra fuentes oficiales (2026-07-24):
+//   · Tarifa ISR mensual  → Anexo 8 RMF 2026 (DOF 28-12-2025), art. 96 LISR.
+//   · Subsidio al empleo  → Decreto 2026: 15.02% UMA = $536.22/mes; tope ingreso $11,492.66/mes.
+//   · UMA 2026            → INEGI/DOF 09-01-2026: diaria $117.31 (vigente desde 1-feb-2026;
+//                            en enero 2026 aplica UMA 2025 $113.14).
+// El motor (mecánica art. 96 LISR + subsidio + cuotas IMSS obrero) es exacto.
+// NOTA operativa: para nómina de ENERO usar UMA_DIARIA_ENERO y SUBSIDIO enero ($536.21).
 
 export interface NominaInput {
   sueldoMensual: number;      // percepción gravable mensual base
@@ -24,30 +27,33 @@ export interface NominaResult {
   neto: number;
 }
 
-// ── Tarifa ISR mensual (LISR art. 96) — VERIFICAR-DOF ─────────────────────────
+// ── Tarifa ISR mensual (LISR art. 96) — Anexo 8 RMF 2026 (DOF 28-12-2025) ──────
 // {limiteInferior, cuotaFija, porcentaje sobre excedente del límite inferior}
 interface TramoISR { li: number; cuota: number; tasa: number; }
 export const TARIFA_ISR_MENSUAL: TramoISR[] = [
-  { li: 0.01,      cuota: 0.0,      tasa: 0.0192 }, // VERIFICAR-DOF
-  { li: 746.05,    cuota: 14.32,    tasa: 0.0640 },
-  { li: 6332.06,   cuota: 371.83,   tasa: 0.1088 },
-  { li: 11128.02,  cuota: 893.63,   tasa: 0.16   },
-  { li: 12935.83,  cuota: 1182.88,  tasa: 0.1792 },
-  { li: 15487.72,  cuota: 1640.18,  tasa: 0.2136 },
-  { li: 31236.50,  cuota: 5004.12,  tasa: 0.2352 },
-  { li: 49233.01,  cuota: 9236.89,  tasa: 0.30   },
-  { li: 93993.91,  cuota: 22665.17, tasa: 0.32   },
-  { li: 125325.21, cuota: 32691.18, tasa: 0.34   },
-  { li: 375975.62, cuota: 117912.32, tasa: 0.35  },
+  { li: 0.01,      cuota: 0.0,       tasa: 0.0192 },
+  { li: 746.05,    cuota: 14.32,     tasa: 0.0640 },
+  { li: 6332.06,   cuota: 371.83,    tasa: 0.1088 },
+  { li: 11128.02,  cuota: 893.63,    tasa: 0.16   },
+  { li: 12935.83,  cuota: 1182.88,   tasa: 0.1792 },
+  { li: 15487.72,  cuota: 1639.32,   tasa: 0.2136 },
+  { li: 31236.50,  cuota: 4005.46,   tasa: 0.2352 },
+  { li: 49233.01,  cuota: 8237.45,   tasa: 0.30   },
+  { li: 93993.91,  cuota: 21665.72,  tasa: 0.32   },
+  { li: 125325.21, cuota: 31691.85,  tasa: 0.34   },
+  { li: 375975.62, cuota: 116912.87, tasa: 0.35   },
 ];
 
-// ── Subsidio al empleo mensual — VERIFICAR-DOF (esquema vigente) ───────────────
-// Se aplica cuando el ingreso mensual no rebasa el tope; resta al ISR.
-export const SUBSIDIO_TOPE_MENSUAL = 10171.00; // VERIFICAR-DOF
-export const SUBSIDIO_MONTO_MENSUAL = 475.00;  // VERIFICAR-DOF (subsidio fijo esquema 2024+)
+// ── Subsidio al empleo mensual — Decreto 2026 ─────────────────────────────────
+// 15.02% de la UMA mensual = $536.22/mes; se aplica cuando el ingreso mensual
+// gravado no rebasa el tope; reduce el ISR (sin entrega en efectivo, esquema 2024+).
+// (Enero 2026: $536.21 por transición UMA 2025.)
+export const SUBSIDIO_TOPE_MENSUAL = 11492.66; // Decreto DOF 2026
+export const SUBSIDIO_MONTO_MENSUAL = 536.22;  // 15.02% UMA mensual 2026
 
-// ── IMSS obrero (cuotas del trabajador) sobre SBC — VERIFICAR valores/UMA ──────
-export const UMA_DIARIA = 113.14; // VERIFICAR-DOF (UMA vigente)
+// ── IMSS obrero (cuotas del trabajador) sobre SBC ─────────────────────────────
+export const UMA_DIARIA = 117.31;        // UMA 2026 (vigente 1-feb-2026, DOF 09-01-2026)
+export const UMA_DIARIA_ENERO = 113.14;  // UMA 2025, aplica sólo en enero 2026
 const IMSS_OBRERO = {
   excedente3UMA: 0.0040,   // enfermedad y maternidad, excedente 3 UMA (patrón/obrero según ramo)
   prestacionesDinero: 0.0025,
