@@ -148,29 +148,23 @@ export async function GET(req: NextRequest) {
     // 3. COMPROMISOS DE PAGO
     const commitments: any[] = []
 
-    // A. Pagos a proveedores
+    // A. Pagos a proveedores (accounts_payable — supplier_name/amount directos; la tabla trae el nombre)
     const { data: payables } = await supabase
-      .from('company_payable')
-      .select('id, supplier_id, amount_due, due_date')
+      .from('accounts_payable')
+      .select('id, supplier_name, amount, due_date, status')
       .eq('company_id', company_id)
-      .eq('status', 'unpaid')
+      .in('status', ['pending', 'scheduled', 'partial'])
 
     if (payables) {
       for (const p of payables) {
-        const { data: supplier } = await supabase
-          .from('suppliers')
-          .select('name')
-          .eq('id', p.supplier_id)
-          .single()
-
         const due = new Date(p.due_date)
         const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
         commitments.push({
           id: p.id,
           type: 'supplier_payment',
-          entity_name: supplier?.name || 'Proveedor',
-          amount: p.amount_due,
+          entity_name: p.supplier_name || 'Proveedor',
+          amount: p.amount,
           due_date: p.due_date,
           days_until_due,
           severity: days_until_due < 0 ? 'critical' : days_until_due < 7 ? 'warning' : 'info',
@@ -206,31 +200,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // C. Impuestos
-    const { data: taxes } = await supabase
-      .from('tax_obligations')
-      .select('id, amount, due_date')
-      .eq('company_id', company_id)
-      .eq('status', 'unpaid')
-
-    if (taxes) {
-      for (const t of taxes) {
-        const due = new Date(t.due_date)
-        const days_until_due = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-
-        commitments.push({
-          id: t.id,
-          type: 'tax',
-          entity_name: 'Impuestos',
-          amount: t.amount,
-          due_date: t.due_date,
-          days_until_due,
-          severity: 'critical',
-          priority: 'critical',
-          status: days_until_due < 0 ? 'overdue' : 'pending',
-        })
-      }
-    }
+    // C. Impuestos — deshabilitado: no existe tabla de obligaciones fiscales
+    // (`tax_obligations` no está en el esquema). Se reactivará cuando exista una
+    // fuente real (p.ej. desde ContaCheck/CFDI). El móvil ya la había removido.
 
     // D. Comisiones
     const { data: commissionsData } = await supabase
@@ -272,15 +244,15 @@ export async function GET(req: NextRequest) {
 
     // 4. COBRANZAS PENDIENTES
     const { data: invoices } = await supabase
-      .from('invoices')
-      .select('id, client_id, amount_due, due_date')
+      .from('cobra_invoices')
+      .select('id, client_id, amount, due_date, status')
       .eq('company_id', company_id)
-      .eq('status', 'unpaid')
+      .in('status', ['pending', 'partial', 'overdue'])
 
     const pendingCollections = await Promise.all(
       (invoices || []).map(async (inv: any) => {
         const { data: client } = await supabase
-          .from('clients')
+          .from('cobra_clients')
           .select('name')
           .eq('id', inv.client_id)
           .single()
@@ -305,7 +277,7 @@ export async function GET(req: NextRequest) {
         return {
           id: inv.id,
           client_name: client?.name || 'Cliente desconocido',
-          amount: inv.amount_due,
+          amount: inv.amount,
           due_date: inv.due_date,
           days_overdue: Math.max(0, days_overdue),
           severity,

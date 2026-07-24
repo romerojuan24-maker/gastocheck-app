@@ -1,0 +1,1178 @@
+code,name,parent_code,account_type,nature,level,sat_grouping_code,is_postable
+80000000,Cuentas de Orden,,orden,deudora,1,,false
+80100000,UFIN del ejercicio,80000000,orden,deudora,2,,false
+80101000,UFIN,80100000,orden,deudora,3,,true
+80102000,Contra cuenta UFIN,80100000,orden,deudora,3,,true
+80200000,CUFIN del ejercicio,80000000,orden,deudora,2,,false
+80201000,CUFIN,80200000,orden,deudora,3,,true
+80202000,Contra cuenta CUFIN,80200000,orden,deudora,3,,true
+80300000,CUFIN de ejercicios anteriores,80000000,orden,deudora,2,,false
+80301000,CUFIN de ejercicios anteriores,80300000,orden,deudora,3,,true
+80302000,Contra cuenta CUFIN de ejercicios anteriores,80300000,orden,deudora,3,,true
+80400000,CUFINRE del ejercicio,80000000,orden,deudora,2,,false
+80401000,CUFINRE,80400000,orden,deudora,3,,true
+80402000,Contra cuenta CUFINRE,80400000,orden,deudora,3,,true
+80500000,CUFINRE de ejercicios anteriores,80000000,orden,deudora,2,,false
+80501000,CUFINRE de ejercicios anteriores,80500000,orden,deudora,3,,true
+80502000,Contra cuenta CUFINRE de ejercicios anteriores,80500000,orden,deudora,3,,true
+80600000,CUCA del ejercicio,80000000,orden,deudora,2,,false
+80601000,CUCA,80600000,orden,deudora,3,,true
+80602000,Contra cuenta CUCA,80600000,orden,deudora,3,,true
+80700000,CUCA de ejercicios anteriores,80000000,orden,deudora,2,,false
+80701000,CUCA de ejercicios anteriores,80700000,orden,deudora,3,,true
+80702000,Contra cuenta CUCA de ejercicios anteriores,80700000,orden,deudora,3,,true
+80800000,Ajuste anual por inflación acumulable,80000000,orden,deudora,2,,false
+80801000,Ajuste anual por inflación acumulable,80800000,orden,deudora,3,,true
+80802000,Acumulación del ajuste anual inflacionario,80800000,orden,deudora,3,,true
+80900000,Ajuste anual por inflación deducible,80000000,orden,deudora,2,,false
+80901000,Ajuste anual por inflación deducible,80900000,orden,deudora,3,,true
+80902000,Deducción del ajuste anual inflacionario,80900000,orden,deudora,3,,true
+81000000,Deducción de inversión,80000000,orden,deudora,2,,false
+81001000,Deducción de inversión,81000000,orden,deudora,3,,true
+81002000,Contra cuenta deducción de inversiones,81000000,orden,deudora,3,,true
+81100000,Utili o pérd fiscal en vta y/o baja de act fijo,80000000,orden,deudora,2,,false
+81101000,Util o pérd fiscal en vta y/o baja de act fijo,81100000,orden,deudora,3,,true
+81102000,Contracta util o pérd fisc vta y/o baja act fijo,81100000,orden,deudora,3,,true
+81200000,Utili o pérdida fiscal en vta acco part soc,80000000,orden,deudora,2,,false
+81201000,Utilidad o pérdida fiscal en vta acc pte soc,81200000,orden,deudora,3,,true
+81202000,Contracta util o pérd fisc vta acc pte soc,K 0 2 0 20200214 11,orden,deudora,1,,true
+81300000,Pérdidas fisc pendtes de amort act ej ant,80000000,orden,deudora,2,,false
+81301000,Pérdidas fisc pendtes de amort act ej ant,81300000,orden,deudora,3,,true
+81302000,Act de pérdidas fisc pendtes de amort ej ant,81300000,orden,deudora,3,,true
+81400000,Mercancías recibidas en consignación,80000000,orden,deudora,2,,false
+81401000,Mercancías recibidas en consignación,81400000,orden,deudora,3,,true
+81402000,Consignación de mercancías recibidas,81400000,orden,deudora,3,,true
+81500000,Créd fisc IVA e IEPS import merc p empr cert,80000000,orden,deudora,2,,false
+81501000,Crédito fiscal de IVA e IEPS por imprt merc,81500000,orden,deudora,3,,true
+81502000,Import merc con aplic crédito fiscal IVA e IEPS,L 0 2 0 20200214 11,orden,deudora,1,,true
+81600000,Créd fisc IVA/IEPS por import act fijos empr cert,80000000,orden,deudora,2,,false
+81601000,Créd fisc IVA/IEPS por import act fijo,81600000,orden,deudora,3,,true
+81602000,Import act fijo c aplic crédito fiscal IVA/IEPS,81600000,orden,deudora,3,,true
+89900000,Otras cuentas de orden,80000000,orden,deudora,2,,false
+89901000,Otras cuentas de orden,89900000,orden,deudora,3,,true
+89902000,Contra cuenta otras cuentas de orden,89900000,orden,deudora,3,,true
+10000000,Activo,,activo,deudora,1,,false
+10001000,Activo a corto plazo,10000000,activo,deudora,2,,false
+10100000,Caja,10001000,activo,deudora,3,1101,false
+10101000,Caja y Efectivo,10100000,activo,deudora,4,1101.01,true
+10200000,Bancos,10001000,activo,deudora,3,1101,false
+10201000,Bancos Nacionales,10200000,activo,deudora,4,,true
+10201001,Banorte Cta 0693720405,A 0 2 1 20200217 11,activo,deudora,1,1101.01,true
+10201002,Kapital Cta 025989400013,A 0 2 1 20200217 11,activo,deudora,1,1101.01,true
+10201003,Banorte Inversion Cta0804340186,A 0 2 1 20200306 11,activo,deudora,1,1101.01,true
+10201004,Bancomer Cta.1556561923,A 0 2 1 20211028 11,activo,deudora,1,1101.01,true
+10202000,Bancos Extranjeros,10200000,activo,deudora,4,,true
+10202001,Vintage Cta 107954980,A 0 2 1 20221204 11,activo,deudora,1,1101.02,true
+10202002,Vintage Complementaria,A 0 2 1 20221204 11,activo,deudora,1,1101.02,true
+10300000,Inversiones,10001000,activo,deudora,3,1102,false
+10301000,Inversiones Temporales,10300000,activo,deudora,4,1102.01,true
+10302000,Inversiones en fideicomisos,10300000,activo,deudora,4,1102.01,true
+10303000,Otras Inversiones,10300000,activo,deudora,4,1122.01,true
+10400000,Otros instrumentos financieros,10001000,activo,deudora,3,1102,false
+10401000,Otros instrumentos financieros,10400000,activo,deudora,4,1122.01,true
+10500000,Clientes,10001000,activo,deudora,3,1105,false
+10501000,Clientes nacionales,10500000,activo,deudora,4,,true
+10501001,MCI Produce S de RL de CV,A 0 2 0 20210113 11,activo,deudora,1,1105.03,true
+10501002,Técnologia Agricola del Desierto,A 0 2 0 20241002 11,activo,deudora,1,1105.03,true
+10501003,TADSA Mil Castillos F/31,A 0 2 0 20251107 11,activo,deudora,1,1105.03,true
+10501004,TADSA Saul F/33,A 0 2 0 20251107 11,activo,deudora,1,1105.03,true
+10501005,TADSA Eduardo F/34,A 0 2 0 20251107 11,activo,deudora,1,1105.03,true
+10501006,Javier Arturo Chavez Ibarra,A 0 2 0 20260209 11,activo,deudora,1,1105.03,true
+10502000,Clientes extranjeros,10500000,activo,deudora,4,1105.04,true
+10503000,Clientes nacionales partes relacionadas,10500000,activo,deudora,4,1105.01,true
+10504000,Clientes extranjeros partes relacionadas,10500000,activo,deudora,4,1105.02,true
+10600000,Ctas y doctos x cobrar a corto plazo,10001000,activo,deudora,3,1106,false
+10605000,Intereses x cobrar a corto plazo nal,10600000,activo,deudora,4,1102.01,true
+10606000,Intereses x cobrar a corto plazo ext,10600000,activo,deudora,4,1102.02,true
+10601000,Ctas y doctos x cobrar a corto plazo nal,10600000,activo,deudora,4,1106.03,true
+10602000,Ctas y doctos x cobrar a corto plazo ext,10600000,activo,deudora,4,1106.04,true
+10607000,Intereses x cobrar a corto plazo nal parte relac,10600000,activo,deudora,4,1102.03,true
+10608000,Intereses x cobrar a corto plazo ext parte relac,10600000,activo,deudora,4,1102.04,true
+10609000,Otr ctas y dtos x cobrar corto plazo,10600000,activo,deudora,4,1122.01,true
+10603000,Ctas y dtos x cobrar a corto plazo nal part relac,10600000,activo,deudora,4,1106.01,true
+10604000,Ctas y dtos x cobrar a corto plazo ext part relac,A 0 2 0 20200214 11,activo,deudora,1,1106.02,true
+10610000,Otr ctas y dtos x cobrar corto plazo parte relac,10600000,activo,deudora,4,1122.01,true
+10700000,Deudores diversos,10001000,activo,deudora,3,1107,false
+10701000,Funcionarios y empleados,10700000,activo,deudora,4,1107.03,true
+10702000,Socios y accionistas,10700000,activo,deudora,4,,true
+10702001,Juan Martin Romero Fernandez,A 0 2 0 20200218 11,activo,deudora,1,1107.01,true
+10702002,Alfredo Romero Fernandez,A 0 2 0 20200227 11,activo,deudora,1,1107.01,true
+10703000,Partes relacionadas nacionales,10700000,activo,deudora,4,1107.01,true
+10704000,Partes relacionadas extranjeros,10700000,activo,deudora,4,1107.02,true
+10705000,Otros deudores diversos,10700000,activo,deudora,4,,true
+10705001,Perforaciones Azteca SA de CV,A 0 2 0 20200217 11,activo,deudora,1,1122.01,true
+10705002,Acae Contadores Publicos,A 0 2 0 20200303 11,activo,deudora,1,1122.01,true
+10705003,Luz Maria Orozco Quintana,A 0 2 0 20201120 11,activo,deudora,1,1107,true
+10705004,Auren Chihuahua,A 0 2 0 20201120 11,activo,deudora,1,1107,true
+10705005,Broquel Asesores Patrimonial,A 0 2 0 20220511 11,activo,deudora,1,1122.01,true
+10800000,Estimación de cuentas incobrables,10001000,activo,deudora,3,1108,false
+10801000,Estimación de cuentas incobrables nacional,10800000,activo,deudora,4,1108.01,true
+10802000,Estimación de cuentas incobrables extranjero,10800000,activo,deudora,4,1108.01,true
+10803000,Estimación de ctas incobrables nal parte relac,10800000,activo,deudora,4,1108.01,true
+10804000,Estimación de ctas incobrables ext parte relac,A 0 2 0 20200214 11,activo,deudora,1,1108.01,true
+10900000,Pagos anticipados,10001000,activo,deudora,3,1109,false
+10901000,Seg y fianzas pagados x anticipado nal,10900000,activo,deudora,4,1109.09,true
+10905000,Rentas pagados x anticipado nal,10900000,activo,deudora,4,1109.01,true
+10906000,Rentas pagados x anticipado ext,10900000,activo,deudora,4,1109.01,true
+10909000,Intereses pagados x anticipado nal,Interests nationals,activo,deudora,1,1102.01,true
+10910000,Intereses pagados x anticipado ext,Interests foreigners,activo,deudora,1,1102.02,true
+10921000,Pérdida por deterioro de pagos anticipados,10900000,activo,deudora,4,1121.01,true
+10922000,Derechos fiduciarios,10900000,activo,deudora,4,1121.01,true
+10923000,Otros pagos anticipados,10900000,activo,deudora,4,1122.01,true
+10902000,Seg y fianzas pagados x anticipado ext,10900000,activo,deudora,4,1109.09,true
+10903000,Seg y fianzas pagados x anticipado nal parte relac Prepaid to insurance & surety Nat to rel party,A 0 2 0 20200214 11,activo,deudora,1,1109.09,true
+10904000,Seg y fianzas pagados x anticipado ext parte relac Prepaid to insurance & surety foreign to rel party 10900000,1,activo,deudora,1,1109.09,true
+10907000,Rentas pagados x anticipado nal parte relac,10900000,activo,deudora,4,1109.01,true
+10908000,Rentas pagados x anticipado ext parte relac,10900000,activo,deudora,4,1109.01,true
+10911000,Intereses pagados x anticipado nal parte relac,Interests nationals to rel party,activo,deudora,1,1102.03,true
+10912000,Intereses pagados x anticipado ext parte relac,Interests foreigners to rel party,activo,deudora,1,1102.04,true
+10913000,Factoraje financiero pagados x anticipado nal,10900000,activo,deudora,4,1109.06,true
+10914000,Factoraje financiero pagados x anticipado ext,10900000,activo,deudora,4,1109.06,true
+10917000,Arrendamiento financiero pag x antic nal,10900000,activo,deudora,4,1109.06,true
+10918000,Arrendamiento financiero pag x ant ext,10900000,activo,deudora,4,1109.06,true
+10915000,Factoraje financ pag x antic nal parte relac,10900000,activo,deudora,4,1109.06,true
+10916000,Factoraje financ pag x antic ext parte relac,10900000,activo,deudora,4,1109.06,true
+10919000,Arrend financ pag x antic nal parte relac,10900000,activo,deudora,4,1109.06,true
+10920000,Arrend financ pag x antic ext parte relac,10900000,activo,deudora,4,1109.06,true
+11000000,Subsidio al empleo por aplicar,10001000,activo,deudora,3,1103,false
+11001000,Subsidio al empleo por aplicar,11000000,activo,deudora,4,1103.01,true
+11100000,Crédito al diesel por acreditar,10001000,activo,deudora,3,1103,false
+11101000,Crédito al diesel por acreditar,11100000,activo,deudora,4,1103.01,true
+11200000,Otros estímulos,10001000,activo,deudora,3,1103,false
+11201000,Otros estímulos,11200000,activo,deudora,4,1103.01,true
+11300000,Impuestos a favor,10001000,activo,deudora,3,1103,false
+11301000,IVA a favor,11300000,activo,deudora,4,1103.01,true
+11302000,ISR a favor,11300000,activo,deudora,4,1103.01,true
+11303000,IETU a favor,11300000,activo,deudora,4,1103.01,true
+11304000,IDE a favor,11300000,activo,deudora,4,1103.01,true
+11305000,IA a favor,11300000,activo,deudora,4,1103.01,true
+11306000,Subsidio al empleo,11300000,activo,deudora,4,1103.01,true
+11307000,Pago de lo indebido,11300000,activo,deudora,4,1103.01,true
+11308000,Otros impuestos a favor,11300000,activo,deudora,4,1103.01,true
+11400000,Pagos provisionales,10001000,activo,deudora,3,1103,false
+11401000,Pagos provisionales de ISR,11400000,activo,deudora,4,1103.01,true
+11500000,Inventario,10001000,activo,deudora,3,1110,false
+11501000,Inventario,11500000,activo,deudora,4,1110.01,true
+11503000,Producción en proceso,11500000,activo,deudora,4,1110.02,true
+11504000,Productos terminados,11500000,activo,deudora,4,,true
+11504001,"Electrostático Aspersora 1""",A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504002,"Electrostático Aspersora 3/4""",A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504003,Electrostático Dron,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504004,Electrostático Mochiila,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504005,Incrustonic Lite,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504006,Incrustonic Ultra,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504007,Incrustronic Pro,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11504008,Incrustonic Max,A 0 2 0 20251118 11,activo,deudora,1,1110.01,true
+11505000,Mercancías en tránsito,11500000,activo,deudora,4,1110.05,true
+11507000,Otros,11500000,activo,deudora,4,1122.01,true
+11502000,Materia prima y materiales,11500000,activo,deudora,4,1110.03,true
+11506000,Mercancías en poder de terceros,11500000,activo,deudora,4,1122.01,true
+11508000,Drones Agras T70,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11509000,Dron Agras T40,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11510000,Dron Phantom 4 RTK,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11511000,Gererador Westinhouse 9500,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11512000,Mavic 2 Enterprise,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11513000,P4 Multiespectral Combo,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11514000,"Electrostático Aspersora 1""",A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11515000,"Electostático Aspersora 3/4""",A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11516000,Electrostático Dron,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11517000,Electrostático Herbicida,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11518000,Electrostático Mochila,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11519000,Incrustonic Ultra,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11520000,Incrustonic Estándar,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11521000,Incrustonic Lite,A 0 2 0 20241001 11,activo,deudora,1,1110.01,true
+11522000,Aspersora RMK,A 0 2 0 20251117 11,activo,deudora,1,1110.01,true
+11523000,Dron Multiesectral 3,A 0 2 0 20251117 11,activo,deudora,1,1110.01,true
+11524000,Dron DJI M30T,A 0 2 0 20260210 11,activo,deudora,1,,true
+11600000,Estimación de inv obsoletos y de lento movto,10001000,activo,deudora,3,1110,false
+11601000,Estimación de inv obsoletos y de lento movto,11600000,activo,deudora,4,1110.06,true
+11700000,Obras en proceso de inmuebles,10001000,activo,deudora,3,1110,false
+11701000,Obras en proceso de inmuebles,11700000,activo,deudora,4,1110.02,true
+11800000,Impuestos acreditables pagados,10001000,activo,deudora,3,1103,false
+11801000,IVA acreditable pagado,11800000,activo,deudora,4,1103.01,true
+11803000,IEPS acreditable pagado,11800000,activo,deudora,4,1103.01,true
+11802000,IVA acreditable de importación pagado,11800000,activo,deudora,4,1103.01,true
+11804000,IEPS pagado en importación,11800000,activo,deudora,4,1103.01,true
+11900000,Impuestos acreditables por pagar,10001000,activo,deudora,3,1103,false
+11901000,IVA pendiente de pago,11900000,activo,deudora,4,1103.01,true
+11903000,IEPS pendiente de pago,11900000,activo,deudora,4,1103.01,true
+11902000,IVA de importación pendiente de pago,11900000,activo,deudora,4,1103.01,true
+11904000,IEPS pendiente de pago en importación,11900000,activo,deudora,4,1103.01,true
+12000000,Anticipo a proveedores,10001000,activo,deudora,3,1109,false
+12003000,Anticipo a proveedores nacional parte relac,12000000,activo,deudora,4,1109.02,true
+12004000,Anticipo a proveedores extranjero parte relac,12000000,activo,deudora,4,1109.03,true
+12001000,Anticipo a proveedores nacional,12000000,activo,deudora,4,,true
+12001001,Fredi Uriel Carrillo Gomez,A 0 2 0 20260219 11,activo,deudora,1,1109.04,true
+12001002,Raul Mecanico,A 0 2 0 20260219 11,activo,deudora,1,1109.04,true
+12002000,Anticipo a proveedores extranjero,12000000,activo,deudora,4,1109.05,true
+12100000,Otros activos a corto plazo,10001000,activo,deudora,3,1121,false
+12101000,Otros activos a corto plazo,12100000,activo,deudora,4,1121.01,true
+10002000,Activo a largo plazo,10000000,activo,deudora,2,,false
+15100000,Terrenos,10002000,activo,deudora,3,1201,false
+15101000,Terrenos,15100000,activo,deudora,4,1201.01,true
+15200000,Edificios,10002000,activo,deudora,3,1201,false
+15201000,Edificios,15200000,activo,deudora,4,1201.02,true
+15300000,Maquinaria y equipo,10002000,activo,deudora,3,1201,false
+15301000,Maquinaria y equipo,15300000,activo,deudora,4,1201.04,true
+15400000,"Automóviles, autobuses, camiones de carga",10002000,activo,deudora,3,1201,false
+15401000,"Automóviles, autobuses, camiones de carga",15400000,activo,deudora,4,,true
+15401002,Amarok 2019 Blanca,A 0 2 0 20200519 11,activo,deudora,1,1201.06,true
+15401001,Sportrak 2008,A 0 2 0 20210112 11,activo,deudora,1,1201.06,true
+15401003,Camioneta Chevrolet 1991,A 0 2 0 20240928 11,activo,deudora,1,1201.06,true
+15401040,Ford Edge,A 0 2 0 20241001 11,activo,deudora,1,1201.06,true
+15401005,Challenger 2014,A 0 2 0 20241001 11,activo,deudora,1,1201.06,true
+15500000,Mobiliario y equipo de oficina,10002000,activo,deudora,3,1201,false
+15501000,Mobiliario y equipo de oficina,15500000,activo,deudora,4,1201.08,true
+15600000,Equipo de cómputo,10002000,activo,deudora,3,1201,false
+15601000,Equipo de cómputo,15600000,activo,deudora,4,1201.10,true
+15700000,Equipo de comunicación,10002000,activo,deudora,3,1201,false
+15701000,Equipo de comunicación,15700000,activo,deudora,4,1201.08,true
+15800000,"Activos biológicos, vegetales y semovientes",10002000,activo,deudora,3,1201,false
+15801000,"Activos biológicos, vegetales y semovientes",15800000,activo,deudora,4,1201.04,true
+15900000,Obras en proceso de activos fijos,10002000,activo,deudora,3,1201,false
+15901000,Obras en proceso de activos fijos,15900000,activo,deudora,4,1201.02,true
+16000000,Otros activos fijos,10002000,activo,deudora,3,1201,false
+16001000,Otros activos fijos,16000000,activo,deudora,4,1208.01,true
+16100000,Ferrocariles,10002000,activo,deudora,3,1201,false
+16101000,Ferrocariles,16100000,activo,deudora,4,1201.06,true
+16200000,Embarcaciones,10002000,activo,deudora,3,1201,false
+16201000,Embarcaciones,16200000,activo,deudora,4,1201.06,true
+16300000,Aviones,10002000,activo,deudora,3,1201,false
+16301000,Aviones,16300000,activo,deudora,4,1201.06,true
+16400000,"Troqueles, moldes, matrices y herramental",10002000,activo,deudora,3,1201,false
+16401000,"Troqueles, moldes, matrices y herramental",16400000,activo,deudora,4,1201.04,true
+16500000,Equipo de comunicaciones telefónicas,10002000,activo,deudora,3,1201,false
+16501000,Equipo de comunicaciones telefónicas,16500000,activo,deudora,4,1201.08,true
+16600000,Equipo de comunicación satelital,comunication equipment,activo,deudora,1,1201,true
+16601000,Equipo de comunicación satelital,comunication equipment,activo,deudora,1,1201.08,true
+16700000,Eq de adaptaciones para personas con capac dif,10002000,activo,deudora,3,1201,false
+16701000,Eq de adaptaciones para personas con capac dif,16700000,activo,deudora,4,1201.08,true
+16800000,Maq y eq de generación de energía de ftes renov,10002000,activo,deudora,3,1201,false
+16801000,Maq y eq de generación de energía de ftes renov,16800000,activo,deudora,4,1201.04,true
+16900000,Otra maquinaria y equipo,10002000,activo,deudora,3,1201,false
+16901000,Otra maquinaria y equipo,16900000,activo,deudora,4,1201.04,true
+17000000,Adaptaciones y mejoras,10002000,activo,deudora,3,1201,false
+17001000,Adaptaciones y mejoras,17000000,activo,deudora,4,1201.02,true
+17100000,Depreciación acumulada de activos fijos,10002000,activo,deudora,3,1201,false
+17103000,"Depr acum de automóviles, autobuses, camiones",17100000,activo,deudora,4,1201.07,true
+17104000,Depr acum de mobiliario y equipo de oficina,17100000,activo,deudora,4,1201.09,true
+17112000,Depr acum de troqueles moldes matrices y herram,17100000,activo,deudora,4,1201.05,true
+17115000,Depr acum eq de adapt para pers capac dif,17100000,activo,deudora,4,1208.01,true
+17116000,Depr acum maq y eq gener energía fuentes renov,17100000,activo,deudora,4,1201.05,true
+17106000,Depreciación acumulada de eq de comunicación,17100000,activo,deudora,4,1201.11,true
+17107000,Depr acum activos biológicos vegetales y semov,17100000,activo,deudora,4,1201.05,true
+17101000,Depreciación acumulada de edificios,17100000,activo,deudora,4,1201.03,true
+17102000,Depreciación acumulada de maquinaria y equipo,17100000,activo,deudora,4,1201.05,true
+17105000,Depreciación acumulada de eq de cómputo,17100000,activo,deudora,4,1201.11,true
+17108000,Depreciación acumulada de otros activos fijos,17100000,activo,deudora,4,1208.01,true
+17109000,Depreciación acumulada de ferrocarriles,17100000,activo,deudora,4,1201.07,true
+17110000,Depreciación acumulada de embarcaciones,17100000,activo,deudora,4,1201.07,true
+17111000,Depreciación acumulada de aviones,17100000,activo,deudora,4,1201.07,true
+17113000,Depr acum de eq de comunicaciones telefónicas,B 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+17114000,Depr acum de eq de comunicación satelital,B 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+17117000,Depr acumulada de adaptaciones y mejoras,17100000,activo,deudora,4,1201.03,true
+17118000,Depr acumulada de otra maquinaria y equipo,17100000,activo,deudora,4,1201.03,true
+17200000,Pérdida x deterioro acum de activos fijos,10002000,activo,deudora,3,1201,false
+17204000,Pérdida x deterioro acum de mob y eq de ofi,17200000,activo,deudora,4,1208.01,true
+17214000,Pérdida x deterioro acum de eq de comunic satel,17200000,activo,deudora,4,1208.01,true
+17203000,"Pérdida x deterioro acum de autom, autobuses",17200000,activo,deudora,4,1208.01,true
+17207000,Pérdida x deterioro acum de activos biológicos,17200000,activo,deudora,4,1208.01,true
+17212000,Pérdida x deterioro acum troqueles moldes matric,17200000,activo,deudora,4,1208.01,true
+17215000,Pérdida x deterioro acum eq adapt pers cap dif,handicapped Equip,activo,deudora,1,1208.01,true
+17216000,Pérdida x deterioro acum maq y eq de ftes renov,B 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+17208000,Pérdida x deterioro acumulado de otros act fijos,17200000,activo,deudora,4,1208.01,true
+17209000,Pérdida x deterioro acumulado de ferrocarriles,17200000,activo,deudora,4,1208.01,true
+17210000,Pérdida x deterioro acum de embarcaciones,17200000,activo,deudora,4,1208.01,true
+17201000,Pérdida x deterioro acum de edificios,17200000,activo,deudora,4,1208.01,true
+17202000,Pérdida x deterioro acum de maq y equipo,17200000,activo,deudora,4,1208.01,true
+17205000,Pérdida x deterioro acum de eq de cómputo,17200000,activo,deudora,4,1208.01,true
+17206000,Pérdida x deterioro acum de eq de comunicación,17200000,activo,deudora,4,1208.01,true
+17211000,Pérdida x deterioro acumulado de aviones,17200000,activo,deudora,4,1208.01,true
+17213000,Pérdida x deterioro acum de eq de comunic tel,17200000,activo,deudora,4,1208.01,true
+17217000,Pérdida x deterioro acum de adapt y mejoras,17200000,activo,deudora,4,1208.01,true
+17218000,Pérdida x deterioro acum de otra maq y equipo,17200000,activo,deudora,4,1208.01,true
+17300000,Gastos diferidos,10002000,activo,deudora,3,,false
+17301000,Gastos diferidos,17300000,activo,deudora,4,1208.01,true
+17400000,Gastos pre operativos,10002000,activo,deudora,3,,false
+17401000,Gastos pre operativos,17400000,activo,deudora,4,1208.01,true
+17500000,"Regalías, asistencia técnica y otros gtos dif",10002000,activo,deudora,3,,false
+17501000,"Regalías, asistencia técnica y otros gtos dif",17500000,activo,deudora,4,1208.01,true
+17600000,Activos intangibles,10002000,activo,deudora,3,1205,false
+17601000,Activos intangibles,17600000,activo,deudora,4,1205.01,true
+17700000,Gastos de organización,10002000,activo,deudora,3,,false
+17701000,Gastos de organización,17700000,activo,deudora,4,1208.01,true
+17800000,Investigación y desarrollo de mercado,10002000,activo,deudora,3,1205,false
+17801000,Investigación y desarrollo de mercado,17800000,activo,deudora,4,1205.01,true
+17900000,Marcas y patentes,10002000,activo,deudora,3,,false
+17901000,Marcas y patentes,17900000,activo,deudora,4,1205.01,true
+18000000,Crédito mercantil,10002000,activo,deudora,3,1204,false
+18001000,Crédito mercantil,18000000,activo,deudora,4,1204.01,true
+18100000,Gastos de instalación,10002000,activo,deudora,3,,false
+18101000,Gastos de instalación,18100000,activo,deudora,4,1208.01,true
+18200000,Otros activos diferidos,10002000,activo,deudora,3,,false
+18201000,Otros activos diferidos,18200000,activo,deudora,4,1208.01,true
+18300000,Amortización acumulada de activos diferidos,10002000,activo,deudora,3,,false
+18301000,Amortización acumulada de gastos diferidos,18300000,activo,deudora,4,1208.01,true
+18302000,Amortización acumulada de gastos pre opert,A 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+18303000,"Amort acum de regalías, asist téc y otros gtos dif Accum amort of royalties, TA & deferred costs",A 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+18304000,Amortización acumulada de activos intangibles,18300000,activo,deudora,4,1208.01,true
+18305000,Amortización acumulada de gtos de organización,18300000,activo,deudora,4,1208.01,true
+18306000,Amort acum de invest y desarrollo de mercado,18300000,activo,deudora,4,1208.01,true
+18307000,Amortización acumulada de marcas y patentes,18300000,activo,deudora,4,1208.01,true
+18308000,Amortización acumulada de crédito mercantil,merchant credit,activo,deudora,1,1208.01,true
+18309000,Amortización acumulada de gastos de instalación,18300000,activo,deudora,4,1208.01,true
+18310000,Amortización acumulada de otros activos diferidos,A 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+18400000,Depósitos en garantía,10002000,activo,deudora,3,1202,false
+18401000,Depósitos de fianzas,18400000,activo,deudora,4,1203.07,true
+18402000,Depósitos de arrendamiento de bienes inmuebles,18400000,activo,deudora,4,1203.07,true
+18403000,Otros depósitos en garantía,18400000,activo,deudora,4,1203.07,true
+18500000,Impuestos diferidos,10002000,activo,deudora,3,,false
+18501000,Impuestos diferidos ISR,18500000,activo,deudora,4,1208.01,true
+18600000,Cuentas y documentos por cobrar a largo plazo,10002000,activo,deudora,3,1202,false
+18601000,Ctas y doctos por cobrar a largo plazo nal,18600000,activo,deudora,4,1202.03,true
+18602000,Ctas y doctos por cobrar a largo plazo ext,18600000,activo,deudora,4,1202.04,true
+18603000,Ctas y dtos x cobrar a largo plazo nal parte relac Note & Acc Rec to long-term nationals to rel party 18600000,1,activo,deudora,1,1202.01,true
+18604000,Ctas y dtos x cobrar a largo plazo ext parte relac Note & Acc Rec to long-term For. to rel party,A 0 2 0 20200214 11,activo,deudora,1,1202.02,true
+18605000,Intereses por cobrar a largo plazo nacional,18600000,activo,deudora,4,1208.01,true
+18606000,Intereses por cobrar a largo plazo extranjero,18600000,activo,deudora,4,1208.01,true
+18607000,Intereses por cobrar a largo plazo nal parte relac Interest Rec to long-term to rel party national,A 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+18608000,Intereses por cobrar a largo plazo ext parte relac Interest Rec to long-term to rel party foreigner,A 0 2 0 20200214 11,activo,deudora,1,1208.01,true
+18609000,Otras cuentas y doctos por cobrar a largo plazo,18600000,activo,deudora,4,1208.01,true
+18610000,Otr ctas y dtos x cobrar largo plzo part relac,18600000,activo,deudora,4,1208.01,true
+18700000,Part de los trabajadores en las utilidades dif,10002000,activo,deudora,3,,false
+18701000,Part de los trabajadores en las utilidades dif,18700000,activo,deudora,4,1208.01,true
+18800000,Inversiones permanentes en acciones,10002000,activo,deudora,3,1207,false
+18801000,Inversiones a largo plazo en subsidiarias,18800000,activo,deudora,4,1207.01,true
+18802000,Inversiones a largo plazo en asociadas,18800000,activo,deudora,4,1205.02,true
+18803000,Otras inversiones permanentes en acciones,18800000,activo,deudora,4,1207.01,true
+18900000,Estim x deterioro de inv permanentes en acciones,10002000,activo,deudora,3,,false
+18901000,Estim x deterioro de inv permanentes en acciones,18900000,activo,deudora,4,1208.01,true
+19000000,Otros instrumentos financieros,10002000,activo,deudora,3,,false
+19001000,Otros instrumentos financieros,19000000,activo,deudora,4,1207.01,true
+19100000,Otros activos a largo plazo,10002000,activo,deudora,3,,false
+19101000,Otros activos a largo plazo,19100000,activo,deudora,4,1208.01,true
+20000000,Pasivo,,pasivo,acreedora,1,,false
+20001000,Pasivo a corto plazo,20000000,pasivo,acreedora,2,,false
+20100000,Proveedores,20001000,pasivo,acreedora,3,,false
+20101000,Proveedores nacionales,20100000,pasivo,acreedora,4,,true
+20101001,Aceros y Tubos y Perfiles SA,D 0 2 0 20200218 11,pasivo,acreedora,1,2102.03,true
+20101002,Jose Camara Delgado,D 0 2 0 20201119 11,pasivo,acreedora,1,2102.03,true
+20101003,"Mci Produce, S de RL de CV",D 0 2 0 20210111 11,pasivo,acreedora,1,2102.03,true
+20101004,Agricenter Zevilla SA de CV,D 0 2 0 20211028 11,pasivo,acreedora,1,2102.03,true
+20102000,Proveedores extranjeros,20100000,pasivo,acreedora,4,2102.04,true
+20103000,Proveedores nacionales parte relacionada,20100000,pasivo,acreedora,4,2102.01,true
+20104000,Proveedores extranjeros parte relacionada,20100000,pasivo,acreedora,4,2102.02,true
+20200000,Cuentas por pagar a corto plazo,20001000,pasivo,acreedora,3,,false
+20201000,Doctos x pagar bancario y financiero nal,20200000,pasivo,acreedora,4,2101.01,true
+20202000,Doctos x pagar bancario y financiero ext,20200000,pasivo,acreedora,4,2101.01,true
+20203000,Doctos y ctas x pagar a corto plazo nal,20200000,pasivo,acreedora,4,2103.03,true
+20204000,Doctos y ctas xpagar a corto plazo ext,20200000,pasivo,acreedora,4,2103.04,true
+20205000,Dtos y ctas x pagar corto plzo nal parte relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2103.01,true
+20206000,Dtos y ctas x pagar corto plzo ext parte relaci,D 0 2 0 20200214 11,pasivo,acreedora,1,2103.02,true
+20207000,Intereses por pagar a corto plazo nacional,20200000,pasivo,acreedora,4,2104.03,true
+20208000,Intereses por pagar a corto plazo extranjero,20200000,pasivo,acreedora,4,2104.04,true
+20209000,Intereses x pagar corto plzo nal parte relac,20200000,pasivo,acreedora,4,2104.01,true
+20210000,Intereses x pagar corto plzo ext parte relac,20200000,pasivo,acreedora,4,2104.02,true
+20211000,Dividendo por pagar nacional,20200000,pasivo,acreedora,4,2105.03,true
+20212000,Dividendo por pagar extranjero,20200000,pasivo,acreedora,4,2105.04,true
+20300000,Cobros anticipados a corto plazo,20001000,pasivo,acreedora,3,2107,false
+20301000,Rentas cobradas x antic corto plzo nal,20300000,pasivo,acreedora,4,2107.03,true
+20302000,Rentas cobradas x antic corto plzo ext,20300000,pasivo,acreedora,4,2107.04,true
+20303000,Rentas cobr x ant corto plzo nal parte relac,20300000,pasivo,acreedora,4,2107.01,true
+20304000,Rentas cobr x ant corto plzo ext part relac,20300000,pasivo,acreedora,4,2107.02,true
+20305000,Intereses cobr x ant corto plzo nal,20300000,pasivo,acreedora,4,2103.03,true
+20306000,Intereses cobr x ant corto plzo ext,20300000,pasivo,acreedora,4,2103.04,true
+20307000,Intereses cobr x ant corto plzo nal part relac,20300000,pasivo,acreedora,4,2103.01,true
+20308000,Intereses cobr x ant corto plzo ext part relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2103.02,true
+20309000,Factor finan cobr x ant corto plzo nal,20300000,pasivo,acreedora,4,2103.03,true
+20310000,Factor finan cobr x ant corto plzo ext,D 0 2 0 20200214 11,pasivo,acreedora,1,2103.04,true
+20311000,Factor finan cobr x ant corto plzo nal part relac,20300000,pasivo,acreedora,4,2103.01,true
+20312000,Fact finan cobr x ant corto plzo ext pte relac,20300000,pasivo,acreedora,4,2103.02,true
+20313000,Arrendto financ cobr x ant corto plzo nal,20300000,pasivo,acreedora,4,2103.03,true
+20314000,Arrendto financ cobr x ant corto plzo ext,20300000,pasivo,acreedora,4,2103.04,true
+20315000,Arrend finan cobr x ant corto plzo nal part relac,20300000,pasivo,acreedora,4,2103.01,true
+20316000,Arrdto fin cob x ant cto pzo ext pte relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2103.02,true
+20317000,Derechos fiduciarios,20300000,pasivo,acreedora,4,2104.01,true
+20318000,Otros cobros anticipados,20300000,pasivo,acreedora,4,2110.01,true
+20400000,Instrumentos financieros a corto plazo,20001000,pasivo,acreedora,3,,false
+20401000,Instrumentos financieros a corto plazo,20400000,pasivo,acreedora,4,2104.03,true
+20500000,Acreedores diversos a corto plazo,20001000,pasivo,acreedora,3,,false
+20501000,"Socios, accionistas o representante legal",20500000,pasivo,acreedora,4,,true
+20501001,Perforaciones Azteca SA de CV,D 0 2 0 20210113 11,pasivo,acreedora,1,2105.03,true
+20501002,Juan Martin Romero Fernandez,D 0 2 0 20220822 11,pasivo,acreedora,1,2105.03,true
+20502000,Acreedores diversos a corto plazo nal,20500000,pasivo,acreedora,4,,true
+20502001,Perforaciones Azteca SA de CV,D 0 2 0 20200217 11,pasivo,acreedora,1,2105.03,true
+20502002,Romsa Inmobiliaria SA de CV,D 0 2 0 20200220 11,pasivo,acreedora,1,2105.03,true
+20502003,Construcciones Romero,D 0 2 0 20200226 11,pasivo,acreedora,1,2105.03,true
+20502004,Oscar Alejandro Romero Fernandez,D 0 2 0 20200306 11,pasivo,acreedora,1,2105.03,true
+20502005,COMERCIAL HUEJOQUILLA SA DE CV,D 0 2 0 20200512 11,pasivo,acreedora,1,2105.03,true
+20502006,Vol Automotriz SA de CV,D 0 2 0 20200519 11,pasivo,acreedora,1,2105.03,true
+20502007,Jorge Estali Pizano Ledezma,D 0 2 0 20200519 11,pasivo,acreedora,1,2105.03,true
+20502008,Cardif Mexico Seguros Generales,D 0 2 0 20200519 11,pasivo,acreedora,1,2105.03,true
+20502009,Alfredo Romero Fernandez,D 0 2 0 20200530 11,pasivo,acreedora,1,2105.03,true
+20502010,Auren Chihuahua A.C,D 0 2 0 20200908 11,pasivo,acreedora,1,2105.03,true
+20502011,Desarrollo La Cañada SA de CV,D 0 2 0 20210112 11,pasivo,acreedora,1,2105.03,true
+20502012,Jose Rodriguez Romero (JMR Consulting Group),D 0 2 0 20251118 11,pasivo,acreedora,1,2105.03,true
+20502013,Naxely Gallardo,D 0 2 0 20251218 11,pasivo,acreedora,1,2105.03,true
+20502014,DHL Express,D 0 2 0 20260115 11,pasivo,acreedora,1,2105.03,true
+20502015,Garcia Rusek y Socios Not. 24,D 0 2 0 20260115 11,pasivo,acreedora,1,2105.03,true
+20502016,Sigma Alarmas,D 0 2 0 20260210 11,pasivo,acreedora,1,2105.03,true
+20502017,Salvador Chavez Martinez,D 0 2 0 20260210 11,pasivo,acreedora,1,2105.03,true
+20502018,Syscom,D 0 2 0 20260216 11,pasivo,acreedora,1,2105.03,true
+20502019,Relampago,D 0 2 0 20260219 11,pasivo,acreedora,1,2105.03,true
+20502020,Fredi Uriel Carrillo Gomez,D 0 2 0 20260219 11,pasivo,acreedora,1,2105.03,true
+20502021,Diego Alexis Ramos Perez,D 0 2 0 20260219 11,pasivo,acreedora,1,2105.03,true
+20502022,Homer Flores Quintana,D 0 2 0 20260225 11,pasivo,acreedora,1,2105.03,true
+20503000,Acreedores diversos a corto plazo extr,20500000,pasivo,acreedora,4,2105.04,true
+20504000,Acreedores div a corto plazo nal pte relac,20500000,pasivo,acreedora,4,2105.01,true
+20505000,Acreedores div a corto plazo ext pte relac,20500000,pasivo,acreedora,4,2105.02,true
+20506000,Otros acreedores diversos a corto plazo,20500000,pasivo,acreedora,4,2105.03,true
+20600000,Anticipo de cliente,20001000,pasivo,acreedora,3,2107,false
+20601000,Anticipo de cliente nacional,20600000,pasivo,acreedora,4,2107.03,true
+20602000,Anticipo de cliente extranjero,20600000,pasivo,acreedora,4,2107.04,true
+20603000,Anticipo de cliente nacional parte relac,20600000,pasivo,acreedora,4,2107.01,true
+20604000,Anticipo de cliente extranjero parte relac,20600000,pasivo,acreedora,4,2107.02,true
+20605000,Otros anticipos de clientes,20600000,pasivo,acreedora,4,2107.01,true
+20700000,Impuestos trasladados,20001000,pasivo,acreedora,3,2109,false
+20701000,IVA trasladado,20700000,pasivo,acreedora,4,2109.03,true
+20702000,IEPS trasladado,20700000,pasivo,acreedora,4,2109.03,true
+20800000,Impuestos trasladados cobrados,20001000,pasivo,acreedora,3,2109,false
+20801000,IVA trasladado cobrado,20800000,pasivo,acreedora,4,2109.02,true
+20802000,IEPS trasladado cobrado,20800000,pasivo,acreedora,4,2109.02,true
+20900000,Impuestos trasladados no cobrados,20001000,pasivo,acreedora,3,2109,false
+20901000,IVA trasladado no cobrado,20900000,pasivo,acreedora,4,2109.03,true
+20902000,IEPS trasladado no cobrado,20900000,pasivo,acreedora,4,2109.03,true
+21000000,Provisión de sueldos y salarios x pagar,20001000,pasivo,acreedora,3,2108,false
+21001000,Provisión de sueldos y salarios x pagar,21000000,pasivo,acreedora,4,2108.01,true
+21002000,Provisión de vacaciones por pagar,21000000,pasivo,acreedora,4,2108.01,true
+21003000,Provisión de aguinaldo por pagar,21000000,pasivo,acreedora,4,2108.01,true
+21004000,Provisión de fondo de ahorro por pagar,21000000,pasivo,acreedora,4,2108.01,true
+21005000,Provisión de asimilados a salarios por pagar,21000000,pasivo,acreedora,4,2108.01,true
+21006000,Provisión de anticipos o remtes x distribuir,21000000,pasivo,acreedora,4,2108.01,true
+21007000,Provisión de otros sdos y salarios x pagar,21000000,pasivo,acreedora,4,2108.01,true
+21100000,Provisión de contribuciones segsocial x pagar,20001000,pasivo,acreedora,3,,false
+21101000,Provisión de IMSS patronal por pagar,21100000,pasivo,acreedora,4,2108.01,true
+21102000,Provisión de SAR por pagar,21100000,pasivo,acreedora,4,2108.01,true
+21103000,Provisión de infonavit por pagar,21100000,pasivo,acreedora,4,2108.01,true
+21200000,Provisión de imoto estatal s nómina x pagar,20001000,pasivo,acreedora,3,,false
+21201000,Provisión de imoto estatal s nómina x pagar,21200000,pasivo,acreedora,4,2108.01,true
+21300000,Impuestos y derechos por pagar,20001000,pasivo,acreedora,3,,false
+21301000,IVA por pagar,21300000,pasivo,acreedora,4,2109.07,true
+21302000,IEPS por pagar,21300000,pasivo,acreedora,4,2109.07,true
+21303000,ISR por pagar,21300000,pasivo,acreedora,4,2106.01,true
+21304000,Impuesto estatal sobre nómina por pagar,21300000,pasivo,acreedora,4,2109.07,true
+21305000,Impuesto estatal y municipal por pagar,21300000,pasivo,acreedora,4,2109.07,true
+21306000,Derechos por pagar,21300000,pasivo,acreedora,4,2108.01,true
+21307000,Otros impuestos por pagar,21300000,pasivo,acreedora,4,2109.07,true
+21400000,Dividendos por pagar,20001000,pasivo,acreedora,3,,false
+21401000,Dividendos por pagar,21400000,pasivo,acreedora,4,2108.01,true
+21500000,PTU por pagar,20001000,pasivo,acreedora,3,,false
+21501000,PTU por pagar,21500000,pasivo,acreedora,4,2109.06,true
+21502000,PTU por pagar de ejercicios anteriores,21500000,pasivo,acreedora,4,2109.06,true
+21503000,Provisión de PTU por pagar,21500000,pasivo,acreedora,4,2108.01,true
+21600000,Impuestos retenidos,20001000,pasivo,acreedora,3,,false
+21601000,Impuestos ret de ISR x sdos y salarios,21600000,pasivo,acreedora,4,2109.01,true
+21602000,Impuestos ret de ISR x asim salarios,21600000,pasivo,acreedora,4,2109.01,true
+21603000,Impuestos ret de ISR x arrend,21600000,pasivo,acreedora,4,2109.01,true
+21604000,Impuestos ret de ISR x servicios prof,21600000,pasivo,acreedora,4,2109.01,true
+21605000,Impuestos ret de ISR x divid,21600000,pasivo,acreedora,4,2109.01,true
+21606000,Impuestos ret de ISR x intereses,21600000,pasivo,acreedora,4,2109.01,true
+21607000,Impuestos ret de ISR x pagos al ext,21600000,pasivo,acreedora,4,2109.01,true
+21608000,Impuestos ret de ISR x venta acciones,21600000,pasivo,acreedora,4,2109.01,true
+21609000,Impuestos ret de ISR x venta ptes soc,21600000,pasivo,acreedora,4,2109.01,true
+21610000,Impuestos retenidos de IVA,21600000,pasivo,acreedora,4,2109.01,true
+21611000,Retenciones de IMSS a los trabaj,21600000,pasivo,acreedora,4,2109.01,true
+21612000,Otros impuestos retenidos,21600000,pasivo,acreedora,4,2109.01,true
+21700000,Pagos realizados x cta de terceros,20001000,pasivo,acreedora,3,,false
+21701000,Pagos realizados x cta de terceros,21700000,pasivo,acreedora,4,2105.03,true
+21800000,Otros pasivos a corto plazo,20001000,pasivo,acreedora,3,,false
+21801000,Otros pasivos a corto plazo,21800000,pasivo,acreedora,4,2110.01,true
+20002000,Pasivo a largo plazo,20000000,pasivo,acreedora,2,,false
+25100000,Acreedores diversos a largo plazo,20002000,pasivo,acreedora,3,,false
+25101000,"Socios, accionistas o rep legal",25100000,pasivo,acreedora,4,2208.01,true
+25102000,Acreedores div largo plazo nal,25100000,pasivo,acreedora,4,2201.03,true
+25103000,Acreedores div largo plazo ext,25100000,pasivo,acreedora,4,2201.04,true
+25104000,Acreedores div largo pzo nal pte relac,25100000,pasivo,acreedora,4,2201.01,true
+25105000,Acreedores div lgo pzo ext pte relac,25100000,pasivo,acreedora,4,2201.02,true
+25106000,Otros acreedores diversos lgo plzo,25100000,pasivo,acreedora,4,2208.01,true
+25200000,Cuentas por pagar a largo plazo,20002000,pasivo,acreedora,3,,false
+25201000,Dtos banc y fin x pagar lgo pzo nal,25200000,pasivo,acreedora,4,2208.01,true
+25202000,Dtos banc y fin x pagar lgo pzo ext,25200000,pasivo,acreedora,4,2208.01,true
+25203000,Doctos y ctas x pagar largo plzo nal,25200000,pasivo,acreedora,4,2201.03,true
+25204000,Doctos y ctas x pagar largo plzo ext,25200000,pasivo,acreedora,4,2201.04,true
+25205000,Doctos y ctas x pagar lgo plzo nal pte relac,25200000,pasivo,acreedora,4,2201.01,true
+25206000,Doctos y ctas x pagar lgo plzo ext pte relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2201.02,true
+25207000,Hipotecas por pagar a largo plazo nacional,25200000,pasivo,acreedora,4,2202.03,true
+25208000,Hipotecas por pagar a largo plazo extr,25200000,pasivo,acreedora,4,2202.04,true
+25209000,Hipotecas x pagar a largo plazo nal pte relac,25200000,pasivo,acreedora,4,2202.01,true
+25210000,Hipotecas x pagar largo plzo ext pte relac,25200000,pasivo,acreedora,4,2202.02,true
+25211000,Intereses por pagar a largo plazo nacional,25200000,pasivo,acreedora,4,2202.03,true
+25212000,Intereses por pagar a largo plazo extranjero,25200000,pasivo,acreedora,4,2202.04,true
+25213000,Intereses por pagar a largo plazo nal pte relac,25200000,pasivo,acreedora,4,2202.01,true
+25214000,Intereses por pagar a largo plazo ext pte relac,25200000,pasivo,acreedora,4,2202.02,true
+25215000,Dividendos por pagar nacionales,25200000,pasivo,acreedora,4,2208.01,true
+25216000,Dividendos por pagar extranjeros,25200000,pasivo,acreedora,4,2208.01,true
+25217000,Otras cuentas y dtos x pagar largo plazo,25200000,pasivo,acreedora,4,2208.01,true
+25300000,Cobros anticipados a largo plazo,20002000,pasivo,acreedora,3,,false
+25301000,Rentas cobradas por ant largo plazo nal,25300000,pasivo,acreedora,4,2203.01,true
+25302000,Rentas cobradas por ant largo plazo ext,25300000,pasivo,acreedora,4,2203.01,true
+25303000,Rentas cobr x ant largo plazo nal pte relac,25300000,pasivo,acreedora,4,2203.01,true
+25304000,Rentas cobr x ant lgo plzo ext pte relac,25300000,pasivo,acreedora,4,2203.01,true
+25305000,Intereses cobrados x ant lgo plzo nal,25300000,pasivo,acreedora,4,2201.03,true
+25306000,Intereses cobrados x ant lgo plzo ext,25300000,pasivo,acreedora,4,2201.04,true
+25307000,Intereses cobr x ant lgo plzo nal pte relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2201.01,true
+25308000,Intereses cobr x ant lgo plzo ext pte relac,25300000,pasivo,acreedora,4,2201.02,true
+25309000,Factoraje financiero cob x ant lgo plzo nal,25300000,pasivo,acreedora,4,2201.03,true
+25310000,Factoraje financiero cobr x ant largo plzo ext,25300000,pasivo,acreedora,4,2201.04,true
+25311000,Factoraje fin cobr x ant lgo plzo nal pte relac,25300000,pasivo,acreedora,4,2201.01,true
+25312000,Factoraje fin cobr x ant lgo plzo ext pte relac,25300000,pasivo,acreedora,4,2201.02,true
+25313000,Arrendamiento fin cobrx ant lgo plzo nal,25300000,pasivo,acreedora,4,2201.03,true
+25314000,Arrendamiento fin cobr x ant lgo plzo ext,25300000,pasivo,acreedora,4,2201.04,true
+25315000,Arrendto fin cobr x ant,Finance lease coll in Adv to LT. Nat to rel party,pasivo,acreedora,1,2201.01,true
+25316000,Arrendto fin cobr x ant lgo plzo ext pte relac,D 0 2 0 20200214 11,pasivo,acreedora,1,2201.02,true
+25317000,Derechos fiduciarios,25300000,pasivo,acreedora,4,2208.01,true
+25318000,Otros cobros anticipados,25300000,pasivo,acreedora,4,2208.01,true
+25400000,Instrumentos financieros a largo plazo,20002000,pasivo,acreedora,3,,false
+25401000,Instrumentos financieros a largo plazo,25400000,pasivo,acreedora,4,2202.03,true
+25500000,Pasivos por benefi a empleados go plzo,to employee long-term liabilities,pasivo,acreedora,1,,true
+25501000,Pasivos por benef a empleados lgo plzo,to employee long-term liabilities,pasivo,acreedora,1,2206.01,true
+25600000,Otros pasivos a largo plazo,20002000,pasivo,acreedora,3,,false
+25601000,Otros pasivos a largo plazo,25600000,pasivo,acreedora,4,2201.03,true
+25700000,Participación de los trabaj en util dif,20002000,pasivo,acreedora,3,,false
+25701000,Participación de los trabaj en utildif,25700000,pasivo,acreedora,4,2207.01,true
+25800000,Obligaciones contraídas de fideicomisos,20002000,pasivo,acreedora,3,,false
+25801000,Obligaciones contraídas de fideicomisos,25800000,pasivo,acreedora,4,2207.01,true
+25900000,Impuestos diferidos,20002000,pasivo,acreedora,3,,false
+25901000,ISR diferido,25900000,pasivo,acreedora,4,2207.01,true
+25902000,ISR por dividendo diferido,25900000,pasivo,acreedora,4,2207.01,true
+25903000,Otros impuestos diferidos,25900000,pasivo,acreedora,4,2207.01,true
+26000000,Pasivos diferidos,20002000,pasivo,acreedora,3,,false
+26001000,Pasivos diferidos,26000000,pasivo,acreedora,4,2207.01,true
+40000000,Ingresos,,ingreso,acreedora,1,,false
+40100000,Ingresos,40000000,ingreso,acreedora,2,4101,false
+40101000,Ventas y/o servicios grav a tasa gral,40100000,ingreso,acreedora,3,,true
+40101001,Incrustonic Ultra,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101002,Incrustonic Estándar,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101003,Incrustonic Lite,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101004,Servicio con Dron Gravado,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101005,Drones Gravados,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101006,Refacciones,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101007,Renta de Equipo,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40101008,Equipo,H 0 2 0 20251114 11,ingreso,acreedora,1,4101.01,true
+40101009,"Incrustronic 2""",H 0 2 0 20251218 11,ingreso,acreedora,1,4101.01,true
+40102000,Ventas y/o serv grav a tasa gral de cont,40100000,ingreso,acreedora,3,,true
+40102001,Servicios con Dron,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40103000,Ventas y/o serv grav tasa gral cred,40100000,ingreso,acreedora,3,4101.01,true
+40104000,Ventas y/o servicios grav al 0%,40100000,ingreso,acreedora,3,,true
+40104001,"Electrostáticos Aspersora 1""",H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40104002,"Electrostático Aspersora 3/4""",H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40104003,Electrostático Herbicida,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40104004,Electrostátco Dron,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40104005,Electostático Mochila,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40104006,Drones Agrícolas,H 0 2 0 20240928 11,ingreso,acreedora,1,4101.01,true
+40105000,Ventas y/o servicios grav 0% de cont,40100000,ingreso,acreedora,3,4101.01,true
+40106000,Ventas y/o servicios grav 0% cred,40100000,ingreso,acreedora,3,4101.01,true
+40107000,Ventas y/o servicios exentos,40100000,ingreso,acreedora,3,4101.01,true
+40108000,Ventas y/o servicios exentos de contado,40100000,ingreso,acreedora,3,4101.01,true
+40109000,Ventas y/o servicios exentos a crédito,40100000,ingreso,acreedora,3,4101.01,true
+40110000,Ventas y/o serv grav a tasa gral nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40111000,Ventas y/o serv grav a tasa gral ext pte relac,40100000,ingreso,acreedora,3,4101.02,true
+40112000,Ventas y/o servicios grav 0% nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40113000,Ventas y/o servicios grav 0% ext pte relac,H 0 2 0 20200214 11,ingreso,acreedora,1,4101.02,true
+40114000,Ventas y/o servicios extos nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40115000,Ventas y/o servicios exentos ext pte relac,40100000,ingreso,acreedora,3,4101.02,true
+40116000,Ingresos por servicios administrativos,40100000,ingreso,acreedora,3,4101.01,true
+40117000,Ingresos por servicios adtvos nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40118000,Ingresos por servicios adtvos ext pte relac,H 0 2 0 20200214 11,ingreso,acreedora,1,4101.02,true
+40119000,Ingresos por servicios profesionales,40100000,ingreso,acreedora,3,4101.01,true
+40120000,Ingresos por servicios prof nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40121000,Ingresos por servicios prof ext pte relac,40100000,ingreso,acreedora,3,4101.02,true
+40122000,Ingresos por arrendamiento,40100000,ingreso,acreedora,3,4101.01,true
+40123000,Ingresos por arrendamiento nal pte relac,40100000,ingreso,acreedora,3,4101.01,true
+40124000,Ingresos por arrendamiento ext pte relac,40100000,ingreso,acreedora,3,4101.02,true
+40125000,Ingresos por exportación,40100000,ingreso,acreedora,3,4101.01,true
+40126000,Ingresos por comisiones,40100000,ingreso,acreedora,3,4101.01,true
+40127000,Ingresos por maquila,40100000,ingreso,acreedora,3,4101.01,true
+40128000,Ingresos por coordinados,40100000,ingreso,acreedora,3,4101.01,true
+40129000,Ingresos por regalías,40100000,ingreso,acreedora,3,4101.01,true
+40130000,Ingresos por asistencia técnica,40100000,ingreso,acreedora,3,4101.01,true
+40131000,Ingresos por donativos,40100000,ingreso,acreedora,3,4101.01,true
+40132000,Ingresos por intereses (actividad propia),40100000,ingreso,acreedora,3,4101.01,true
+40133000,Ingresos de copropiedad,40100000,ingreso,acreedora,3,4101.01,true
+40134000,Ingresos por fideicomisos,40100000,ingreso,acreedora,3,4101.01,true
+40135000,Ingresos por factoraje financiero,40100000,ingreso,acreedora,3,4101.01,true
+40136000,Ingresos por arrendamiento financiero,40100000,ingreso,acreedora,3,4101.01,true
+40137000,Ingresos de ext con establto en el país,40100000,ingreso,acreedora,3,4101.02,true
+40138000,Otros ingresos propios,40100000,ingreso,acreedora,3,,true
+40138001,Dividendos,H 0 2 0 20240930 11,ingreso,acreedora,1,4101.01,true
+40139000,Vtas y/o serv gravados zona fronteriza norte,to northern border area,ingreso,acreedora,1,4101.01,true
+40140000,Vtas y/o serv grav zona fronteriza norte de cont,to northern border area cash,ingreso,acreedora,1,4101.01,true
+40141000,Vtas y/o serv grav zona fronteriza norte a cred,to northern border area credit,ingreso,acreedora,1,4101.01,true
+40200000,"Dev, descuentos o bonif sobre ingresos",40000000,ingreso,acreedora,2,4101,false
+40201000,"Dev, desctos o bonifi s vtas y/o serv tasa gral",G 0 2 0 20200214 11,ingreso,acreedora,1,4101.03,true
+40202000,"Dev, desctos o bonif s vtas y/o serva 0%",0%,ingreso,acreedora,1,4101.03,true
+40203000,"Dev, desctos o bonif s vtas y/o serv extos",40200000,ingreso,acreedora,3,4101.03,true
+40204000,"Dev, desctos o bonif otros ingresos",40200000,ingreso,acreedora,3,4101.03,true
+40205000,Dev dto o bonif s/vtas zona fronteriza norte,northern border area,ingreso,acreedora,1,4101.03,true
+40300000,Otros ingresos,40000000,ingreso,acreedora,2,,false
+40301000,Otros Ingresos,40300000,ingreso,acreedora,3,4101.12,true
+40302000,Otros ingresos nacionales parte relac,40300000,ingreso,acreedora,3,4101.12,true
+40303000,Otros ingresos extranjeros parte relac,40300000,ingreso,acreedora,3,4101.12,true
+40304000,Ingresos por operaciones discontinuas,40300000,ingreso,acreedora,3,4101.12,true
+40305000,Ingresos por condonación de adeudo,40300000,ingreso,acreedora,3,4101.12,true
+50000000,Costos,,costo,deudora,1,,false
+50100000,Costos de venta y/o servicio,50000000,costo,deudora,2,,false
+50101000,Costo de venta,50100000,costo,deudora,3,5102.07,true
+50102000,Costo de servicios (Mano de obra),50100000,costo,deudora,3,5103.01,true
+50103000,Materia prima directa utilizada para la prod,50100000,costo,deudora,3,5102.07,true
+50104000,Materia prima consumida en el proceso prod,50100000,costo,deudora,3,5102.01,true
+50105000,Mano de obra directa consumida,50100000,costo,deudora,3,5102.01,true
+50106000,Mano de obra directa,50100000,costo,deudora,3,5102.01,true
+50107000,Cargos indirectos de producción,50100000,costo,deudora,3,5102.07,true
+50108000,Otros conceptos de costo,50100000,costo,deudora,3,5102.07,true
+50200000,Compras,50000000,costo,deudora,2,,false
+50201000,Compras nacionales,50200000,costo,deudora,3,,true
+50201001,Alimentos,G 0 2 0 20200220 11,costo,deudora,1,5101.01,true
+50202000,Compras nacionales parte relacionada,50200000,costo,deudora,3,5101.01,true
+50203000,Compras de Importación,50200000,costo,deudora,3,5101.02,true
+50204000,Compras de Importación partes relac,50200000,costo,deudora,3,5101.02,true
+50300000,"Devoluciones, destos o bonif s compras",H 0 1 0 20200214 11,costo,deudora,1,,true
+50301000,"Devoluciones, desctos o bonif s compras",H 0 2 0 20200214 11,costo,deudora,1,4101.03,true
+50400000,Otras cuentas de costos,50000000,costo,deudora,2,,false
+50401000,Gastos indirectos de fabricación,50400000,costo,deudora,3,5102.04,true
+50402000,Gastos indirectos de fabr d pte relac nal,50400000,costo,deudora,3,5102.04,true
+50403000,Gastos indirectos de fabr d pte relac ext,G 0 2 0 20200214 11,costo,deudora,1,5102.04,true
+50404000,Otras cuentas de costos incurridos,50400000,costo,deudora,3,5102.04,true
+50405000,Otras ctas de costos incurr pte relac nal,50400000,costo,deudora,3,5102.04,true
+50406000,Otras ctas de costos incurr pte relac ext,50400000,costo,deudora,3,5102.04,true
+50407000,Depreciación de edificios,50400000,costo,deudora,3,5102.05,true
+50408000,Depreciación de maquinaria y equipo,50400000,costo,deudora,3,5102.05,true
+50409000,"Depr de autom, autob, camiones, tractoc",50400000,costo,deudora,3,5102.05,true
+50410000,Depreciación de mobiliario y eq de ofic,50400000,costo,deudora,3,5102.05,true
+50411000,Depreciación de equipo de cómputo,50400000,costo,deudora,3,5102.05,true
+50412000,Depreciación de equipo de comunicación,50400000,costo,deudora,3,5102.05,true
+50413000,"Depr de act biológicos, veg y semovientes",50400000,costo,deudora,3,5102.05,true
+50414000,Depreciación de otros activos fijos,50400000,costo,deudora,3,5102.05,true
+50415000,Depreciación de ferrocarriles,50400000,costo,deudora,3,5102.05,true
+50416000,Depreciación de embarcaciones,50400000,costo,deudora,3,5102.05,true
+50417000,Depreciación de aviones,50400000,costo,deudora,3,5102.05,true
+50418000,"Deprec de troqueles, moldes, matrices herr",50400000,costo,deudora,3,5102.05,true
+50419000,Depreciación de equipo de comun telef,50400000,costo,deudora,3,5102.05,true
+50420000,Depreciación de equipo de comun satel,50400000,costo,deudora,3,5102.05,true
+50421000,Depr de eq de adapt personas cap dif,50400000,costo,deudora,3,5102.05,true
+50422000,Depr de maq y eq gener energía fuentes ren,G 0 2 0 20200214 11,costo,deudora,1,5102.05,true
+50423000,Depreciación de adaptaciones y mejoras,50400000,costo,deudora,3,5102.05,true
+50424000,Depreciación de otra maquinaria y eq,50400000,costo,deudora,3,5102.05,true
+50425000,Otras cuentas de costos,50400000,costo,deudora,3,5102.04,true
+50500000,Costo de activo fijo,50000000,costo,deudora,2,,false
+50501000,Costo por venta de activo fijo,50500000,costo,deudora,3,5102.07,true
+50502000,Costo por baja de activo fijo,50500000,costo,deudora,3,5102.07,true
+60000000,Gastos,,egreso,deudora,1,,false
+60100000,Gastos generales,60000000,egreso,deudora,2,,false
+60101000,Sueldos y salarios,60100000,egreso,deudora,3,5201.01,true
+60102000,Compensaciones,60100000,egreso,deudora,3,5201.01,true
+60103000,Tiempos extras,60100000,egreso,deudora,3,5201.01,true
+60104000,Premios de asistencia,60100000,egreso,deudora,3,5201.01,true
+60105000,Premios de puntualidad,60100000,egreso,deudora,3,5201.01,true
+60106000,Vacaciones,60100000,egreso,deudora,3,5201.01,true
+60107000,Prima vacacional,60100000,egreso,deudora,3,5201.01,true
+60108000,Prima dominical,60100000,egreso,deudora,3,5201.01,true
+60109000,Días festivos,60100000,egreso,deudora,3,5201.01,true
+60110000,Gratificaciones,60100000,egreso,deudora,3,5201.01,true
+60111000,Primas de antigüedad,60100000,egreso,deudora,3,5201.01,true
+60112000,Aguinaldo,60100000,egreso,deudora,3,5201.01,true
+60113000,Indemnizaciones,60100000,egreso,deudora,3,5201.01,true
+60114000,Destajo,60100000,egreso,deudora,3,5201.01,true
+60115000,Despensa,60100000,egreso,deudora,3,5201.01,true
+60116000,Transporte,60100000,egreso,deudora,3,5201.01,true
+60117000,Servicio médico,60100000,egreso,deudora,3,5201.01,true
+60118000,Ayuda en gastos funerarios,60100000,egreso,deudora,3,5201.01,true
+60119000,Fondo de ahorro,60100000,egreso,deudora,3,5201.01,true
+60120000,Cuotas sindicales,60100000,egreso,deudora,3,5201.01,true
+60121000,PTU,60100000,egreso,deudora,3,5201.01,true
+60122000,Estímulo al personal,60100000,egreso,deudora,3,5201.01,true
+60123000,Previsión social,60100000,egreso,deudora,3,5201.01,true
+60124000,Aportaciones para el plan de jubilación,60100000,egreso,deudora,3,5201.01,true
+60125000,Otras prestaciones al personal,60100000,egreso,deudora,3,5201.01,true
+60126000,Cuotas al IMSS,60100000,egreso,deudora,3,5201.01,true
+60127000,Aportaciones al infonavit,60100000,egreso,deudora,3,5201.01,true
+60128000,Aportaciones al SAR,60100000,egreso,deudora,3,5201.01,true
+60129000,Impuesto estatal sobre nóminas,60100000,egreso,deudora,3,5201.01,true
+60130000,Otras aportaciones,60100000,egreso,deudora,3,5201.01,true
+60131000,Asimilados a salarios,60100000,egreso,deudora,3,5201.01,true
+60132000,Servicios administrativos,60100000,egreso,deudora,3,5201.01,true
+60133000,Servicios administrativos partes relac,60100000,egreso,deudora,3,5201.01,true
+60134000,Honorarios a personas fís residentes nal,60100000,egreso,deudora,3,5201.01,true
+60135000,Honorarios pers fís residtes nal pte relac,60100000,egreso,deudora,3,5201.01,true
+60136000,Honorarios personas físicas residtes ext,60100000,egreso,deudora,3,5201.01,true
+60137000,Hon personas físicas residtes ext ptes relac,60100000,egreso,deudora,3,5201.01,true
+60138000,Honorarios a personas morales residtes nal,60100000,egreso,deudora,3,5201.01,true
+60139000,Hon a pers morales residtes nal ptes relac,rel party fees,egreso,deudora,1,5201.01,true
+60140000,Hon a personas morales residtes ext,60100000,egreso,deudora,3,5201.01,true
+60141000,Hon a pers morales residtes del ext pte relac,60100000,egreso,deudora,3,5201.01,true
+60142000,Honorarios aduanales personas físicas,60100000,egreso,deudora,3,5201.01,true
+60143000,Honorarios aduanales personas morales,60100000,egreso,deudora,3,5201.01,true
+60144000,Honorarios al consejo de administración,60100000,egreso,deudora,3,5201.01,true
+60145000,Arrendamiento a pers físicas residtes nal,60100000,egreso,deudora,3,5201.01,true
+60146000,Arrendamiento a pers morales residtes nal,60100000,egreso,deudora,3,5201.01,true
+60147000,Arrendamiento a residentes del extranjero,60100000,egreso,deudora,3,5201.01,true
+60148000,Combustibles y lubricantes,60100000,egreso,deudora,3,5201.01,true
+60149000,Viáticos y gastos de viaje,travel allowances,egreso,deudora,1,5201.01,true
+60150000,"Teléfono, internet",60100000,egreso,deudora,3,5201.01,true
+60151000,Agua,60100000,egreso,deudora,3,5201.01,true
+60152000,Energía eléctrica,60100000,egreso,deudora,3,5201.01,true
+60153000,Vigilancia y seguridad,60100000,egreso,deudora,3,5201.01,true
+60154000,Limpieza,60100000,egreso,deudora,3,5201.01,true
+60155000,Papelería y artículos de oficina,60100000,egreso,deudora,3,5201.01,true
+60156000,Mantenimiento y conservación,60100000,egreso,deudora,3,5201.01,true
+60157000,Seguros y fianzas,60100000,egreso,deudora,3,5201.01,true
+60158000,Otros impuestos y derechos,60100000,egreso,deudora,3,5201.01,true
+60159000,Recargos fiscales,60100000,egreso,deudora,3,5201.01,true
+60160000,Cuotas y suscripciones,60100000,egreso,deudora,3,5201.01,true
+60161000,Propaganda y publicidad,60100000,egreso,deudora,3,5201.01,true
+60162000,Capacitación al personal,60100000,egreso,deudora,3,5201.01,true
+60163000,Donativos y ayudas,60100000,egreso,deudora,3,5201.01,true
+60164000,Asistencia técnica,60100000,egreso,deudora,3,5201.01,true
+60165000,Regalías sujetas a otros porcentajes,60100000,egreso,deudora,3,5201.01,true
+60166000,Regalías sujetas al 5%,60100000,egreso,deudora,3,5201.01,true
+60167000,Regalías sujetas al 10%,60100000,egreso,deudora,3,5201.01,true
+60168000,Regalías sujetas al 15%,60100000,egreso,deudora,3,5201.01,true
+60169000,Regalías sujetas al 25%,60100000,egreso,deudora,3,5201.01,true
+60170000,Regalías sujetas al 30%,60100000,egreso,deudora,3,5201.01,true
+60171000,Regalías sin retención,60100000,egreso,deudora,3,5201.01,true
+60172000,Fletes y acarreos,60100000,egreso,deudora,3,5201.01,true
+60173000,Gastos de importación,60100000,egreso,deudora,3,5201.01,true
+60174000,Comisiones sobre ventas,60100000,egreso,deudora,3,5201.01,true
+60175000,Comisiones por tarjetas de crédito,60100000,egreso,deudora,3,5201.01,true
+60176000,Patentes y marcas,60100000,egreso,deudora,3,5201.01,true
+60177000,Uniformes,60100000,egreso,deudora,3,5201.01,true
+60178000,Prediales,60100000,egreso,deudora,3,5201.01,true
+60179000,Gastos generales de urbanización,60100000,egreso,deudora,3,5201.01,true
+60180000,Gastos generales de construcción,60100000,egreso,deudora,3,5201.01,true
+60181000,Fletes del extranjero,60100000,egreso,deudora,3,5201.01,true
+60182000,Recolec bienes del sector agropec y/o gan,60100000,egreso,deudora,3,5201.01,true
+60183000,Gastos no deduc (sin requisitos fiscales),60100000,egreso,deudora,3,5201.01,true
+60184000,Otros gastos generales,60100000,egreso,deudora,3,5201.01,true
+60185000,Paqueteria,G 0 2 0 20251117 11,egreso,deudora,1,,true
+60200000,Gastos de venta,60000000,egreso,deudora,2,,false
+60201000,Sueldos y salarios,60200000,egreso,deudora,3,5201.03,true
+60202000,Compensaciones,60200000,egreso,deudora,3,5201.03,true
+60203000,Tiempos extras,60200000,egreso,deudora,3,5201.03,true
+60204000,Premios de asistencia,60200000,egreso,deudora,3,5201.03,true
+60205000,Premios de puntualidad,60200000,egreso,deudora,3,5201.03,true
+60206000,Vacaciones,60200000,egreso,deudora,3,5201.03,true
+60207000,Prima vacacional,60200000,egreso,deudora,3,5201.03,true
+60208000,Prima dominical,60200000,egreso,deudora,3,5201.03,true
+60209000,Días festivos,60200000,egreso,deudora,3,5201.03,true
+60210000,Gratificaciones,60200000,egreso,deudora,3,5201.03,true
+60211000,Primas de antigüedad,60200000,egreso,deudora,3,5201.03,true
+60212000,Aguinaldo,60200000,egreso,deudora,3,5201.03,true
+60213000,Indemnizaciones,60200000,egreso,deudora,3,5201.03,true
+60214000,Destajo,60200000,egreso,deudora,3,5201.03,true
+60215000,Despensa,60200000,egreso,deudora,3,5201.03,true
+60216000,Transporte,60200000,egreso,deudora,3,5201.03,true
+60217000,Servicio médico,60200000,egreso,deudora,3,5201.03,true
+60218000,Ayuda en gastos funerarios,60200000,egreso,deudora,3,5201.03,true
+60219000,Fondo de ahorro,60200000,egreso,deudora,3,5201.03,true
+60220000,Cuotas sindicales,60200000,egreso,deudora,3,5201.03,true
+60221000,PTU,60200000,egreso,deudora,3,5201.03,true
+60222000,Estímulo al personal,60200000,egreso,deudora,3,5201.03,true
+60223000,Previsión social,60200000,egreso,deudora,3,5201.03,true
+60224000,Aportaciones para el plan de jubilación,60200000,egreso,deudora,3,5201.03,true
+60225000,Otras prestaciones al personal,60200000,egreso,deudora,3,5201.03,true
+60226000,Cuotas al IMSS,60200000,egreso,deudora,3,5201.03,true
+60227000,Aportaciones al infonavit,60200000,egreso,deudora,3,5201.03,true
+60228000,Aportaciones al SAR,60200000,egreso,deudora,3,5201.03,true
+60229000,Impuesto estatal sobre nóminas,60200000,egreso,deudora,3,5201.03,true
+60230000,Otras aportaciones,60200000,egreso,deudora,3,5201.03,true
+60231000,Asimilados a salarios,60200000,egreso,deudora,3,5201.03,true
+60232000,Servicios administrativos,60200000,egreso,deudora,3,5201.03,true
+60233000,Servicios administrativos partes relac,60200000,egreso,deudora,3,5201.03,true
+60234000,Honorarios a pers físicas residtes nal,60200000,egreso,deudora,3,5201.03,true
+60235000,Honorarios a pers físicas residtes nal pte relac,60200000,egreso,deudora,3,5201.03,true
+60236000,Honorarios a personas físicas residtes del ext,60200000,egreso,deudora,3,5201.03,true
+60237000,Honorarios a pers físicas residtes ext pte relac,60200000,egreso,deudora,3,5201.03,true
+60238000,Honorarios a pers morales residtes nal,60200000,egreso,deudora,3,5201.03,true
+60239000,Honorarios a pers morales residtes nal pte relac,rel party fees,egreso,deudora,1,5201.03,true
+60240000,Honorarios a pers morales residentes del ext,60200000,egreso,deudora,3,5201.03,true
+60241000,Honorarios a pers morales resid ext pte relac,60200000,egreso,deudora,3,5201.03,true
+60242000,Honorarios aduanales personas físicas,60200000,egreso,deudora,3,5201.03,true
+60243000,Honorarios aduanales personas morales,60200000,egreso,deudora,3,5201.03,true
+60244000,Honorarios al consejo de administración,60200000,egreso,deudora,3,5201.03,true
+60245000,Arrendamiento a personas físicas resid nal,60200000,egreso,deudora,3,5201.03,true
+60246000,Arrendamiento a personas morales resid nal,60200000,egreso,deudora,3,5201.03,true
+60247000,Arrendamiento a residentes del extranjero,60200000,egreso,deudora,3,5201.03,true
+60248000,Combustibles y lubricantes,60200000,egreso,deudora,3,5201.03,true
+60249000,Viáticos y gastos de viaje,travel allowances,egreso,deudora,1,5201.03,true
+60250000,"Teléfono, internet",60200000,egreso,deudora,3,5201.03,true
+60251000,Agua,60200000,egreso,deudora,3,5201.03,true
+60252000,Energía eléctrica,60200000,egreso,deudora,3,5201.03,true
+60253000,Vigilancia y seguridad,60200000,egreso,deudora,3,5201.03,true
+60254000,Limpieza,60200000,egreso,deudora,3,5201.03,true
+60255000,Papelería y artículos de oficina,60200000,egreso,deudora,3,5201.03,true
+60256000,Mantenimiento y conservación,60200000,egreso,deudora,3,5201.03,true
+60257000,Seguros y fianzas,60200000,egreso,deudora,3,5201.03,true
+60258000,Otros impuestos y derechos,60200000,egreso,deudora,3,5201.03,true
+60259000,Recargos fiscales,60200000,egreso,deudora,3,5201.03,true
+60260000,Cuotas y suscripciones,60200000,egreso,deudora,3,5201.03,true
+60261000,Propaganda y publicidad,60200000,egreso,deudora,3,5201.03,true
+60262000,Capacitación al personal,60200000,egreso,deudora,3,5201.03,true
+60263000,Donativos y ayudas,60200000,egreso,deudora,3,5201.03,true
+60264000,Asistencia técnica,60200000,egreso,deudora,3,5201.03,true
+60265000,Regalías sujetas a otros porcentajes,60200000,egreso,deudora,3,5201.03,true
+60266000,Regalías sujetas al 5%,60200000,egreso,deudora,3,5201.03,true
+60267000,Regalías sujetas al 10%,60200000,egreso,deudora,3,5201.03,true
+60268000,Regalías sujetas al 15%,60200000,egreso,deudora,3,5201.03,true
+60269000,Regalías sujetas al 25%,60200000,egreso,deudora,3,5201.03,true
+60270000,Regalías sujetas al 30%,60200000,egreso,deudora,3,5201.03,true
+60271000,Regalías sin retención,60200000,egreso,deudora,3,5201.03,true
+60272000,Fletes y acarreos,60200000,egreso,deudora,3,5201.03,true
+60273000,Gastos de importación,60200000,egreso,deudora,3,5201.03,true
+60274000,Comisiones sobre ventas,60200000,egreso,deudora,3,5201.03,true
+60275000,Comisiones por tarjetas de crédito,60200000,egreso,deudora,3,5201.03,true
+60276000,Patentes y marcas,60200000,egreso,deudora,3,5201.03,true
+60277000,Uniformes,60200000,egreso,deudora,3,5201.03,true
+60278000,Prediales,60200000,egreso,deudora,3,5201.03,true
+60279000,Gastos de venta de urbanización,60200000,egreso,deudora,3,5201.03,true
+60280000,Gastos de venta de construcción,60200000,egreso,deudora,3,5201.03,true
+60281000,Fletes del extranjero,60200000,egreso,deudora,3,5201.03,true
+60282000,Recolecc bienes del sector agrop y/o ganad,60200000,egreso,deudora,3,5201.03,true
+60283000,Gastos no deducibles (sin requisitos fiscales),G 0 2 0 20200214 11,egreso,deudora,1,5201.03,true
+60284000,Otros gastos de venta,60200000,egreso,deudora,3,5201.03,true
+60300000,Gastos de administración,60000000,egreso,deudora,2,,false
+60301000,Sueldos y salarios,60300000,egreso,deudora,3,5201.02,true
+60302000,Compensaciones,60300000,egreso,deudora,3,5201.02,true
+60303000,Tiempos extras,60300000,egreso,deudora,3,5201.02,true
+60304000,Premios de asistencia,60300000,egreso,deudora,3,5201.02,true
+60305000,Premios de puntualidad,60300000,egreso,deudora,3,5201.02,true
+60306000,Vacaciones,60300000,egreso,deudora,3,5201.02,true
+60307000,Prima vacacional,60300000,egreso,deudora,3,5201.02,true
+60308000,Prima dominical,60300000,egreso,deudora,3,5201.02,true
+60309000,Días festivos,60300000,egreso,deudora,3,5201.02,true
+60310000,Gratificaciones,60300000,egreso,deudora,3,5201.02,true
+60311000,Primas de antigüedad,60300000,egreso,deudora,3,5201.02,true
+60312000,Aguinaldo,60300000,egreso,deudora,3,5201.02,true
+60313000,Indemnizaciones,60300000,egreso,deudora,3,5201.02,true
+60314000,Destajo,60300000,egreso,deudora,3,5201.02,true
+60315000,Despensa,60300000,egreso,deudora,3,5201.02,true
+60316000,Transporte,60300000,egreso,deudora,3,5201.02,true
+60317000,Servicio médico,60300000,egreso,deudora,3,5201.02,true
+60318000,Ayuda en gastos funerarios,60300000,egreso,deudora,3,5201.02,true
+60319000,Fondo de ahorro,60300000,egreso,deudora,3,5201.02,true
+60320000,Cuotas sindicales,60300000,egreso,deudora,3,5201.02,true
+60321000,PTU,60300000,egreso,deudora,3,5201.02,true
+60322000,Estímulo al personal,60300000,egreso,deudora,3,5201.02,true
+60323000,Previsión social,60300000,egreso,deudora,3,5201.02,true
+60324000,Aportaciones para el plan de jubilación,60300000,egreso,deudora,3,5201.02,true
+60325000,Otras prestaciones al personal,60300000,egreso,deudora,3,5201.02,true
+60326000,Cuotas al IMSS,60300000,egreso,deudora,3,5201.02,true
+60327000,Aportaciones al infonavit,60300000,egreso,deudora,3,5201.02,true
+60328000,Aportaciones al SAR,60300000,egreso,deudora,3,5201.02,true
+60329000,Impuesto estatal sobre nóminas,60300000,egreso,deudora,3,5201.02,true
+60330000,Otras aportaciones,60300000,egreso,deudora,3,5201.02,true
+60331000,Asimilados a salarios,60300000,egreso,deudora,3,5201.02,true
+60332000,Servicios administrativos,60300000,egreso,deudora,3,5201.02,true
+60333000,Servicios administrativos partes relac,60300000,egreso,deudora,3,5201.02,true
+60334000,Honorarios a pers físicas residtes nal,60300000,egreso,deudora,3,5201.02,true
+60335000,Honorarios a pers físicas residtes nal pte relac,60300000,egreso,deudora,3,5201.02,true
+60336000,Honorarios a personas físicas residtes del ext,60300000,egreso,deudora,3,5201.02,true
+60337000,Honorarios a pers físicas residtes ext pte relac,60300000,egreso,deudora,3,5201.02,true
+60338000,Honorarios a pers morales residtes nal,60300000,egreso,deudora,3,5201.02,true
+60339000,Honorarios a pers morales residtes nal pte relac,rel party fees,egreso,deudora,1,5201.02,true
+60340000,Honorarios a pers morales residentes del ext,60300000,egreso,deudora,3,5201.02,true
+60341000,Honorarios a pers morales resid ext pte relac,60300000,egreso,deudora,3,5201.02,true
+60342000,Honorarios aduanales personas físicas,60300000,egreso,deudora,3,5201.02,true
+60343000,Honorarios aduanales personas morales,60300000,egreso,deudora,3,5201.02,true
+60344000,Honorarios al consejo de administración,60300000,egreso,deudora,3,5201.02,true
+60345000,Arrendamiento a personas físicas resid nal,60300000,egreso,deudora,3,5201.02,true
+60346000,Arrendamiento a personas morales resid nal,60300000,egreso,deudora,3,5201.02,true
+60347000,Arrendamiento a residentes del extranjero,60300000,egreso,deudora,3,5201.02,true
+60348000,Combustibles y lubricantes,60300000,egreso,deudora,3,5201.02,true
+60349000,Viáticos y gastos de viaje,travel allowances,egreso,deudora,1,5201.02,true
+60350000,"Teléfono, internet",60300000,egreso,deudora,3,5201.02,true
+60351000,Agua,60300000,egreso,deudora,3,5201.02,true
+60352000,Energía eléctrica,60300000,egreso,deudora,3,5201.02,true
+60353000,Vigilancia y seguridad,60300000,egreso,deudora,3,5201.02,true
+60354000,Limpieza,60300000,egreso,deudora,3,5201.02,true
+60355000,Papelería y artículos de oficina,60300000,egreso,deudora,3,5201.02,true
+60356000,Mantenimiento y conservación,60300000,egreso,deudora,3,5201.02,true
+60357000,Seguros y fianzas,60300000,egreso,deudora,3,5201.02,true
+60358000,Otros impuestos y derechos,60300000,egreso,deudora,3,5201.02,true
+60359000,Recargos fiscales,60300000,egreso,deudora,3,5201.02,true
+60360000,Cuotas y suscripciones,60300000,egreso,deudora,3,5201.02,true
+60361000,Propaganda y publicidad,60300000,egreso,deudora,3,5201.02,true
+60362000,Capacitación al personal,60300000,egreso,deudora,3,5201.02,true
+60363000,Donativos y ayudas,60300000,egreso,deudora,3,5201.02,true
+60364000,Asistencia técnica,60300000,egreso,deudora,3,5201.02,true
+60365000,Regalías sujetas a otros porcentajes,60300000,egreso,deudora,3,5201.02,true
+60366000,Regalías sujetas al 5%,60300000,egreso,deudora,3,5201.02,true
+60367000,Regalías sujetas al 10%,60300000,egreso,deudora,3,5201.02,true
+60368000,Regalías sujetas al 15%,60300000,egreso,deudora,3,5201.02,true
+60369000,Regalías sujetas al 25%,60300000,egreso,deudora,3,5201.02,true
+60370000,Regalías sujetas al 30%,60300000,egreso,deudora,3,5201.02,true
+60371000,Regalías sin retención,60300000,egreso,deudora,3,5201.02,true
+60372000,Fletes y acarreos,60300000,egreso,deudora,3,5201.02,true
+60373000,Gastos de importación,60300000,egreso,deudora,3,5201.02,true
+60374000,Patentes y marcas,60300000,egreso,deudora,3,5201.02,true
+60375000,Uniformes,60300000,egreso,deudora,3,5201.02,true
+60376000,Prediales,60300000,egreso,deudora,3,5201.02,true
+60377000,Gastos de administración de urbanización,60300000,egreso,deudora,3,5201.02,true
+60378000,Gastos de administración de construcción,60300000,egreso,deudora,3,5201.02,true
+60379000,Fletes del extranjero,60300000,egreso,deudora,3,5201.02,true
+60380000,Recolecc bienes del sector agrop y/o ganad,60300000,egreso,deudora,3,5201.02,true
+60381000,Gastos no deducibles (sin requisitos fiscales),G 0 2 0 20200214 11,egreso,deudora,1,5201.02,true
+60382000,Otros gastos de administración,60300000,egreso,deudora,3,5201.02,true
+60400000,Gastos de fabricación,60000000,egreso,deudora,2,,false
+60401000,Sueldos y salarios,60400000,egreso,deudora,3,5102.01,true
+60402000,Compensaciones,60400000,egreso,deudora,3,5102.01,true
+60403000,Tiempos extras,60400000,egreso,deudora,3,5102.01,true
+60404000,Premios de asistencia,60400000,egreso,deudora,3,5102.01,true
+60405000,Premios de puntualidad,60400000,egreso,deudora,3,5102.01,true
+60406000,Vacaciones,60400000,egreso,deudora,3,5102.01,true
+60407000,Prima vacacional,60400000,egreso,deudora,3,5102.01,true
+60408000,Prima dominical,60400000,egreso,deudora,3,5102.01,true
+60409000,Días festivos,60400000,egreso,deudora,3,5102.01,true
+60410000,Gratificaciones,60400000,egreso,deudora,3,5102.01,true
+60411000,Primas de antigüedad,60400000,egreso,deudora,3,5102.01,true
+60412000,Aguinaldo,60400000,egreso,deudora,3,5102.01,true
+60413000,Indemnizaciones,60400000,egreso,deudora,3,5102.01,true
+60414000,Destajo,60400000,egreso,deudora,3,5102.01,true
+60415000,Despensa,60400000,egreso,deudora,3,5102.01,true
+60416000,Transporte,60400000,egreso,deudora,3,5102.01,true
+60417000,Servicio médico,60400000,egreso,deudora,3,5102.01,true
+60418000,Ayuda en gastos funerarios,60400000,egreso,deudora,3,5102.01,true
+60419000,Fondo de ahorro,60400000,egreso,deudora,3,5102.01,true
+60420000,Cuotas sindicales,60400000,egreso,deudora,3,5102.01,true
+60421000,PTU,60400000,egreso,deudora,3,5102.01,true
+60422000,Estímulo al personal,60400000,egreso,deudora,3,5102.01,true
+60423000,Previsión social,60400000,egreso,deudora,3,5102.01,true
+60424000,Aportaciones para el plan de jubilación,60400000,egreso,deudora,3,5102.01,true
+60425000,Otras prestaciones al personal,60400000,egreso,deudora,3,5102.01,true
+60426000,Cuotas al IMSS,60400000,egreso,deudora,3,5102.01,true
+60427000,Aportaciones al infonavit,60400000,egreso,deudora,3,5102.01,true
+60428000,Aportaciones al SAR,60400000,egreso,deudora,3,5102.01,true
+60429000,Impuesto estatal sobre nóminas,60400000,egreso,deudora,3,5102.01,true
+60430000,Otras aportaciones,60400000,egreso,deudora,3,5102.01,true
+60431000,Asimilados a salarios,60400000,egreso,deudora,3,5102.01,true
+60432000,Servicios administrativos,60400000,egreso,deudora,3,5102.04,true
+60433000,Servicios administrativos partes relac,60400000,egreso,deudora,3,5102.04,true
+60434000,Honorarios a pers físicas residtes nal,60400000,egreso,deudora,3,5102.04,true
+60435000,Honorarios a pers físicas residtes nal pte relac,60400000,egreso,deudora,3,5102.04,true
+60436000,Honorarios a personas físicas residtes del ext,60400000,egreso,deudora,3,5102.04,true
+60437000,Honorarios a pers físicas residtes ext pte relac,60400000,egreso,deudora,3,5102.04,true
+60438000,Honorarios a pers morales residtes nal,60400000,egreso,deudora,3,5102.04,true
+60439000,Honorarios a pers morales residtes nal pte relac,rel party fees,egreso,deudora,1,5102.04,true
+60440000,Honorarios a pers morales residentes del ext,60400000,egreso,deudora,3,5102.04,true
+60441000,Honorarios a pers morales resid ext pte relac,60400000,egreso,deudora,3,5102.04,true
+60442000,Honorarios aduanales personas físicas,60400000,egreso,deudora,3,5102.04,true
+60443000,Honorarios aduanales personas morales,60400000,egreso,deudora,3,5102.04,true
+60444000,Honorarios al consejo de administración,60400000,egreso,deudora,3,5102.04,true
+60447000,Arrendamiento a residentes del extranjero,60400000,egreso,deudora,3,5102.04,true
+60448000,Combustibles y lubricantes,60400000,egreso,deudora,3,5102.04,true
+60449000,Viáticos y gastos de viaje,travel allowances,egreso,deudora,1,5102.04,true
+60450000,"Teléfono, internet",60400000,egreso,deudora,3,5102.04,true
+60451000,Agua,60400000,egreso,deudora,3,5102.04,true
+60452000,Energía eléctrica,60400000,egreso,deudora,3,5102.04,true
+60453000,Vigilancia y seguridad,60400000,egreso,deudora,3,5102.04,true
+60454000,Limpieza,60400000,egreso,deudora,3,5102.04,true
+60455000,Papelería y artículos de oficina,60400000,egreso,deudora,3,5102.04,true
+60456000,Mantenimiento y conservación,60400000,egreso,deudora,3,5102.04,true
+60457000,Seguros y fianzas,60400000,egreso,deudora,3,5102.04,true
+60458000,Otros impuestos y derechos,60400000,egreso,deudora,3,5102.04,true
+60459000,Recargos fiscales,60400000,egreso,deudora,3,5102.04,true
+60460000,Cuotas y suscripciones,60400000,egreso,deudora,3,5102.04,true
+60461000,Propaganda y publicidad,60400000,egreso,deudora,3,5102.04,true
+60462000,Capacitación al personal,60400000,egreso,deudora,3,5102.04,true
+60463000,Donativos y ayudas,60400000,egreso,deudora,3,5102.04,true
+60464000,Asistencia técnica,60400000,egreso,deudora,3,5102.04,true
+60465000,Regalías sujetas a otros porcentajes,60400000,egreso,deudora,3,5102.04,true
+60466000,Regalías sujetas al 5%,60400000,egreso,deudora,3,5102.04,true
+60467000,Regalías sujetas al 10%,60400000,egreso,deudora,3,5102.04,true
+60468000,Regalías sujetas al 15%,60400000,egreso,deudora,3,5102.04,true
+60469000,Regalías sujetas al 25%,60400000,egreso,deudora,3,5102.04,true
+60470000,Regalías sujetas al 30%,60400000,egreso,deudora,3,5102.04,true
+60471000,Regalías sin retención,60400000,egreso,deudora,3,5102.04,true
+60472000,Fletes y acarreos,60400000,egreso,deudora,3,5102.04,true
+60473000,Gastos de importación,60400000,egreso,deudora,3,5102.04,true
+60474000,Patentes y marcas,60400000,egreso,deudora,3,5102.04,true
+60475000,Uniformes,60400000,egreso,deudora,3,5102.04,true
+60476000,Prediales,60400000,egreso,deudora,3,5102.04,true
+60477000,Gastos de fabricación de urbanización,60400000,egreso,deudora,3,5102.04,true
+60478000,Gastos de fabricación de construcción,60400000,egreso,deudora,3,5102.04,true
+60479000,Fletes del extranjero,60400000,egreso,deudora,3,5102.04,true
+60480000,Recolecc bienes del sector agrop y/o ganad,60400000,egreso,deudora,3,5102.04,true
+60481000,Gastos no deducibles (sin requisitos fiscales),G 0 2 0 20200214 11,egreso,deudora,1,5102.04,true
+60482000,Otros gastos de fabricación,60400000,egreso,deudora,3,5102.04,true
+60445000,Arrendamiento a personas físicas resid nal,60400000,egreso,deudora,3,5102.04,true
+60446000,Arrendamiento a personas morales resid nal,60400000,egreso,deudora,3,5102.04,true
+60500000,Mano de obra directa,60000000,egreso,deudora,2,,false
+60501000,Mano de obra,60500000,egreso,deudora,3,5102.01,true
+60502000,Sueldos y Salarios,60500000,egreso,deudora,3,5102.01,true
+60503000,Compensaciones,60500000,egreso,deudora,3,5102.01,true
+60504000,Tiempos extras,60500000,egreso,deudora,3,5102.01,true
+60505000,Premios de asistencia,60500000,egreso,deudora,3,5102.01,true
+60506000,Premios de puntualidad,60500000,egreso,deudora,3,5102.01,true
+60507000,Vacaciones,60500000,egreso,deudora,3,5102.01,true
+60508000,Prima vacacional,60500000,egreso,deudora,3,5102.01,true
+60509000,Prima dominical,60500000,egreso,deudora,3,5102.01,true
+60510000,Días festivos,60500000,egreso,deudora,3,5102.01,true
+60511000,Gratificaciones,60500000,egreso,deudora,3,5102.01,true
+60512000,Primas de antigüedad,60500000,egreso,deudora,3,5102.01,true
+60513000,Aguinaldo,60500000,egreso,deudora,3,5102.01,true
+60514000,Indemnizaciones,60500000,egreso,deudora,3,5102.01,true
+60515000,Destajo,60500000,egreso,deudora,3,5102.01,true
+60516000,Despensa,60500000,egreso,deudora,3,5102.01,true
+60517000,Transporte,60500000,egreso,deudora,3,5102.01,true
+60518000,Servicio médico,60500000,egreso,deudora,3,5102.01,true
+60519000,Ayuda en gastos funerarios,60500000,egreso,deudora,3,5102.01,true
+60520000,Fondo de ahorro,60500000,egreso,deudora,3,5102.01,true
+60521000,Cuotas sindicales,60500000,egreso,deudora,3,5102.01,true
+60522000,PTU,60500000,egreso,deudora,3,5102.01,true
+60523000,Estímulo al personal,60500000,egreso,deudora,3,5102.01,true
+60524000,Previsión social,60500000,egreso,deudora,3,5102.01,true
+60525000,Aportaciones para el plan de jubilación,60500000,egreso,deudora,3,5102.01,true
+60526000,Otras prestaciones al personal,60500000,egreso,deudora,3,5102.01,true
+60527000,Asimilados a salarios,60500000,egreso,deudora,3,5102.01,true
+60528000,Cuotas al IMSS,60500000,egreso,deudora,3,5102.01,true
+60529000,Aportaciones al infonavit,60500000,egreso,deudora,3,5102.01,true
+60530000,Aportaciones al SAR,60500000,egreso,deudora,3,5102.01,true
+60531000,Otros costos de mano de obra directa,60500000,egreso,deudora,3,5102.01,true
+60600000,Facilidades administrativas fiscales,60000000,egreso,deudora,2,,false
+60601000,Facilidades administrativas fiscales,60600000,egreso,deudora,3,5201.01,true
+60700000,Participación de los trabaj en las utilidades,60000000,egreso,deudora,2,,false
+60701000,Participación de los trabaj en las utilidades,60700000,egreso,deudora,3,5601.01,true
+60800000,Participación en resultados de subsidiarias,60000000,egreso,deudora,2,,false
+60801000,Participación en resultados de subsidiarias,60800000,egreso,deudora,3,5401.01,true
+60900000,Participación en resultados de asociadas,60000000,egreso,deudora,2,,false
+60901000,Participación en resultados de asociadas,60900000,egreso,deudora,3,5401.01,true
+61000000,Participación de los trabaj en utilidades dif,60000000,egreso,deudora,2,,false
+61001000,Participación de los trabaj en utilidades dif,61000000,egreso,deudora,3,5601.01,true
+61100000,Impuesto Sobre la renta,60000000,egreso,deudora,2,,false
+61101000,Impuesto Sobre la renta,61100000,egreso,deudora,3,5501.01,true
+61102000,Impuesto Sobre la renta por reman distrib,61100000,egreso,deudora,3,5501.01,true
+61200000,Gastos no deducibles para CUFIN,60000000,egreso,deudora,2,,false
+61201000,Gastos no deducibles para CUFIN,61200000,egreso,deudora,3,5201.01,true
+61300000,Depreciacion Contable,60000000,egreso,deudora,2,,false
+61301000,Depreciación de edificios,61300000,egreso,deudora,3,5102.05,true
+61302000,Depreciación de maquinaria y equipo,61300000,egreso,deudora,3,5102.05,true
+61303000,"Depr de autom, autob, camiones, tractoc",61300000,egreso,deudora,3,5102.05,true
+61304000,Depreciación de mobiliario y eq de ofic,61300000,egreso,deudora,3,5102.05,true
+61305000,Depreciación de equipo de cómputo,61300000,egreso,deudora,3,5102.05,true
+61306000,Depreciación de equipo de comunicación,61300000,egreso,deudora,3,5102.05,true
+61307000,"Depr de act biológicos, veg y semovientes",61300000,egreso,deudora,3,5102.05,true
+61308000,Depreciación de otros activos fijos,61300000,egreso,deudora,3,5102.05,true
+61309000,Depreciación de ferrocarriles,61300000,egreso,deudora,3,5102.05,true
+61310000,Depreciación de embarcaciones,61300000,egreso,deudora,3,5102.05,true
+61311000,Depreciación de aviones,61300000,egreso,deudora,3,5102.05,true
+61312000,"Deprec de troqueles, moldes, matrices herr",61300000,egreso,deudora,3,5102.05,true
+61313000,Depreciación de equipo de comun telef,61300000,egreso,deudora,3,5102.05,true
+61314000,Depreciación de equipo de comun satel,61300000,egreso,deudora,3,5102.05,true
+61315000,Depr de eq de adapt ppersonas cap dif,61300000,egreso,deudora,3,5102.05,true
+61316000,Depr de maq y eq gener energía fuentes ren,61300000,egreso,deudora,3,5102.05,true
+61317000,Depreciación de adaptaciones y mejoras,61300000,egreso,deudora,3,5102.05,true
+61318000,Depreciación de otra maquinaria y eq,61300000,egreso,deudora,3,5102.05,true
+61400000,Amortización contable,60000000,egreso,deudora,2,,false
+61401000,Amortización acumulada de gastos diferidos,deferred expenditures,egreso,deudora,1,5102.05,true
+61402000,Amortización acumulada de gastos pre opert,G 0 2 0 20200214 11,egreso,deudora,1,5102.05,true
+61403000,"Amort acum de regalías, asist téc y otros gtos dif Accum amort of royalties,TA & other deferred costs 61400000",1,egreso,deudora,1,5102.05,true
+61404000,Amortización acumulada de activos intangibles,61400000,egreso,deudora,3,5102.05,true
+61405000,Amortización acumulada de gtos de organización,61400000,egreso,deudora,3,5102.05,true
+61406000,Amort acum de invest y desarrollo de mercado,61400000,egreso,deudora,3,5102.05,true
+61407000,Amortización acumulada de marcas y patentes,61400000,egreso,deudora,3,5102.05,true
+61408000,Amortización acumulada de crédito mercantil,merchant credit,egreso,deudora,1,5102.05,true
+61409000,Amortización acumulada de gastos de instalación,installation costs,egreso,deudora,1,5102.05,true
+61410000,Amortización acumulada de otros activos diferidos,other deferred assets 61400000,egreso,deudora,1,5102.05,true
+70000000,Resultado integral de financiamiento,,orden,acreedora,1,,false
+70100000,Gastos financieros,70000000,orden,acreedora,2,,false
+70101000,Pérdida cambiaria,70100000,orden,acreedora,3,5301.10,true
+70102000,Pérdida cambiaria nacional parte relacionada,foreign exchange loss rel party,orden,acreedora,1,5301.10,true
+70103000,Pérdida cambiaria extranjero parte relacionada,70100000,orden,acreedora,3,5301.10,true
+70104000,Intereses a cargo bancario nacional,70100000,orden,acreedora,3,5301.06,true
+70105000,Intereses a cargo bancario extranjero,70100000,orden,acreedora,3,5301.07,true
+70106000,Intereses a cargo de personas físicas nacional,70100000,orden,acreedora,3,5301.06,true
+70107000,Intereses a cargo de personas físicas extranjero,70100000,orden,acreedora,3,5301.07,true
+70108000,Intereses a cargo de personas morales nacional,70100000,orden,acreedora,3,5301.06,true
+70109000,Intereses a cargo de personas morales extranjero,70100000,orden,acreedora,3,5301.07,true
+70110000,Comisiones bancarias,70100000,orden,acreedora,3,5301.06,true
+70111000,Otros gastos financieros,70100000,orden,acreedora,3,5301.16,true
+70200000,Productos financieros,70000000,orden,acreedora,2,,false
+70201000,Utilidad cambiaria,70200000,orden,acreedora,3,5301.05,true
+70202000,Utilidad cambiaria nacional parte relacionada,70200000,orden,acreedora,3,5301.05,true
+70203000,Utilidad cambiaria extranjero parte relacionada,70200000,orden,acreedora,3,5301.05,true
+70204000,Intereses a favor bancarios nacional,70200000,orden,acreedora,3,5301.01,true
+70205000,Intereses a favor bancarios extranjero,70200000,orden,acreedora,3,5301.02,true
+70206000,Intereses a favor de personas físicas nacional,70200000,orden,acreedora,3,5301.01,true
+70207000,Intereses a favor de personas físicas extranjero,70200000,orden,acreedora,3,5301.02,true
+70208000,Intereses a favor de personas morales nacional,70200000,orden,acreedora,3,5301.01,true
+70209000,Intereses a favor de personas morales extranjero,70200000,orden,acreedora,3,5301.02,true
+70210000,Otros productos financieros,70200000,orden,acreedora,3,5301.15,true
+70300000,Otros gastos,70000000,orden,acreedora,2,,false
+70301000,Pérdida en vta y/o baja de terrenos,70300000,orden,acreedora,3,5701.09,true
+70302000,Pérdida en vta y/o baja de edificios,70300000,orden,acreedora,3,5701.09,true
+70303000,Pérdida en vta y/o baja de maquinaria y equipo,70300000,orden,acreedora,3,5701.09,true
+70304000,Pérdida en vta y/o baja de autom autob camion,70300000,orden,acreedora,3,5701.09,true
+70305000,Pérdida en vta y/o baja de mobil y eq de of,70300000,orden,acreedora,3,5701.09,true
+70306000,Pérdida en vta y/o baja de eq de cómp,70300000,orden,acreedora,3,5701.09,true
+70307000,Pérdida en vta y/o baja de equipo de comunic,70300000,orden,acreedora,3,5701.09,true
+70308000,"Pérdida en vta y/o baja de act biológicos, veg",70300000,orden,acreedora,3,5701.09,true
+70309000,Pérdida en vta y/o baja de otros activos fijos,70300000,orden,acreedora,3,5701.09,true
+70310000,Pérdida en vta y/o baja de ferrocarriles,70300000,orden,acreedora,3,5701.09,true
+70311000,Pérdida en vta y/o baja de embarcaciones,70300000,orden,acreedora,3,5701.09,true
+70312000,Pérdida en vta y/o baja de aviones,70300000,orden,acreedora,3,5701.09,true
+70313000,"Pérdida en vta y/o baja de troqueles, moldes",G 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70314000,Pérdida en vta y/o baja de eq comunic telef,70300000,orden,acreedora,3,5701.09,true
+70315000,Pérdida en vta y/o baja de eq de com satel,70300000,orden,acreedora,3,5701.09,true
+70316000,Pérdida en vta y/o baja de eq de adap cap dif,70300000,orden,acreedora,3,5701.09,true
+70317000,Pérdida en vta y/o baja de maq y eq gen energía,G 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70318000,Pérdida en venta y/o baja de otra maq y eq,G 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70319000,Pérdida por enajenación de acciones,70300000,orden,acreedora,3,5701.09,true
+70320000,Pérdida por enajenación de partes sociales,70300000,orden,acreedora,3,5701.09,true
+70321000,Otros gastos,70300000,orden,acreedora,3,5701.09,true
+70400000,Otros productos,70000000,orden,acreedora,2,,false
+70401000,Ganancia en vta y/o baja de terrenos,70400000,orden,acreedora,3,5701.09,true
+70402000,Ganancia en vta y/o baja de edificios,70400000,orden,acreedora,3,5701.09,true
+70403000,Ganancia en vta y/o baja de maquinaria y equipo,70400000,orden,acreedora,3,5701.09,true
+70404000,Ganancia en vta y/o baja de autom autob camion,70400000,orden,acreedora,3,5701.09,true
+70405000,Ganancia en vta y/o baja de mobil y eq de of,70400000,orden,acreedora,3,5701.09,true
+70406000,Ganancia en vta y/o baja de eq de cómp,70400000,orden,acreedora,3,5701.09,true
+70407000,Ganancia en vta y/o baja de equipo de comunic,70400000,orden,acreedora,3,5701.09,true
+70408000,"Ganancia en vta y/o baja de act biológicos, veg",70400000,orden,acreedora,3,5701.09,true
+70409000,Ganancia en vta y/o baja de otros activos fijos,70400000,orden,acreedora,3,5701.09,true
+70410000,Ganancia en vta y/o baja de ferrocarriles,70400000,orden,acreedora,3,5701.09,true
+70411000,Ganancia en vta y/o baja de embarcaciones,70400000,orden,acreedora,3,5701.09,true
+70412000,Ganancia en vta y/o baja de aviones,70400000,orden,acreedora,3,5701.09,true
+70413000,"Ganancia en vta y/o baja de troqueles, moldes",H 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70414000,Ganancia en vta y/o baja de eq comunic telef,70400000,orden,acreedora,3,5701.09,true
+70415000,Ganancia en vta y/o baja de eq de com satel,70400000,orden,acreedora,3,5701.09,true
+70416000,Ganancia en vta y/o baja de eq de adap cap dif,70400000,orden,acreedora,3,5701.09,true
+70417000,Ganancia en vta y/o baja de maq y eq gen energía,H 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70418000,Ganancia en venta y/o baja de otra maq y eq,H 0 2 0 20200214 11,orden,acreedora,1,5701.09,true
+70419000,Ganancia por enajenación de acciones,70400000,orden,acreedora,3,5701.09,true
+70420000,Ganancia por enajenación de partes sociales,70400000,orden,acreedora,3,5701.09,true
+70421000,Ingresos por estímulos fiscales,70400000,orden,acreedora,3,5701.09,true
+70422000,Ingresos por condonación de adeudo,70400000,orden,acreedora,3,5701.09,true
+70423000,Otros productos,70400000,orden,acreedora,3,5701.09,true
+30000000,Capital,,patrimonio,acreedora,1,,false
+30100000,Capital Social,30000000,patrimonio,acreedora,2,3101,false
+30101000,Capital fijo,30100000,patrimonio,acreedora,3,3101.01,true
+30102000,Capital variable,30100000,patrimonio,acreedora,3,3101.01,true
+30103000,Aportaciones p fut aumentos de capital,30100000,patrimonio,acreedora,3,3101.03,true
+30104000,Prima en suscripción de acciones,30100000,patrimonio,acreedora,3,3101.09,true
+30105000,Prima en suscripción de partes sociales,30100000,patrimonio,acreedora,3,3101.09,true
+30200000,Patrimonio,30000000,patrimonio,acreedora,2,,false
+30201000,Patrimonio,30200000,patrimonio,acreedora,3,3101.01,true
+30202000,Aportación patrimonial,30200000,patrimonio,acreedora,3,3101.02,true
+30203000,Déficit o remanente del ejercicio,30200000,patrimonio,acreedora,3,3106.01,true
+30300000,Reserva legal,30000000,patrimonio,acreedora,2,3101,false
+30301000,Reserva legal,30300000,patrimonio,acreedora,3,3101.04,true
+30400000,Resultado de ejercicios anteriores,30000000,patrimonio,acreedora,2,3102,false
+30401000,Utilidad de ejercicios anteriores,30400000,patrimonio,acreedora,3,3102.01,true
+30402000,Pérdida de ejercicios anteriores,30400000,patrimonio,acreedora,3,3102.03,true
+30403000,Resultado integral de ejercicios ant,30400000,patrimonio,acreedora,3,3103.01,true
+30404000,Déficit o remanente de ejercicios ant,30400000,patrimonio,acreedora,3,3103.01,true
+30500000,Resultado del ejercicio,30000000,patrimonio,acreedora,2,3102,false
+30501000,Utilidad del ejercicio,30500000,patrimonio,acreedora,3,3102.02,true
+30502000,Pérdida del ejercicio,30500000,patrimonio,acreedora,3,3102.04,true
+30503000,Resultado integral,30500000,patrimonio,acreedora,3,3103.01,true
+30600000,Otras cuentas de capital,30000000,patrimonio,acreedora,2,3101,false
+30601000,Otras cuentas de capital,30600000,patrimonio,acreedora,3,3106.01,true
